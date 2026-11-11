@@ -30,12 +30,14 @@ client = TestClient(app)
 def isolated_test_db(tmp_path_factory):
     """Runs all tests against an isolated SQLite mirror and upload dir so production data stays clean."""
     import app.agents.media_ingestor as mi
+    import app.services.tenant_manager as tm
     orig_db = settings.LOCAL_DB_PATH
     orig_geo = mi.GEOTAGGED_DIR
     orig_webp = mi.WEBP_DIR
     orig_proc = mi.INBOX_PROCESSED_DIR
     orig_photos = mi.INBOX_PHOTOS_DIR
     orig_testim = mi.INBOX_TESTIMONIALS_DIR
+    orig_active_tenant_file = tm.ACTIVE_TENANT_FILE
 
     tmp_root = tmp_path_factory.mktemp("test_env")
     settings.LOCAL_DB_PATH = str(tmp_root / "test_supabase_mirror.db")
@@ -44,6 +46,7 @@ def isolated_test_db(tmp_path_factory):
     mi.INBOX_PROCESSED_DIR = tmp_root / "processed"
     mi.INBOX_PHOTOS_DIR = tmp_root / "inbox_photos"
     mi.INBOX_TESTIMONIALS_DIR = tmp_root / "inbox_testimonials"
+    tm.ACTIVE_TENANT_FILE = tmp_root / "active_tenant.yaml"
     init_db()
     yield
     settings.LOCAL_DB_PATH = orig_db
@@ -52,6 +55,7 @@ def isolated_test_db(tmp_path_factory):
     mi.INBOX_PROCESSED_DIR = orig_proc
     mi.INBOX_PHOTOS_DIR = orig_photos
     mi.INBOX_TESTIMONIALS_DIR = orig_testim
+    tm.ACTIVE_TENANT_FILE = orig_active_tenant_file
 
 
 
