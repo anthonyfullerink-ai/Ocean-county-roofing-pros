@@ -34,18 +34,24 @@ def isolated_test_db(tmp_path_factory):
     orig_geo = mi.GEOTAGGED_DIR
     orig_webp = mi.WEBP_DIR
     orig_proc = mi.INBOX_PROCESSED_DIR
+    orig_photos = mi.INBOX_PHOTOS_DIR
+    orig_testim = mi.INBOX_TESTIMONIALS_DIR
 
     tmp_root = tmp_path_factory.mktemp("test_env")
     settings.LOCAL_DB_PATH = str(tmp_root / "test_supabase_mirror.db")
     mi.GEOTAGGED_DIR = tmp_root / "geotagged"
     mi.WEBP_DIR = tmp_root / "webp"
     mi.INBOX_PROCESSED_DIR = tmp_root / "processed"
+    mi.INBOX_PHOTOS_DIR = tmp_root / "inbox_photos"
+    mi.INBOX_TESTIMONIALS_DIR = tmp_root / "inbox_testimonials"
     init_db()
     yield
     settings.LOCAL_DB_PATH = orig_db
     mi.GEOTAGGED_DIR = orig_geo
     mi.WEBP_DIR = orig_webp
     mi.INBOX_PROCESSED_DIR = orig_proc
+    mi.INBOX_PHOTOS_DIR = orig_photos
+    mi.INBOX_TESTIMONIALS_DIR = orig_testim
 
 
 
@@ -163,8 +169,9 @@ def test_owner_vs_contractor_hybrid_photo_upload():
 
 
 def test_full_5_agent_workforce_execution():
-    # Ensure a sample photo & testimonial exist in content_inbox/ before running suite
-    inbox_photo = PROJECT_ROOT / "content_inbox" / "photos" / "barnegat_bay_install.jpg"
+    import app.agents.media_ingestor as mi
+    # Ensure a sample photo exists in isolated INBOX_PHOTOS_DIR before running suite
+    inbox_photo = mi.INBOX_PHOTOS_DIR / "barnegat_bay_install.jpg"
     inbox_photo.parent.mkdir(parents=True, exist_ok=True)
     inbox_photo.write_bytes(_make_test_jpeg_bytes())
 
