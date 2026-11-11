@@ -1,0 +1,93 @@
+[
+  {
+    "slug": "roofing-toms-river-nj",
+    "town_name": "Toms River",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08753", "08754", "08755", "08757"],
+    "neighborhoods": ["Silverton", "Green Island", "North Dover", "Pleasant Plains", "East Dover", "Gilford Park"],
+    "coastal_risk": "Heavy salt-air degradation and 110+ MPH coastal nor'easter wind exposure across Barnegat Bay.",
+    "meta_title": "Top-Rated Roof Replacement in Toms River, NJ | CertainTeed Certified",
+    "meta_description": "CertainTeed ShingleMaster certified roof replacements & emergency leak repairs in Toms River, NJ. Free 21-point drone inspection & 50-year warranty.",
+    "lat": 39.9537,
+    "lon": -74.1979
+  },
+  {
+    "slug": "roofing-brick-nj",
+    "town_name": "Brick Township",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08723", "08724"],
+    "neighborhoods": ["Herbertsville", "Midstreams", "Cedarcroft", "Osbornville", "Baywood", "Cherry Quay"],
+    "coastal_risk": "High humidity and fierce wind gusts sweeping off the Metedeconk River and Barnegat Bay.",
+    "meta_title": "Premier Roofing Contractors in Brick, NJ | Free 21-Point Inspection",
+    "meta_description": "Expert roof repairs and full architectural replacements in Brick Township, NJ. 50-year non-prorated warranties with guaranteed 1-day installation.",
+    "lat": 40.0598,
+    "lon": -74.1399
+  },
+  {
+    "slug": "roofing-howell-nj",
+    "town_name": "Howell",
+    "county": "Monmouth County",
+    "state": "NJ",
+    "zip_codes": ["07731"],
+    "neighborhoods": ["Ramtown", "Freewood Acres", "Candlewood", "Land O'Pines", "Southard"],
+    "coastal_risk": "Severe seasonal thunderstorm winds, falling pine branches, and attic ventilation moisture traps.",
+    "meta_title": "Licensed Roofing Replacement in Howell, NJ | Ocean County Roofing Pros",
+    "meta_description": "Residential architectural shingle replacement and storm damage repair in Howell, NJ. Free on-site inspection and transparent pricing.",
+    "lat": 40.1698,
+    "lon": -74.2254
+  },
+  {
+    "slug": "roofing-jackson-nj",
+    "town_name": "Jackson",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08527"],
+    "neighborhoods": ["Brookwood", "Whitesville", "Holmansville", "Cassville", "Legler"],
+    "coastal_risk": "Expansive rooflines vulnerable to heavy winter freeze-thaw cycles, ice dams, and high wind shear.",
+    "meta_title": "Certified Roofing Specialists in Jackson, NJ | Free Estimates",
+    "meta_description": "Complete architectural roof replacements in Jackson, NJ. CertainTeed ShingleMaster Premier craftsmanship with lifetime workmanship guarantee.",
+    "lat": 40.1448,
+    "lon": -74.3674
+  },
+  {
+    "slug": "roofing-point-pleasant-nj",
+    "town_name": "Point Pleasant",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08742"],
+    "neighborhoods": ["Point Pleasant Beach", "Point Pleasant Boro", "Bay Head Border", "Sunshine Harbor"],
+    "coastal_risk": "Direct Atlantic oceanfront nor'easters, driving salt spray, and extreme gale-force wind requirements.",
+    "meta_title": "Coastal Roofing & Storm Repair in Point Pleasant, NJ | 160 MPH Rated",
+    "meta_description": "Hurricane-rated 160 MPH architectural shingle systems engineered for Point Pleasant coastal homes. Emergency tarping and full replacements.",
+    "lat": 40.0829,
+    "lon": -74.0682
+  },
+  {
+    "slug": "roofing-lacey-nj",
+    "town_name": "Lacey Township",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08731", "08734"],
+    "neighborhoods": ["Forked River", "Lanoka Harbor", "Barnegat Pines", "Bamber Lake"],
+    "coastal_risk": "Waterfront lagoon wind shear and intense sun UV deterioration on aged 3-tab shingles.",
+    "meta_title": "Forked River & Lacey Township Roofing Contractors | Free Inspections",
+    "meta_description": "Premier roof replacements and emergency leak triage in Lacey Township & Forked River, NJ. CertainTeed 4-Star 50-year warranty protection.",
+    "lat": 39.8665,
+    "lon": -74.1957
+  },
+  {
+    "slug": "roofing-freehold-nj",
+    "town_name": "Freehold",
+    "county": "Monmouth County",
+    "state": "NJ",
+    "zip_codes": ["07728"],
+    "neighborhoods": ["Freehold Boro", "Freehold Township", "East Freehold", "Stonehurst", "Silverside"],
+    "coastal_risk": "Aging suburban roof decks and valley leak intrusion during prolonged rainfall events.",
+    "meta_title": "Freehold, NJ Roof Replacement & Leak Repair | Local Certified Pros",
+    "meta_description": "Dispatched locally from Freehold, NJ. Full architectural shingle replacements and emergency leak detection. Free 21-point drone inspection.",
+    "lat": 40.2601,
+    "lon": -74.2738
+  }
+]

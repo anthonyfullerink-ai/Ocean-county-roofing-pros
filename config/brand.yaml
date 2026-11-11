@@ -1,0 +1,53 @@
+brand_id: "ocean-county-roofing-pros"
+brand_name: "Ocean County Roofing Pros"
+tagline: "Jersey Shore's Trusted Roof Repair, Replacement & Storm Response"
+primary_phone: "+17326609121"
+base_city: "Toms River"
+state: "NJ"
+
+visual:
+  palette:
+    primary: "#0A486D"       # Coastal Ocean Navy (matches official logo)
+    secondary: "#17ABA4"     # Ocean Wave Teal (matches official logo)
+    accent: "#F97316"        # Emergency Amber (CTA)
+    surface: "#F8FAFC"       # Clean Zinc background
+    text_primary: "#0A486D"  # Deep Coastal Navy
+    trust_green: "#15803D"   # Warranty / Rating Green
+  typography:
+    headline_font: "Plus Jakarta Sans"
+    body_font: "Plus Jakarta Sans"
+  logos:
+    main: "/static/images/logo.png"
+    horizontal: "/static/images/logo-horizontal.png"
+    icon: "/static/images/logo-icon.png"
+    white_horizontal: "/static/images/logo-horizontal-white.png"
+    white_full: "/static/images/logo-white.png"
+
+voice:
+  tone_traits:
+    - "Locally rooted and neighborly"
+    - "Authoritative, reassuring, and professional"
+    - "Action-oriented on storm leaks"
+    - "Transparent with no hidden costs"
+  target_audience: "Ocean and Monmouth County, NJ homeowners (ages 35-70)"
+  reading_level: "Grade 7-8 (clear, accessible, jargon-free)"
+
+trust_signals:
+  license: "NJ Home Improvement Contractor (Fully Licensed & Insured)"
+  insurance: "$2,000,000 General Liability + Workers' Comp"
+  certification: "CertainTeed ShingleMaster Premier Certified"
+  rating: "4.8 / 5 Stars (250+ Verified Reviews)"
+  financing: "0% Interest & Low Monthly Payment Financing Available"
+  materials: "CertainTeed Lifetime Architectural Systems (160 MPH Wind Rated)"
+  offer: "Free 21-Point Roof & Attic Moisture Inspection"
+  response_time: "24/7 Emergency Tarping & Leak Dispatch"
+
+guardrails:
+  banned_words:
+    - "cheapest roofer"
+    - "guaranteed insurance payout"
+    - "budget quality"
+    - "instant 15 minute arrival"
+  required_disclaimers:
+    - "All trade and roofing operations performed by licensed and insured NJ Home Improvement Contractors."
+    - "Free inspection terms subject to property access and weather safety."

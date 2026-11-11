@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service | {{ business_name }}</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-6 sm:p-12">
+    <div class="max-w-3xl mx-auto bg-white p-8 sm:p-12 rounded-3xl shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
+            <a href="/" class="inline-block">
+                <img src="/static/images/logo-horizontal.png" alt="{{ business_name }}" class="h-10 w-auto object-contain">
+            </a>
+            <a href="/" class="text-xs font-bold text-[#0A486D] hover:underline">← Back to Site</a>
+        </div>
+        <h1 class="text-3xl font-extrabold text-slate-900 mb-4">Terms of Service</h1>
+        <p class="text-xs text-slate-400 mb-8">Last Updated: November 2026</p>
+
+        <div class="space-y-6 text-sm text-slate-600 leading-relaxed">
+            <h2 class="text-lg font-bold text-slate-900">1. Acceptance of Terms</h2>
+            <p>By accessing this website, requesting a roofing inspection, or communicating with {{ business_name }}, you agree to be bound by these Terms of Service.</p>
+
+            <h2 class="text-lg font-bold text-slate-900">2. Communications & Automated Messaging Consent</h2>
+            <p>By providing your phone number on our website forms, you expressly consent to receive calls and text messages (including automated SMS and virtual AI voice communications) from {{ business_name }} regarding your inquiry or service request. Consent is not a condition of purchase. Message and data rates may apply. Message frequency varies based on project scheduling and updates.</p>
+
+            <h2 class="text-lg font-bold text-slate-900">3. Cancellation & Support</h2>
+            <p>You may opt out of SMS communications at any time by replying <strong>STOP</strong>. For customer support or help, reply <strong>HELP</strong> or call us at {{ phone_number }}.</p>
+
+            <h2 class="text-lg font-bold text-slate-900">4. Roofing Services & Subcontracting Disclosure</h2>
+            <p>{{ business_name }} coordinates project inquiries, scheduling, and customer support. All trade, roof installation, and structural operations are executed by fully licensed, certified, and insured New Jersey Home Improvement Contractors (NJ HIC) carrying valid general liability and workers' compensation coverage.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,13 @@
+tenant_id: "client_joe_the_roofer"
+company_name: "Joe The Roofer LLC"
+contact_person: "Joe"
+assigned_estimator: "Hannah"
+dispatch_phone: "+17326609121"
+notification_email: "powurnj@gmail.com"
+google_calendar_id: "primary"
+service_license: "Fully Licensed & Insured NJ HIC"
+billing_type: "flat_monthly_retainer"
+monthly_rate: 1500.00
+lead_fee: 0.00
+status: "active"
+notes: "Primary launch partner for Ocean County, NJ. Full 21-point drone inspections."

@@ -1,0 +1,72 @@
+[
+  {
+    "id": "patriot-xl",
+    "name": "CertainTeed Patriot XL System",
+    "tagline": "Dependable architectural protection with 110 MPH wind resistance and impact resistance.",
+    "option_label": "Option 1: Standard Architectural",
+    "is_popular": false,
+    "warranty_workmanship": "10-Year Workmanship Warranty",
+    "warranty_material": "CertainTeed SureStart Lifetime Material Warranty",
+    "wind_rating": "110 MPH Wind Coverage",
+    "algae_rating": "Standard Algae Protection",
+    "shingle_type": "Class 3 Impact Resistant Shingles",
+    "price_display": "Custom Quote by Square Footage",
+    "features": [
+      "Class 3 Impact Resistant Architectural Shingles",
+      "110 MPH Wind Coverage with Starter Shingles",
+      "Synthetic Underlayment + Ice & Water Shield",
+      "New Aluminum Pipe & Chimney Flashings",
+      "Full Tear-Off Down to Deck (Up to 2 layers included)",
+      "Commercial Dumpster & Magnetic Sweep for Nails",
+      "10-Year Workmanship Warranty"
+    ]
+  },
+  {
+    "id": "landmark-integrity",
+    "name": "CertainTeed Landmark Integrity System",
+    "tagline": "Complete roof system with WinterGuard® Ice & Water and SwiftStart® 160 MPH starter shingles.",
+    "option_label": "Option 2: Integrity System",
+    "is_popular": true,
+    "warranty_workmanship": "Lifetime Workmanship Warranty (10-Yr Transferable)",
+    "warranty_material": "CertainTeed 4-Star 50-Year Non-Prorated Warranty",
+    "wind_rating": "160 MPH Maximum Wind Protection",
+    "algae_rating": "25-Year StreakFighter® Algae Resistance",
+    "shingle_type": "CertainTeed Landmark Class 3 Impact Resistant",
+    "price_display": "Most Popular Choice",
+    "features": [
+      "Complete CertainTeed Integrity Roof System™",
+      "CertainTeed WinterGuard® Ice & Water Barrier",
+      "Roof Runner® High-Performance Synthetic Underlayment",
+      "SwiftStart® Starter Shingles (160 MPH Wind Rated)",
+      "Shadow Ridge Hip & Ridge Cap Shingles",
+      "25-Year StreakFighter® Algae Resistance",
+      "CertainTeed 4-Star 50-Year Non-Prorated Warranty",
+      "Lifetime Workmanship Warranty (10-Yr Transferable)",
+      "Full Tear-Off, Commercial Dumpster & Magnetic Sweep"
+    ]
+  },
+  {
+    "id": "landmark-pro",
+    "name": "CertainTeed Landmark PRO Upgrade",
+    "tagline": "Heaviest dual-layered architectural shingle construction with Max Def vibrant coloration.",
+    "option_label": "Option 3: Premium Architectural",
+    "is_popular": false,
+    "warranty_workmanship": "Lifetime Workmanship Warranty (10-Yr Transferable)",
+    "warranty_material": "CertainTeed 4-Star 50-Year Non-Prorated Warranty",
+    "wind_rating": "160 MPH Maximum Wind Protection",
+    "algae_rating": "30-Year StreakFighter® Algae Resistance",
+    "shingle_type": "CertainTeed Landmark PRO (Max Def Coloration)",
+    "price_display": "Maximum Protection",
+    "features": [
+      "Heaviest Architectural Landmark PRO Shingle Rating",
+      "Max Def High-Definition Dimensional Coloration",
+      "CertainTeed WinterGuard® at All Valleys & Eaves",
+      "Roof Runner® Synthetic Underlayment",
+      "30-Year StreakFighter® Algae Protection",
+      "160 MPH Maximum Wind Warranty",
+      "CertainTeed 4-Star 50-Year Non-Prorated Warranty",
+      "Lifetime Workmanship Guarantee",
+      "Full Tear-Off, Commercial Dumpster & Magnetic Sweep"
+    ]
+  }
+]

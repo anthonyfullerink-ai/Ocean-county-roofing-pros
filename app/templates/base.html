@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ brand.brand_name }} | Top-Rated Roof Replacement in {{ brand.base_city }}, {{ brand.state }}{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}CertainTeed ShingleMaster Certified Roof Replacement & Emergency Leak Repair in {{ brand.base_city }} & Ocean County, NJ. Free 21-point drone inspection.{% endblock %}">
+    
+    <!-- Favicon & Mobile Touch Icons -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png">
+    <meta property="og:image" content="/static/images/logo.png">
+
+    <!-- Google Fonts & Tailwind CSS CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            navy: '{{ brand.visual.palette.primary if brand.visual else "#0A486D" }}',
+                            teal: '#17ABA4',
+                            blue: '{{ brand.visual.palette.secondary if brand.visual else "#0A486D" }}',
+                            accent: '#17ABA4',
+                            dark: '#062B42',
+                            light: '#F8FAFC'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Dynamic LocalBusiness Schema Injection -->
+    {% block schema %}{% endblock %}
+</head>
+<body class="bg-brand-light text-slate-800 font-sans antialiased pb-20 md:pb-0">
+
+    <!-- Top Emergency Announcement Bar with Rotating Dispatch Ticker -->
+    <div class="bg-brand-navy text-white text-xs md:text-sm py-2 px-4 text-center font-medium flex justify-center items-center gap-2 overflow-hidden">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+        <span id="dispatchTicker" class="transition-opacity duration-300 font-semibold">
+            🟢 Active in {{ current_town.town_name if current_town else brand.base_city }} Today — 21-Point Drone Roof Inspections Dispatched Daily
+        </span>
+    </div>
+
+    <!-- Header / Navigation -->
+    <header class="sticky top-0 z-40 bg-white/95 backdrop-blur shadow-sm border-b border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3 group">
+                <img src="/static/images/logo-icon.png" alt="Ocean County Roofing Pros Logo" class="h-11 md:h-12 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-sm">
+                <div class="flex flex-col justify-center">
+                    <span class="font-black text-lg md:text-xl text-[#0A486D] tracking-tight block leading-tight">
+                        OCEAN COUNTY
+                    </span>
+                    <span class="font-extrabold text-xs md:text-sm text-[#17ABA4] tracking-wider block leading-none">
+                        ROOFING PROS
+                    </span>
+                    <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mt-0.5">
+                        Homeowner Referral & Dispatch Network
+                    </span>
+                </div>
+            </a>
+
+            <div class="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
+                <a href="#before-after" class="hover:text-brand-blue transition">Before & After</a>
+                <a href="#inspection" class="hover:text-brand-blue transition">Drone Inspection</a>
+                <a href="#systems" class="hover:text-brand-blue transition">Roof Packages</a>
+                <a href="#reviews" class="hover:text-brand-blue transition">Reviews</a>
+                <a href="#faq" class="hover:text-brand-blue transition">FAQ</a>
+            </div>
+
+            <!-- Top Phone CTA -->
+            <div class="flex items-center gap-4">
+                <a href="tel:{{ brand.primary_phone }}" class="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all hover:scale-[1.02]">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/>
+                    </svg>
+                    <div class="text-left hidden sm:block">
+                        <span class="block text-[10px] uppercase font-bold text-emerald-100 leading-none">24/7 Dispatch</span>
+                        <span class="text-sm font-extrabold leading-none">{{ brand.formatted_phone or brand.primary_phone }}</span>
+                    </div>
+                    <span class="sm:hidden font-extrabold">Call Now</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Block -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-950 text-slate-500 py-12 border-t border-slate-900 text-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex flex-col items-center md:items-start text-center md:text-left">
+                <a href="/" class="inline-block mb-3">
+                    <img src="/static/images/logo-horizontal-white.png" alt="Ocean County Roofing Pros" class="h-9 w-auto object-contain opacity-95 hover:opacity-100 transition">
+                </a>
+                <p>© 2026 {{ brand.brand_name }}. All rights reserved.</p>
+                <p class="mt-2 text-slate-500 max-w-2xl leading-relaxed text-[11px]">
+                    {{ brand.brand_name }} is an independent homeowner referral and marketing concierge network. All roofing inspections, estimates, repairs, and installations are performed exclusively by independent, state-licensed, and insured New Jersey Home Improvement Contractors. {{ brand.brand_name }} does not directly perform construction or roofing trade services.
+                </p>
+            </div>
+            <div class="flex gap-6">
+                <a href="/privacy-policy" class="hover:text-white transition">Privacy Policy</a>
+                <a href="/terms" class="hover:text-white transition">Terms of Service</a>
+                <a href="tel:{{ brand.primary_phone }}" class="text-emerald-400 font-bold">{{ brand.formatted_phone or brand.primary_phone }}</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MOBILE STICKY BOTTOM BAR (Thumb-Zone Direct Conversions) -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-slate-200 p-3 md:hidden flex gap-3 shadow-2xl">
+        <a href="tel:{{ brand.primary_phone }}" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-3.5 rounded-xl text-center shadow flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
+            <span>Call Now</span>
+        </a>
+        <a href="#quizSection" class="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-sm py-3.5 rounded-xl text-center shadow flex items-center justify-center gap-1">
+            <span>⚡ 60s Free Estimate</span>
+        </a>
+    </div>
+
+    <!-- Live Ocean County Activity Ticker Script -->
+    <script>
+        (function() {
+            const tickerEl = document.getElementById('dispatchTicker');
+            if (!tickerEl) return;
+            
+            const currentTown = "{{ current_town.town_name if current_town else 'Ocean County' }}";
+            const messages = [
+                `🟢 Dispatched 14m ago: Free 21-Point Drone Inspection in Silverton, Toms River`,
+                `🟢 Dispatched 28m ago: Emergency Leak & Flashing Triage in Brick Township`,
+                `🟢 Dispatched 41m ago: CertainTeed Landmark Roof Replacement in Point Pleasant`,
+                `🟢 Dispatched 56m ago: Storm & Nor'easter Wind Damage Assessment in Jackson, NJ`,
+                `🟢 Dispatched 1h 12m ago: Free Drone Roof Scan in Bayville / Berkeley`,
+                `🟢 Active Estimator on-duty in ${currentTown} — Booking Same-Day Drone Inspections`
+            ];
+            
+            let idx = 0;
+            setInterval(() => {
+                idx = (idx + 1) % messages.length;
+                tickerEl.style.opacity = '0';
+                setTimeout(() => {
+                    tickerEl.innerText = messages[idx];
+                    tickerEl.style.opacity = '1';
+                }, 300);
+            }, 4500);
+        })();
+    </script>
+
+    <!-- AJAX Form Handling Script -->
+    <script>
+        const form = document.getElementById('leadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const formSuccess = document.getElementById('formSuccess');
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<span>Dispatching Estimator...</span>`;
+
+                const payload = {
+                    service: document.getElementById('service').value,
+                    phone: document.getElementById('phone').value,
+                    first_name: document.getElementById('first_name').value,
+                    address: document.getElementById('address').value,
+                    consent_given: true
+                };
+
+                try {
+                    const response = await fetch('/api/leads/webform', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        form.classList.add('hidden');
+                        formSuccess.classList.remove('hidden');
+                    } else {
+                        alert('There was a slight error submitting your request. Please call us directly at {{ brand.primary_phone }}');
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = 'Get My Free Estimate & Inspection';
+                    }
+                } catch (err) {
+                    console.error(err);
+                    form.classList.add('hidden');
+                    formSuccess.classList.remove('hidden');
+                }
+            });
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,62 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "check_availability",
+      "description": "Checks available inspection appointment windows for a given date in Ocean County.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The date to check availability for in YYYY-MM-DD format (e.g. 2026-11-12)."
+          }
+        },
+        "required": ["date"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_DOMAIN.com/api/vapi/tools"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "book_inspection",
+      "description": "Books an on-site free 21-point roof inspection with the local Ocean County estimator.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name of the homeowner."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Customer contact mobile phone number."
+          },
+          "address": {
+            "type": "string",
+            "description": "Property street address and town."
+          },
+          "service": {
+            "type": "string",
+            "description": "Roofing service requested (e.g. Complete Roof Replacement, Active Leak Repair)."
+          },
+          "date": {
+            "type": "string",
+            "description": "Inspection date in YYYY-MM-DD format."
+          },
+          "time": {
+            "type": "string",
+            "description": "Inspection window (e.g. 10:00 AM, 1:00 PM, 3:30 PM)."
+          }
+        },
+        "required": ["name", "phone", "address", "date", "time"]
+      }
+    },
+    "server": {
+      "url": "https://YOUR_BACKEND_DOMAIN.com/api/vapi/tools"
+    }
+  }
+]

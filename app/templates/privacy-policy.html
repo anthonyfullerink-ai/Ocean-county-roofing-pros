@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | {{ business_name }}</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-6 sm:p-12">
+    <div class="max-w-3xl mx-auto bg-white p-8 sm:p-12 rounded-3xl shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
+            <a href="/" class="inline-block">
+                <img src="/static/images/logo-horizontal.png" alt="{{ business_name }}" class="h-10 w-auto object-contain">
+            </a>
+            <a href="/" class="text-xs font-bold text-[#0A486D] hover:underline">← Back to Site</a>
+        </div>
+        <h1 class="text-3xl font-extrabold text-slate-900 mb-4">Privacy Policy</h1>
+        <p class="text-xs text-slate-400 mb-8">Last Updated: November 2026</p>
+
+        <div class="space-y-6 text-sm text-slate-600 leading-relaxed">
+            <p>At <strong>{{ business_name }}</strong>, we respect your privacy and are committed to protecting any personal information you provide when using our website or requesting roofing services.</p>
+
+            <h2 class="text-lg font-bold text-slate-900">1. Information We Collect</h2>
+            <p>When you submit a contact or estimate form on our website or speak with our phone representatives, we collect information including your name, mobile phone number, email address, and property address.</p>
+
+            <!-- MANDATORY A2P 10DLC AUDIT CLAUSE BELOW -->
+            <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-xl">
+                <h3 class="font-bold text-blue-900 mb-1">Mobile Information & SMS Disclosure (Carrier Compliance)</h3>
+                <p class="text-blue-950 font-medium">
+                    No mobile information will be shared with third parties or affiliates for marketing or promotional purposes. All the above categories exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.
+                </p>
+            </div>
+
+            <h2 class="text-lg font-bold text-slate-900">2. How We Use Your Information</h2>
+            <p>We use your information solely to:</p>
+            <ul class="list-disc pl-5 space-y-1">
+                <li>Schedule and conduct your on-site roofing inspection and estimate.</li>
+                <li>Send automated SMS notifications, appointment confirmations, and dispatch updates.</li>
+                <li>Answer your customer inquiries and provide warranty or service details.</li>
+            </ul>
+
+            <h2 class="text-lg font-bold text-slate-900">3. SMS Opt-Out & Assistance</h2>
+            <p>If at any time you wish to stop receiving text messages from us, simply reply <strong>STOP</strong> to any text message. You may also reply <strong>HELP</strong> for assistance or contact us directly at <a href="tel:{{ phone_number }}" class="text-blue-600 font-semibold">{{ phone_number }}</a>.</p>
+
+            <h2 class="text-lg font-bold text-slate-900">4. Contact Us</h2>
+            <p>If you have any questions about this Privacy Policy, please call us at {{ phone_number }}.</p>
+        </div>
+    </div>
+</body>
+</html>

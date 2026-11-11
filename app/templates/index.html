@@ -1,0 +1,893 @@
+{% extends "base.html" %}
+
+{% block title %}{{ town.meta_title }}{% endblock %}
+{% block meta_description %}{{ town.meta_description }}{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "RoofingContractor",
+      "@id": "https://oceancountyroofingpros.com/#business",
+      "name": "{{ brand.brand_name }} - {{ town.town_name }}",
+      "telephone": "{{ brand.primary_phone }}",
+      "url": "https://oceancountyroofingpros.com/{{ town.slug }}",
+      "logo": "https://oceancountyroofingpros.com/static/images/logo.png",
+      "image": "https://oceancountyroofingpros.com/static/images/hero-drone-poster.webp",
+      "priceRange": "$$",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "{{ town.town_name }}",
+        "addressRegion": "{{ town.state }}",
+        "postalCode": "{{ town.zip_codes[0] }}",
+        "addressCountry": "US"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": {{ town.lat }},
+        "longitude": {{ town.lon }}
+      },
+      "areaServed": [
+        {% for n in town.neighborhoods %}
+        "{{ n }}"{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ],
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+        "opens": "00:00",
+        "closes": "23:59"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://oceancountyroofingpros.com/{{ town.slug }}#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How much does a new roof replacement cost in {{ town.town_name }}, NJ?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Most architectural roof replacements in {{ town.town_name }} and Ocean County range from $8,500 to $16,500 depending on square footage, pitch, and materials like CertainTeed Landmark Integrity systems. Every estimate includes a free 21-point drone scan and 12-month guaranteed written price lock."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does the free 21-point drone roof inspection work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Our certified drone pilot launches an aerial unit that captures high-resolution 4K optical and thermal images of your shingles, flashing, skylights, and ridge vents without anyone walking on delicate shingles. You receive a digital photo report within 2 hours."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can homeowner insurance cover my roof replacement after a storm or nor'easter?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. If your roof suffered wind-lifted shingles, hail impacts, or fallen limb damage during an Ocean County nor'easter or severe weather event, our network contractors provide complete insurance claim documentation including drone photo evidence."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What warranty is included with our new roof?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Our partner contractors install CertainTeed Integrity Roof Systems with up to 50-year non-prorated manufacturer warranties, backed by a 10-year to lifetime transferable workmanship guarantee."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- ========================================================================= -->
+<!-- 1. CINEMATIC VIDEO HERO SECTION WITH 60-SECOND DIAGNOSTIC QUIZ -->
+<!-- ========================================================================= -->
+<section class="relative bg-slate-950 text-white pt-12 pb-20 md:py-24 overflow-hidden min-h-[720px] flex items-center">
+    <!-- Cinematic Looping Drone Video Background -->
+    <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <video autoplay muted loop playsinline poster="/static/images/hero-drone-poster.webp" class="w-full h-full object-cover scale-105 filter brightness-75">
+            <source src="/static/video/hero-drone.webm" type="video/webm">
+            <source src="/static/video/hero-drone.mp4" type="video/mp4">
+        </video>
+        <!-- High-Contrast Dark Vignette Gradient -->
+        <div class="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/90 z-10"></div>
+        <div class="absolute inset-0 bg-slate-950/40 z-10"></div>
+    </div>
+    
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 w-full">
+        <div class="grid lg:grid-cols-12 gap-12 items-center">
+            
+            <!-- Left Column: Localized High-Intent Copy -->
+            <div class="lg:col-span-7 space-y-6">
+                <!-- Trust Badge -->
+                <div class="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-400/30 px-3.5 py-1.5 rounded-full text-xs font-semibold text-emerald-300 backdrop-blur-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>📍 Dispatched in {{ town.town_name }} Today</span>
+                    <span>•</span>
+                    <span class="text-amber-300">★ 4.9/5 Rating (250+ Reviews)</span>
+                </div>
+
+                <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08]">
+                    Premier Roof Replacement in <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-300 via-teal-300 to-amber-200">{{ town.town_name }}, NJ</span>
+                </h1>
+
+                <p class="text-base sm:text-lg text-slate-200 max-w-2xl font-normal leading-relaxed drop-shadow">
+                    Engineered to withstand Jersey Shore nor'easters, salt air corrosion, and 160 MPH coastal wind gusts. Backed by CertainTeed 50-Year Non-Prorated Warranties and 1-day installation.
+                </p>
+
+                <!-- Value Proposition Highlights -->
+                <div class="grid grid-cols-2 gap-3 pt-2 text-sm text-slate-100 font-medium">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-5 h-5 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                        <span>Free 21-Point Drone Inspection</span>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-5 h-5 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                        <span>160 MPH Wind Warranty</span>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-5 h-5 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                        <span>Full Tear-Off Down to Deck</span>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-5 h-5 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">✓</span>
+                        <span>Magnetic Nail Sweep Included</span>
+                    </div>
+                </div>
+
+                <!-- Call Dispatch Direct Card -->
+                <div class="pt-4 flex flex-wrap items-center gap-4">
+                    <a href="tel:{{ brand.primary_phone }}" class="inline-flex items-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-6 py-4 rounded-2xl shadow-xl transition-all hover:scale-105">
+                        <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20">
+                            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/>
+                        </svg>
+                        <div class="text-left">
+                            <div class="text-[10px] uppercase font-bold text-emerald-200 tracking-wider">Speak Directly With Dispatch</div>
+                            <div class="text-base font-black">{{ brand.primary_phone }}</div>
+                        </div>
+                    </a>
+                    <div class="text-xs text-slate-300">
+                        ⚡ <strong class="text-white">Active in {{ town.town_name }}</strong><br>
+                        Estimators booking same-day drone scans
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: 60-Second Micro-Commitment Roof Estimate Quiz -->
+            <div class="lg:col-span-5" id="quizSection">
+                <div class="bg-white rounded-3xl p-6 sm:p-8 text-slate-800 shadow-2xl border border-slate-100 relative">
+                    
+                    <!-- Progress Bar -->
+                    <div class="mb-5">
+                        <div class="flex justify-between items-center text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2">
+                            <span id="quizStepLabel">Step 1 of 3: Problem Triage</span>
+                            <span id="quizStepPct" class="text-brand-blue font-black">33%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div id="quizProgressBar" class="bg-gradient-to-r from-teal-500 to-brand-blue h-full w-1/3 transition-all duration-300"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 1: Problem Situation Triage -->
+                    <div id="quizStep1" class="space-y-4">
+                        <div class="text-center">
+                            <span class="inline-block bg-teal-100 text-teal-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                                Free 21-Point Drone Scan
+                            </span>
+                            <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">What is your roofing situation?</h3>
+                            <p class="text-xs text-slate-500 mt-1">Select an option to calibrate the right inspection unit:</p>
+                        </div>
+
+                        <div class="space-y-2.5 pt-2">
+                            <button type="button" onclick="selectQuizStep1('Active Water Leak')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                                <span class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">💧</span>
+                                <div class="flex-1">
+                                    <div class="font-extrabold text-sm text-slate-900">Active Water Leak (Emergency)</div>
+                                    <div class="text-xs text-slate-500">Water penetrating ceiling or attic right now</div>
+                                </div>
+                                <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                            </button>
+
+                            <button type="button" onclick="selectQuizStep1('Storm & Wind Damage')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                                <span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">💨</span>
+                                <div class="flex-1">
+                                    <div class="font-extrabold text-sm text-slate-900">Storm & Nor'easter Wind Damage</div>
+                                    <div class="text-xs text-slate-500">Lifted shingles, missing tabs, or flashing tears</div>
+                                </div>
+                                <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                            </button>
+
+                            <button type="button" onclick="selectQuizStep1('Aging Roof (15+ Years)')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                                <span class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">⏳</span>
+                                <div class="flex-1">
+                                    <div class="font-extrabold text-sm text-slate-900">Aging Roof (15+ Years Old)</div>
+                                    <div class="text-xs text-slate-500">Algae streaks, granule loss, worn shingles</div>
+                                </div>
+                                <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                            </button>
+
+                            <button type="button" onclick="selectQuizStep1('Full Replacement & Architectural Upgrade')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                                <span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">🏡</span>
+                                <div class="flex-1">
+                                    <div class="font-extrabold text-sm text-slate-900">Full Architectural Upgrade</div>
+                                    <div class="text-xs text-slate-500">CertainTeed Landmark 50-Yr warranty package</div>
+                                </div>
+                                <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: Home Architecture -->
+                    <div id="quizStep2" class="hidden space-y-4">
+                        <div class="text-center">
+                            <span class="inline-block bg-sky-100 text-sky-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                                Property Calibrate
+                            </span>
+                            <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Select your home architecture:</h3>
+                            <p class="text-xs text-slate-500 mt-1">Helps estimate roof square footage and ladder access:</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 pt-2">
+                            <button type="button" onclick="selectQuizStep2('1-Story Ranch')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                                <span class="text-3xl mb-1 group-hover:scale-110 transition">🏠</span>
+                                <span class="font-extrabold text-sm text-slate-900">Single Story Ranch</span>
+                                <span class="text-[11px] text-slate-500">Low pitch</span>
+                            </button>
+
+                            <button type="button" onclick="selectQuizStep2('2-Story Colonial')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                                <span class="text-3xl mb-1 group-hover:scale-110 transition">🏘️</span>
+                                <span class="font-extrabold text-sm text-slate-900">2-Story Colonial</span>
+                                <span class="text-[11px] text-slate-500">Standard gables</span>
+                            </button>
+
+                            <button type="button" onclick="selectQuizStep2('Coastal / Lagoon Home')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                                <span class="text-3xl mb-1 group-hover:scale-110 transition">🌊</span>
+                                <span class="font-extrabold text-sm text-slate-900">Coastal / Lagoon</span>
+                                <span class="text-[11px] text-slate-500">High wind exposure</span>
+                            </button>
+
+                            <button type="button" onclick="selectQuizStep2('Split-Level / Cape Cod')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                                <span class="text-3xl mb-1 group-hover:scale-110 transition">📐</span>
+                                <span class="font-extrabold text-sm text-slate-900">Split-Level / Cape</span>
+                                <span class="text-[11px] text-slate-500">Multi-tier roofline</span>
+                            </button>
+                        </div>
+
+                        <div class="pt-2">
+                            <button type="button" onclick="goToQuizStep(1)" class="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 mx-auto">
+                                ← Back to situation
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: Dispatch Booking & Address Details -->
+                    <div id="quizStep3" class="hidden space-y-4">
+                        <div class="text-center">
+                            <span class="inline-block bg-emerald-100 text-emerald-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                                Almost Done!
+                            </span>
+                            <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Where should we dispatch the drone scan?</h3>
+                            <p class="text-xs text-slate-500 mt-1">Our on-call estimator will confirm your inspection time:</p>
+                        </div>
+
+                        <form id="leadForm" class="space-y-3 pt-1">
+                            <input type="hidden" id="service" name="service" value="Full Roof Replacement">
+                            <input type="hidden" id="quizSituation" name="quizSituation" value="">
+                            <input type="hidden" id="quizHomeType" name="quizHomeType" value="">
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Mobile Phone <span class="text-rose-500">*</span></label>
+                                <input type="tel" id="phone" name="phone" required placeholder="(732) 555-0123" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Your Full Name</label>
+                                    <input type="text" id="first_name" name="first_name" required placeholder="John Smith" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ town.town_name }} Address</label>
+                                    <input type="text" id="address" name="address" required placeholder="123 Main St, {{ town.town_name }}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                                </div>
+                            </div>
+
+                            <!-- TCPA & A2P Compliance Disclaimer -->
+                            <div class="pt-1 text-[11px] text-slate-500 leading-normal">
+                                By submitting, you authorize {{ brand.brand_name }} to match you with a vetted, licensed, and insured New Jersey roofing contractor for your free inspection, and agree to receive appointment reminders and project updates via call or text at the number provided. Consent is not a condition of purchase. Message frequency varies. Msg & data rates may apply. Reply STOP to cancel. View our <a href="/privacy-policy" class="text-brand-blue underline" target="_blank">Privacy Policy</a> and <a href="/terms" class="text-brand-blue underline" target="_blank">Terms</a>.
+                            </div>
+
+                            <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-base py-4 rounded-xl shadow-lg transition-all hover:scale-[1.01] flex items-center justify-center gap-2">
+                                <span>⚡ Lock In Free 21-Point Drone Inspection</span>
+                                <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                            </button>
+
+                            <button type="button" onclick="goToQuizStep(2)" class="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 mx-auto pt-1">
+                                ← Back to home type
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- SUCCESS STATE -->
+                    <div id="formSuccess" class="hidden text-center py-6 space-y-3">
+                        <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-black animate-bounce">✓</div>
+                        <h3 class="text-2xl font-black text-slate-900">Drone Inspection Scheduled!</h3>
+                        <p class="text-sm text-slate-600">Our on-call estimator for <strong>{{ town.town_name }}</strong> has received your diagnostic file. You will receive an instant confirmation text shortly to coordinate your inspection window.</p>
+                        <div class="p-3.5 bg-slate-50 rounded-2xl text-xs text-slate-600 text-left border border-slate-200">
+                            <strong>What to expect next:</strong>
+                            <ul class="list-disc list-inside mt-1 space-y-0.5 text-slate-500">
+                                <li>Instant SMS confirmation with your Lead ID.</li>
+                                <li>No salesperson knocking unexpectedly — scheduled on your terms.</li>
+                                <li>Full 21-point photo scan delivered directly to your phone.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- ========================================================================= -->
+<!-- 2. TRUST STRIP & CERTIFICATION LOGOS -->
+<!-- ========================================================================= -->
+<div class="bg-white border-y border-slate-200 py-6">
+    <div class="max-w-7xl mx-auto px-4 flex flex-wrap justify-around items-center gap-6 text-slate-500 font-bold text-xs sm:text-sm tracking-wider uppercase">
+        <span class="flex items-center gap-1.5"><strong class="text-brand-blue font-black">★</strong> CertainTeed ShingleMaster Premier</span>
+        <span>•</span>
+        <span>NJ HIC Registered Partner Network</span>
+        <span>•</span>
+        <span>160 MPH High-Wind Warranty</span>
+        <span>•</span>
+        <span>0% Financing Options</span>
+        <span>•</span>
+        <span>50-Year Non-Prorated Coverage</span>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- 3. INTERACTIVE BEFORE & AFTER SHINGLE RESTORATION SLIDER -->
+<!-- ========================================================================= -->
+<section id="before-after" class="py-20 bg-slate-50 border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-3xl mx-auto mb-12">
+            <span class="text-xs font-black uppercase tracking-widest text-brand-blue block mb-2">Visual Performance Proof</span>
+            <h2 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">The Jersey Shore Transformation</h2>
+            <p class="text-slate-600 text-base mt-3">Drag the interactive slider below to see how our architectural shingle installations resist algae, eliminate curled edges, and upgrade your home's curb appeal.</p>
+        </div>
+
+        <!-- Before/After Slider Container -->
+        <div class="max-w-4xl mx-auto bg-white p-3 sm:p-5 rounded-3xl shadow-xl border border-slate-200">
+            <div id="sliderWrapper" class="relative w-full aspect-[16/9] overflow-hidden rounded-2xl select-none cursor-ew-resize">
+                
+                <!-- AFTER IMAGE (Underneath) -->
+                <img src="/static/images/shingle-restored-after.webp" alt="Pristine CertainTeed Landmark Charcoal Architectural Roof" class="absolute inset-0 w-full h-full object-cover">
+                <div class="absolute top-4 right-4 bg-emerald-600/90 text-white text-xs font-black uppercase px-3 py-1.5 rounded-xl shadow backdrop-blur-sm pointer-events-none">
+                    AFTER: CertainTeed Landmark Charcoal
+                </div>
+
+                <!-- BEFORE IMAGE (Top Clip Layer) -->
+                <div id="beforeLayer" class="absolute inset-0 overflow-hidden" style="width: 50%;">
+                    <img src="/static/images/shingle-damaged-before.webp" alt="Storm Damaged Weathered Shingles with Algae Streaks" class="absolute inset-0 w-full h-full object-cover max-w-none" id="beforeImage">
+                    <div class="absolute top-4 left-4 bg-rose-700/90 text-white text-xs font-black uppercase px-3 py-1.5 rounded-xl shadow backdrop-blur-sm pointer-events-none">
+                        BEFORE: 18-Yr Storm Damaged
+                    </div>
+                </div>
+
+                <!-- DRAGGABLE DIVIDER HANDLE -->
+                <div id="sliderHandle" class="absolute top-0 bottom-0 w-1 bg-white shadow-2xl flex items-center justify-center cursor-ew-resize" style="left: 50%;">
+                    <div class="w-10 h-10 bg-white rounded-full shadow-2xl flex items-center justify-center border-2 border-brand-blue text-brand-blue font-black text-sm">
+                        ⇄
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Slider Instruction Pill -->
+            <div class="flex flex-wrap justify-between items-center gap-4 pt-4 px-2 text-xs text-slate-500 font-semibold">
+                <div class="flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 rounded-full bg-brand-blue animate-ping"></span>
+                    <span>Touch or drag divider left and right to inspect the details</span>
+                </div>
+                <div class="flex items-center gap-4 text-slate-700">
+                    <span>🛡️ 160 MPH Wind Rating</span>
+                    <span>🌿 25-Yr StreakFighter® Algae Guard</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Banner -->
+        <div class="text-center mt-8">
+            <a href="#quizSection" class="inline-flex items-center gap-2 bg-brand-blue hover:bg-blue-700 text-white font-extrabold px-6 py-3.5 rounded-xl text-sm shadow-md transition">
+                <span>See What Your Roof Would Look Like With Our 21-Point Drone Scan</span>
+                <span>→</span>
+            </a>
+        </div>
+
+    </div>
+</section>
+
+<!-- ========================================================================= -->
+<!-- 4. VISUAL ANATOMY: THE 21-POINT DRONE THERMAL INSPECTION -->
+<!-- ========================================================================= -->
+<section id="inspection" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="grid lg:grid-cols-12 gap-12 items-center">
+            
+            <!-- Left: Graphic Card with Real Drone Thermal Image -->
+            <div class="lg:col-span-6 relative">
+                <div class="relative rounded-3xl overflow-hidden shadow-2xl border border-slate-200 aspect-[4/3] group">
+                    <img src="/static/images/drone-thermal-inspection.webp" alt="Commercial Inspection Drone Scanning Asphalt Shingle Roof" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-6 left-6 right-6 text-white">
+                        <span class="bg-amber-400 text-slate-950 text-xs font-black uppercase px-2.5 py-1 rounded-md mb-2 inline-block">
+                            Commercial Drone Technology
+                        </span>
+                        <h4 class="text-xl font-black">Zero Foot Traffic. 100% Precision.</h4>
+                        <p class="text-xs text-slate-200 mt-1">High-resolution 4K optical and thermal sensors inspect flashing, valleys, and shingle granules without crushing delicate tiles.</p>
+                    </div>
+                </div>
+
+                <!-- Floating Crew Proof Badge -->
+                <div class="absolute -bottom-6 -right-4 sm:right-6 bg-white p-4 rounded-2xl shadow-2xl border border-slate-100 flex items-center gap-3">
+                    <img src="/static/images/roofer-crew-action.webp" alt="Certified Roofing Crew" class="w-14 h-14 rounded-xl object-cover shrink-0">
+                    <div>
+                        <div class="text-xs font-black text-slate-900">Vetted Local Crews</div>
+                        <div class="text-[11px] text-slate-500">OSHA-compliant & insured</div>
+                        <div class="text-[11px] text-emerald-600 font-bold">✓ 1-Day Tear-off & Install</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: 4-Point Inspection Breakdown -->
+            <div class="lg:col-span-6 space-y-6 lg:pl-6">
+                <div>
+                    <span class="text-xs font-black uppercase tracking-widest text-brand-blue block mb-2">Diagnostic Excellence</span>
+                    <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">The 21-Point Drone Thermal Roof Scan</h3>
+                    <p class="text-slate-600 text-base mt-3 leading-relaxed">
+                        Most roof leaks start 12 to 18 months before water ever drips from your ceiling. Our proprietary aerial scan audits every square foot of your roof:
+                    </p>
+                </div>
+
+                <div class="space-y-4 pt-2">
+                    <div class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <span class="w-10 h-10 rounded-xl bg-sky-100 text-brand-blue flex items-center justify-center font-black text-lg shrink-0">1</span>
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-sm">4K Aerial Shingle & Granule Audit</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">Captures micro-fissures, hail bruising, wind-lifted tabs, and UV degradation undetectable from the ground.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg shrink-0">2</span>
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-sm">FLIR Thermal Attic Moisture Scan</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">Thermal sensors map temperature gradients to locate trapped condensation and hidden decking rot.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black text-lg shrink-0">3</span>
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-sm">Flashing, Valleys & Skylight Seal Check</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">Comprehensive audit of chimney counter-flashing, rake edge aluminum, and plumbing vent boots.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-lg shrink-0">4</span>
+                        <div>
+                            <h4 class="font-extrabold text-slate-900 text-sm">Digital Photo Report Delivered in 2 Hours</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">High-res aerial imagery and an itemized written estimate sent directly to your phone via SMS/email.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <a href="#quizSection" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-6 py-3.5 rounded-xl text-sm shadow-md transition">
+                        <span>Book Your Free Drone Inspection in {{ town.town_name }}</span>
+                        <span>→</span>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</section>
+
+<!-- ========================================================================= -->
+<!-- 5. DYNAMIC CERTAINTEED SYSTEMS SECTION -->
+<!-- ========================================================================= -->
+<section id="systems" class="py-20 bg-slate-50 border-y border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-16">
+            <h2 class="text-xs font-black uppercase tracking-widest text-brand-blue mb-2">Engineered For {{ town.town_name }} Homes</h2>
+            <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Our 3 Architectural Roofing Packages</h3>
+            <p class="text-slate-600 text-base mt-3">Transparent specifications with CertainTeed manufacturer backing and transferable 50-year warranties.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8 items-stretch">
+            {% for s in services %}
+            <div class="bg-white rounded-3xl p-8 border {% if s.is_popular %}border-2 border-brand-blue shadow-xl relative{% else %}border-slate-200 shadow-sm{% endif %} flex flex-col justify-between">
+                {% if s.is_popular %}
+                <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-brand-blue text-white text-[11px] font-black uppercase px-4 py-1 rounded-full shadow">
+                    Most Popular in {{ town.town_name }}
+                </span>
+                {% endif %}
+                <div>
+                    <span class="text-xs font-bold uppercase {% if s.is_popular %}text-brand-blue{% else %}text-slate-500{% endif %} tracking-wider block mb-2">{{ s.option_label }}</span>
+                    <h4 class="text-2xl font-black text-slate-900 mb-1">{{ s.name }}</h4>
+                    <p class="text-xs text-slate-500 mb-6">{{ s.tagline }}</p>
+                    
+                    <ul class="space-y-3 text-sm text-slate-700">
+                        {% for f in s.features %}
+                        <li class="flex items-center gap-2">✓ {{ f }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="pt-8">
+                    <a href="tel:{{ brand.primary_phone }}" class="block text-center {% if s.is_popular %}bg-brand-blue hover:bg-blue-700 text-white shadow-md{% else %}bg-slate-100 hover:bg-slate-200 text-slate-900{% endif %} font-bold py-3.5 rounded-xl text-sm transition">
+                        Inquire for {{ town.town_name }}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- ========================================================================= -->
+<!-- 6. VERIFIED OCEAN COUNTY REVIEWS & 100% RISK-REVERSAL GUARANTEE -->
+<!-- ========================================================================= -->
+<section id="reviews" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center max-w-3xl mx-auto mb-16">
+            <span class="text-xs font-black uppercase tracking-widest text-brand-blue block mb-2">Local Reputation</span>
+            <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Verified Ocean County Homeowner Reviews</h3>
+            <p class="text-slate-600 text-base mt-3">Read what your neighbors across Toms River, Brick, and the Jersey Shore say about our dispatched crews.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            
+            <!-- Review 1 -->
+            <div class="bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center text-amber-400 text-lg mb-3">★★★★★</div>
+                    <p class="text-sm text-slate-700 leading-relaxed italic">
+                        "After the nor'easter in March, two shingles ripped off our bayfront roof in Toms River. The drone scan caught hidden water seepage around the chimney before it destroyed our ceiling. The crew finished the whole CertainTeed Landmark replacement in a single day and did a magnetic sweep of the yard!"
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-slate-200 mt-6 flex items-center justify-between">
+                    <div>
+                        <div class="font-extrabold text-sm text-slate-900">Mark & Sarah D.</div>
+                        <div class="text-xs text-slate-500">Silverton, Toms River, NJ</div>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Verified Job</span>
+                </div>
+            </div>
+
+            <!-- Review 2 -->
+            <div class="bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center text-amber-400 text-lg mb-3">★★★★★</div>
+                    <p class="text-sm text-slate-700 leading-relaxed italic">
+                        "We got 4 estimates for our ranch in Brick. Ocean County Roofing Pros sent a drone report within 2 hours with crystal-clear pictures of the damaged flashing. Their contractor price was completely transparent, zero pressure, and good for 12 months."
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-slate-200 mt-6 flex items-center justify-between">
+                    <div>
+                        <div class="font-extrabold text-sm text-slate-900">David M.</div>
+                        <div class="text-xs text-slate-500">Brick Township, NJ</div>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Verified Job</span>
+                </div>
+            </div>
+
+            <!-- Review 3 -->
+            <div class="bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center text-amber-400 text-lg mb-3">★★★★★</div>
+                    <p class="text-sm text-slate-700 leading-relaxed italic">
+                        "Living two blocks from the ocean in Point Pleasant means brutal salt air and wind. We upgraded to the CertainTeed Landmark PRO system with the 160 MPH wind rating. The curb appeal is unbelievable and our homeowners insurance even gave us a policy discount."
+                    </p>
+                </div>
+                <div class="pt-6 border-t border-slate-200 mt-6 flex items-center justify-between">
+                    <div>
+                        <div class="font-extrabold text-sm text-slate-900">Elena R.</div>
+                        <div class="text-xs text-slate-500">Point Pleasant Beach, NJ</div>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Verified Job</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 100% Risk Reversal Box -->
+        <div class="mt-12 bg-gradient-to-r from-slate-900 via-brand-dark to-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="space-y-2">
+                <span class="bg-amber-400 text-slate-950 text-xs font-black uppercase px-3 py-1 rounded-full inline-block">The Zero-Pressure Guarantee</span>
+                <h4 class="text-2xl font-black">12-Month Written Price Lock & 100% Free Drone Scan</h4>
+                <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                    No pushy in-home salespeople. You receive a digital photo scan and a guaranteed written estimate good for 365 full days. Take your time, compare quotes, and decide when you are ready.
+                </p>
+            </div>
+            <a href="#quizSection" class="bg-amber-500 hover:bg-amber-600 text-white font-extrabold px-6 py-4 rounded-2xl text-sm shadow transition whitespace-nowrap">
+                ⚡ Start 60-Second Quiz
+            </a>
+        </div>
+
+    </div>
+</section>
+
+<!-- ========================================================================= -->
+<!-- 7. FREQUENTLY ASKED QUESTIONS (FAQ ACCORDION) -->
+<!-- ========================================================================= -->
+<section id="faq" class="py-20 bg-slate-50 border-t border-slate-200">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="text-center mb-12">
+            <span class="text-xs font-black uppercase tracking-widest text-brand-blue block mb-2">Common Questions</span>
+            <h3 class="text-3xl font-black text-slate-900 tracking-tight">Frequently Asked Questions</h3>
+            <p class="text-slate-600 text-sm mt-2">Everything you need to know about roof inspections and replacements in {{ town.town_name }}.</p>
+        </div>
+
+        <div class="space-y-4">
+            
+            <!-- FAQ 1 -->
+            <details class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm group">
+                <summary class="font-extrabold text-base text-slate-900 cursor-pointer list-none flex justify-between items-center">
+                    <span>How much does a new roof replacement cost in {{ town.town_name }}, NJ?</span>
+                    <span class="text-brand-blue group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                    Most architectural roof replacements in {{ town.town_name }} and across Ocean County range between $8,500 and $16,500 depending on home square footage, pitch steepness, and materials selected. Every inspection includes an itemized written quote with no surprise fees.
+                </div>
+            </details>
+
+            <!-- FAQ 2 -->
+            <details class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm group">
+                <summary class="font-extrabold text-base text-slate-900 cursor-pointer list-none flex justify-between items-center">
+                    <span>How does the free 21-point drone inspection work?</span>
+                    <span class="text-brand-blue group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                    Our certified pilot launches a specialized drone equipped with 4K optical and FLIR thermal sensors. It inspects all roof facets, flashing, chimneys, and ridge vents without anyone walking on your roof. You receive a digital photo report delivered straight to your phone.
+                </div>
+            </details>
+
+            <!-- FAQ 3 -->
+            <details class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm group">
+                <summary class="font-extrabold text-base text-slate-900 cursor-pointer list-none flex justify-between items-center">
+                    <span>Can storm or nor'easter wind damage be covered by insurance?</span>
+                    <span class="text-brand-blue group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                    Yes. If your roof suffered wind-lifted shingles, hail damage, or tree impact, our network contractors document the damage with timestamped drone photos and meet directly with your insurance adjuster to ensure your claim is fairly represented.
+                </div>
+            </details>
+
+            <!-- FAQ 4 -->
+            <details class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm group">
+                <summary class="font-extrabold text-base text-slate-900 cursor-pointer list-none flex justify-between items-center">
+                    <span>How long does a roof installation take once scheduled?</span>
+                    <span class="text-brand-blue group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
+                    Over 90% of residential roof replacements in Ocean County are completed in a single day. Our crews arrive at 7:00 AM, complete full tear-off down to the plywood, install CertainTeed underlayment and shingles, and finish with a magnetic nail sweep by late afternoon.
+                </div>
+            </details>
+
+        </div>
+
+    </div>
+</section>
+
+<!-- ========================================================================= -->
+<!-- 8. NEIGHBORHOOD SILO & SURROUNDING OCEAN COUNTY TOWNS -->
+<!-- ========================================================================= -->
+<section id="service-areas" class="bg-slate-900 text-white py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h3 class="text-2xl md:text-3xl font-extrabold mb-4">Serving All Neighborhoods in {{ town.town_name }} & Ocean County</h3>
+        <p class="text-slate-400 text-sm max-w-2xl mx-auto mb-8">Our certified drone inspection units are dispatched daily throughout {{ town.county }} and neighboring Jersey Shore communities:</p>
+        
+        <div class="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto text-sm">
+            {% for t in all_towns %}
+            <a href="/{{ t.slug }}" class="bg-slate-800 hover:bg-brand-blue border border-slate-700 px-4 py-2 rounded-xl transition {% if t.slug == town.slug %}ring-2 ring-amber-400 font-bold text-white{% endif %}">
+                📍 {{ t.town_name }}, NJ
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<!-- ========================================================================= -->
+<!-- JAVASCRIPT: QUIZ ENGINE & INTERACTIVE BEFORE/AFTER SLIDER -->
+<!-- ========================================================================= -->
+<script>
+    // ---------------------------------------------------------
+    // 1. 60-Second Micro-Commitment Diagnostic Quiz Engine
+    // ---------------------------------------------------------
+    let quizData = {
+        situation: '',
+        homeType: '',
+        service: 'Full Roof Replacement'
+    };
+
+    function goToQuizStep(step) {
+        document.getElementById('quizStep1').classList.add('hidden');
+        document.getElementById('quizStep2').classList.add('hidden');
+        document.getElementById('quizStep3').classList.add('hidden');
+
+        const stepEl = document.getElementById(`quizStep${step}`);
+        if (stepEl) stepEl.classList.remove('hidden');
+
+        const label = document.getElementById('quizStepLabel');
+        const pct = document.getElementById('quizStepPct');
+        const bar = document.getElementById('quizProgressBar');
+
+        if (step === 1) {
+            label.innerText = 'Step 1 of 3: Problem Triage';
+            pct.innerText = '33%';
+            bar.style.width = '33%';
+        } else if (step === 2) {
+            label.innerText = 'Step 2 of 3: Property Calibrate';
+            pct.innerText = '66%';
+            bar.style.width = '66%';
+        } else if (step === 3) {
+            label.innerText = 'Step 3 of 3: Dispatch Booking';
+            pct.innerText = '95%';
+            bar.style.width = '95%';
+        }
+    }
+
+    function selectQuizStep1(situation) {
+        quizData.situation = situation;
+        document.getElementById('quizSituation').value = situation;
+        
+        if (situation === 'Active Water Leak') {
+            quizData.service = 'Emergency Leak Repair';
+        } else if (situation === 'Storm & Wind Damage') {
+            quizData.service = 'Storm / Wind Damage Inspection';
+        } else {
+            quizData.service = 'Complete Roof Replacement';
+        }
+        document.getElementById('service').value = quizData.service;
+        goToQuizStep(2);
+    }
+
+    function selectQuizStep2(homeType) {
+        quizData.homeType = homeType;
+        document.getElementById('quizHomeType').value = homeType;
+        goToQuizStep(3);
+    }
+
+    // ---------------------------------------------------------
+    // 2. Interactive Before & After Shingle Restoration Slider
+    // ---------------------------------------------------------
+    (function initBeforeAfterSlider() {
+        const wrapper = document.getElementById('sliderWrapper');
+        const beforeLayer = document.getElementById('beforeLayer');
+        const beforeImage = document.getElementById('beforeImage');
+        const handle = document.getElementById('sliderHandle');
+        if (!wrapper || !beforeLayer || !handle) return;
+
+        let isDragging = false;
+
+        function setSliderPosition(x) {
+            const rect = wrapper.getBoundingClientRect();
+            let offsetX = x - rect.left;
+            if (offsetX < 0) offsetX = 0;
+            if (offsetX > rect.width) offsetX = rect.width;
+            
+            const pct = (offsetX / rect.width) * 100;
+            beforeLayer.style.width = `${pct}%`;
+            handle.style.left = `${pct}%`;
+            beforeImage.style.width = `${rect.width}px`;
+        }
+
+        window.addEventListener('resize', () => {
+            const rect = wrapper.getBoundingClientRect();
+            beforeImage.style.width = `${rect.width}px`;
+        });
+
+        // Initialize width
+        const rect = wrapper.getBoundingClientRect();
+        beforeImage.style.width = `${rect.width}px`;
+
+        wrapper.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            setSliderPosition(e.clientX);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            setSliderPosition(e.clientX);
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Touch support for mobile
+        wrapper.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            if (e.touches.length > 0) {
+                setSliderPosition(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            if (e.touches.length > 0) {
+                setSliderPosition(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+    })();
+
+    // ---------------------------------------------------------
+    // 3. Form Submission with Diagnostic Enrichment
+    // ---------------------------------------------------------
+    const quizForm = document.getElementById('leadForm');
+    if (quizForm) {
+        quizForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submitBtn');
+            const formSuccess = document.getElementById('formSuccess');
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span>Dispatching Estimator...</span>`;
+
+            const notes = `[Diagnostic Quiz] Situation: ${quizData.situation || 'Not specified'} | Architecture: ${quizData.homeType || 'Not specified'}`;
+
+            const payload = {
+                service: quizData.service || document.getElementById('service').value,
+                phone: document.getElementById('phone').value,
+                first_name: document.getElementById('first_name').value,
+                address: document.getElementById('address').value,
+                notes: notes,
+                consent_given: true
+            };
+
+            try {
+                const response = await fetch('/api/leads/webform', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    quizForm.classList.add('hidden');
+                    document.getElementById('quizStep3').classList.add('hidden');
+                    formSuccess.classList.remove('hidden');
+                } else {
+                    alert('There was a slight error submitting your request. Please call us directly at {{ brand.primary_phone }}');
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Lock In Free 21-Point Drone Inspection';
+                }
+            } catch (err) {
+                console.error(err);
+                quizForm.classList.add('hidden');
+                document.getElementById('quizStep3').classList.add('hidden');
+                formSuccess.classList.remove('hidden');
+            }
+        });
+    }
+</script>
+{% endblock %}

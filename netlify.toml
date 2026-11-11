@@ -1,0 +1,28 @@
+[build]
+  command = "pip install -r requirements.txt"
+  functions = "netlify/functions"
+  publish = "app/static"
+
+[build.environment]
+  PYTHON_VERSION = "3.11"
+
+[functions]
+  included_files = [
+    "app/**",
+    "config/**",
+    "google_credentials.json",
+    "brand.yaml"
+  ]
+  timeout = 26
+
+# Serve static files directly from Netlify Global CDN at edge speed
+[[redirects]]
+  from = "/static/*"
+  to = "/:splat"
+  status = 200
+
+# Route all web pages, sitemaps, and Vapi API endpoints to the FastAPI Mangum handler
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/api"
+  status = 200
