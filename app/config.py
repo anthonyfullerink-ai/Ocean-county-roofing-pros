@@ -2,7 +2,7 @@ import os
 import json
 import yaml
 from pathlib import Path
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List, Dict, Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -60,9 +60,7 @@ class Settings(BaseSettings):
     # Remote Outputs (Google Drive / Cloud sync destination)
     OUTPUT_DIR: str = "./outputs"
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
 

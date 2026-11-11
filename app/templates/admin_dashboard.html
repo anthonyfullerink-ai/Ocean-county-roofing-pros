@@ -45,6 +45,10 @@
             </div>
 
             <div class="flex items-center gap-2.5">
+                <form onsubmit="handleAdminPinLogin(event)" class="hidden md:flex items-center gap-1.5">
+                    <input type="password" id="adminPinInput" placeholder="{% if is_admin_authenticated %}🔓 Owner Unlocked{% else %}Owner PIN (732999){% endif %}" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-amber-300 font-mono w-36">
+                    <button type="submit" class="bg-slate-800 hover:bg-teal-600 text-slate-200 border border-slate-700 text-xs font-bold px-2.5 py-1.5 rounded-xl transition">Unlock</button>
+                </form>
                 <button onclick="runAllAgentsNow()" id="headerRunAllBtn" class="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
                     <span>⚡ Run Full 5-Agent Ops Suite</span>
                 </button>
@@ -573,7 +577,7 @@
                         <input type="checkbox" id="ks_enable_vapi_callback" {% if sys_settings.get('enable_vapi_callback') == 'true' %}checked{% endif %} class="w-5 h-5 accent-teal-500">
                     </label>
 
-                    <div class="grid sm:grid-cols-2 gap-4 pt-2">
+                    <div class="grid sm:grid-cols-3 gap-4 pt-2">
                         <div>
                             <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Google Business Profile Review Link</label>
                             <input type="text" id="ks_gbp_review_url" value="{{ sys_settings.get('gbp_review_url', '') }}" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
@@ -581,6 +585,10 @@
                         <div>
                             <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">GBP OAuth / Make / Zapier Auto-Post Webhook URL</label>
                             <input type="text" id="ks_gbp_webhook_url" value="{{ sys_settings.get('gbp_webhook_url', '') }}" placeholder="https://hook.us1.make.com/..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Owner Admin PIN</label>
+                            <input type="text" id="ks_admin_pin" value="{{ sys_settings.get('admin_pin', '732999') }}" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 font-mono text-amber-300">
                         </div>
                     </div>
 
@@ -787,6 +795,23 @@
             }
         }
 
+        async function handleAdminPinLogin(e) {
+            e.preventDefault();
+            const pin = document.getElementById('adminPinInput').value;
+            const res = await fetch('/api/admin/auth', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pin})
+            });
+            if (res.ok) {
+                showToast('Owner Command Center unlocked!');
+                document.getElementById('adminPinInput').value = '';
+                document.getElementById('adminPinInput').placeholder = '🔓 Owner Unlocked';
+            } else {
+                showToast('Invalid Owner Admin PIN.');
+            }
+        }
+
         async function saveKillSwitches(e) {
             e.preventDefault();
             const payload = {
@@ -795,7 +820,8 @@
                 enable_weather_storm_banner: document.getElementById('ks_enable_weather_storm_banner').checked,
                 enable_vapi_callback: document.getElementById('ks_enable_vapi_callback').checked,
                 gbp_review_url: document.getElementById('ks_gbp_review_url').value,
-                gbp_webhook_url: document.getElementById('ks_gbp_webhook_url').value
+                gbp_webhook_url: document.getElementById('ks_gbp_webhook_url').value,
+                admin_pin: document.getElementById('ks_admin_pin').value
             };
             const res = await fetch('/api/admin/settings', {
                 method: 'POST',

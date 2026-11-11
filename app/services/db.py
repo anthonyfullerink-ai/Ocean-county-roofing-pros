@@ -66,6 +66,29 @@ def _get_conn() -> sqlite3.Connection:
     return conn
 
 
+_CLOUD_BOOL_COLS = {"is_active", "review_request_sent", "is_public", "webhook_dispatched"}
+_CLOUD_NULLABLE_TIMESTAMPTZ_COLS = {"review_request_sent_at", "auto_publish_at"}
+
+
+def _prepare_cloud_payload(payload: Any) -> Any:
+    """
+    Normalizes SQLite-flavored record dicts into PostgreSQL/PostgREST-compliant JSON payloads:
+    - Converts 0/1 integer boolean flags into JSON true/false booleans.
+    - Converts empty string '' on nullable TIMESTAMPTZ columns into None (null).
+    """
+    if not isinstance(payload, dict):
+        return payload
+    cleaned: Dict[str, Any] = {}
+    for k, v in payload.items():
+        if k in _CLOUD_BOOL_COLS:
+            cleaned[k] = bool(v)
+        elif k in _CLOUD_NULLABLE_TIMESTAMPTZ_COLS and (v == "" or v is None):
+            cleaned[k] = None
+        else:
+            cleaned[k] = v
+    return cleaned
+
+
 def _sync_to_supabase_cloud(table: str, method: str, payload: Any = None, match_col: str = "id", match_val: str = ""):
     """
     Optional non-blocking cloud sync when SUPABASE_URL and SUPABASE_KEY are present in .env.
@@ -79,12 +102,14 @@ def _sync_to_supabase_cloud(table: str, method: str, payload: Any = None, match_
         "Content-Type": "application/json",
         "Prefer": "return=minimal,resolution=merge-duplicates",
     }
+    norm_payload = _prepare_cloud_payload(payload)
     try:
         with httpx.Client(timeout=5.0) as client:
             if method == "UPSERT":
-                client.post(f"{base_url}/rest/v1/{table}", headers=headers, json=payload)
+                conflict_q = f"?on_conflict={match_col}" if match_col else ""
+                client.post(f"{base_url}/rest/v1/{table}{conflict_q}", headers=headers, json=norm_payload)
             elif method == "PATCH" and match_val:
-                client.patch(f"{base_url}/rest/v1/{table}?{match_col}=eq.{match_val}", headers=headers, json=payload)
+                client.patch(f"{base_url}/rest/v1/{table}?{match_col}=eq.{match_val}", headers=headers, json=norm_payload)
             elif method == "DELETE" and match_val:
                 client.delete(f"{base_url}/rest/v1/{table}?{match_col}=eq.{match_val}", headers=headers)
     except Exception as e:
@@ -711,7 +736,7 @@ def set_setting(key: str, value: Any) -> None:
     )
     conn.commit()
     conn.close()
-    _sync_to_supabase_cloud("system_settings", "UPSERT", {"key": key, "value": str_val, "updated_at": now_iso})
+    _sync_to_supabase_cloud("system_settings", "UPSERT", {"key": key, "value": str_val, "updated_at": now_iso}, match_col="key", match_val=key)
 
 
 def update_settings_bulk(updates: Dict[str, Any]) -> Dict[str, str]:
@@ -782,10 +807,14 @@ def switch_active_tenant_db(tenant_id: str) -> bool:
     if not target:
         conn.close()
         return False
+    all_rows = conn.execute("SELECT tenant_id FROM tenants").fetchall()
     conn.execute("UPDATE tenants SET is_active = 0")
     conn.execute("UPDATE tenants SET is_active = 1 WHERE tenant_id = ?", (tenant_id,))
     conn.commit()
     conn.close()
+    for r in all_rows:
+        tid = r["tenant_id"]
+        _sync_to_supabase_cloud("tenants", "PATCH", {"is_active": tid == tenant_id}, match_col="tenant_id", match_val=tid)
     return True
 
 
@@ -1600,9 +1629,15 @@ def get_dashboard_kpis(tenant_id: Optional[str] = None) -> Dict[str, Any]:
     approved_projects = [p for p in projects if p.get("approval_status") == "approved"]
     pending_projects = [p for p in projects if p.get("approval_status") == "pending_auto_24h"]
 
-    reviews = list_reviews()
-    avg_rating = round(sum(int(r.get("rating") or 5) for r in reviews) / len(reviews), 2) if reviews else 5.0
-    pending_replies = [r for r in reviews if r.get("reply_status") == "pending"]
+    all_reviews = list_reviews()
+    public_reviews = [r for r in all_reviews if r.get("is_public")]
+    avg_rating = (
+        round(sum(int(r.get("rating") or 5) for r in public_reviews) / len(public_reviews), 2)
+        if public_reviews
+        else 5.0
+    )
+    pending_replies = [r for r in all_reviews if r.get("reply_status") == "pending"]
+    open_resolutions = [r for r in all_reviews if r.get("resolution_status") == "open"]
 
     gbp_posts = list_gbp_posts()
     pending_gbp = [g for g in gbp_posts if g.get("status") == "draft_auto_24h"]
@@ -1621,9 +1656,10 @@ def get_dashboard_kpis(tenant_id: Optional[str] = None) -> Dict[str, Any]:
         "active_tenant": active_tenant,
         "approved_projects_count": len(approved_projects),
         "pending_projects_count": len(pending_projects),
-        "total_reviews_count": len(reviews),
+        "total_reviews_count": len(public_reviews),
         "avg_rating": avg_rating,
         "pending_replies_count": len(pending_replies),
+        "open_resolutions_count": len(open_resolutions),
         "pending_gbp_count": len(pending_gbp),
         "pending_approval_total": len(pending_projects) + len(pending_replies) + len(pending_gbp),
         "supabase_cloud_connected": is_supabase_configured(),

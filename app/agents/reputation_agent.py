@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
 from app.services.db import (
@@ -100,22 +100,36 @@ class ReputationReviewAgent:
 
         # 2. Draft SEO-rich replies for any reviews missing an AI draft
         reviews = list_reviews()
+        replies_auto_published = 0
+        cutoff_24h = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+        auto_publish_enabled = get_bool_setting("auto_publish_24h", True)
+
         for rev in reviews:
             if not (rev.get("ai_reply_draft") or "").strip():
                 draft = draft_seo_review_reply(rev)
                 update_review(rev["id"], {"ai_reply_draft": draft, "reply_status": "pending"})
                 replies_drafted += 1
+            elif (
+                auto_publish_enabled
+                and rev.get("is_public")
+                and rev.get("reply_status") == "pending"
+                and (rev.get("created_at") or "") <= cutoff_24h
+            ):
+                update_review(rev["id"], {"reply_status": "published"})
+                replies_auto_published += 1
 
         duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
         summary = (
             f"Audited {len(completed_leads)} completed job(s): dispatched {sms_sent_count} new compliant review SMS invite(s). "
-            f"Audited {len(reviews)} review(s): drafted {replies_drafted} localized SEO owner response(s)."
+            f"Audited {len(reviews)} review(s): drafted {replies_drafted} localized SEO owner response(s), "
+            f"auto-published {replies_auto_published} queued 24h response(s)."
         )
         metrics = {
             "completed_leads_checked": len(completed_leads),
             "review_sms_sent": sms_sent_count,
             "reviews_audited": len(reviews),
             "replies_drafted": replies_drafted,
+            "replies_auto_published": replies_auto_published,
         }
         run_record = log_agent_run(cls.AGENT_NAME, "success", summary, metrics=metrics, duration_ms=duration_ms)
         return {"status": "success", "agent": cls.AGENT_NAME, "summary": summary, "metrics": metrics, "run": run_record}

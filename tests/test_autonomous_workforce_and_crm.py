@@ -170,10 +170,25 @@ def test_owner_vs_contractor_hybrid_photo_upload():
 
 def test_full_5_agent_workforce_execution():
     import app.agents.media_ingestor as mi
-    # Ensure a sample photo exists in isolated INBOX_PHOTOS_DIR before running suite
+    # Ensure a sample photo AND sample testimonial exist in isolated inbox before running suite
     inbox_photo = mi.INBOX_PHOTOS_DIR / "barnegat_bay_install.jpg"
     inbox_photo.parent.mkdir(parents=True, exist_ok=True)
     inbox_photo.write_bytes(_make_test_jpeg_bytes())
+
+    inbox_testimonial = mi.INBOX_TESTIMONIALS_DIR / "manahawkin_review.json"
+    inbox_testimonial.parent.mkdir(parents=True, exist_ok=True)
+    inbox_testimonial.write_text(
+        json.dumps(
+            {
+                "reviewer_name": "Thomas V.",
+                "town_name": "Manahawkin",
+                "service_performed": "Full Roof Replacement",
+                "rating": 5,
+                "review_text": "Awesome 1-day roof installation in Manahawkin!",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     resp = client.post("/api/agents/run-all")
     assert resp.status_code == 200
@@ -184,6 +199,14 @@ def test_full_5_agent_workforce_execution():
     for key in ("media_ingestor", "gbp_seo", "reputation", "watchdog", "briefing"):
         assert key in data["results"]
         assert data["results"][key]["status"] == "success"
+
+    # Verify both photo and testimonial were ingested by Agent 1
+    assert data["results"]["media_ingestor"]["metrics"]["photos_ingested"] >= 1
+    assert data["results"]["media_ingestor"]["metrics"]["testimonials_ingested"] >= 1
+
+    # Verify all 3 weekly GBP post types exist in DB (Project Highlight, Seasonal Tip, Offer)
+    gbp_types = {p["post_type"] for p in list_gbp_posts()}
+    assert {"Project Highlight", "Seasonal Tip", "Offer"}.issubset(gbp_types)
 
     # Verify daily briefing markdown file was generated in outputs/reports/
     briefing_res = data["results"]["briefing"]
@@ -295,7 +318,10 @@ def test_portals_and_google_compliant_feedback_hub():
     assert "Need Something Fixed Immediately? Message Management Directly" in r_fb.text
     assert "Toms River" in r_fb.text
 
-    # 4. Test Direct Management Resolution submission
+    # 4. Test Direct Management Resolution submission & verify it does NOT corrupt public avg_rating
+    kpis_before = get_dashboard_kpis()
+    assert kpis_before["avg_rating"] == 5.0
+
     r_res = client.post(
         "/api/feedback/resolution",
         json={
@@ -308,6 +334,10 @@ def test_portals_and_google_compliant_feedback_hub():
     )
     assert r_res.status_code == 200
     assert r_res.json()["status"] == "success"
+
+    kpis_after = get_dashboard_kpis()
+    assert kpis_after["avg_rating"] == 5.0
+    assert kpis_after["open_resolutions_count"] >= 1
 
 
 def test_edge_cases_and_kill_switches():
@@ -407,3 +437,109 @@ def test_tenant_switching_and_vapi_webhook_db_sync():
     assert vapi_lead is not None
     assert vapi_lead["first_name"] == "Brian"
     assert vapi_lead["call_recording_url"] == "https://storage.vapi.ai/test-888.mp3"
+
+
+def test_supabase_cloud_postgrest_sync_and_24h_auto_publish(monkeypatch):
+    from app.services.db import _prepare_cloud_payload, create_lead, switch_active_tenant_db, create_review
+    from app.agents.reputation_agent import ReputationReviewAgent
+
+    # 1. Verify _prepare_cloud_payload converts SQLite 0/1 to bool and '' TIMESTAMPTZ to None
+    raw_sqlite_record = {
+        "id": "WEB-CLOUD-1",
+        "phone": "+17325550999",
+        "review_request_sent": 0,
+        "review_request_sent_at": "",
+        "is_active": 1,
+        "is_public": 0,
+        "webhook_dispatched": 1,
+        "auto_publish_at": "",
+    }
+    norm = _prepare_cloud_payload(raw_sqlite_record)
+    assert norm["review_request_sent"] is False
+    assert norm["review_request_sent_at"] is None
+    assert norm["is_active"] is True
+    assert norm["is_public"] is False
+    assert norm["webhook_dispatched"] is True
+    assert norm["auto_publish_at"] is None
+
+    # 2. Verify live _sync_to_supabase_cloud calls PostgREST with normalized payload when SUPABASE_URL is set
+    captured_calls = []
+
+    class DummyClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def post(self, url, headers=None, json=None):
+            captured_calls.append(("POST", url, headers, json))
+
+        def patch(self, url, headers=None, json=None):
+            captured_calls.append(("PATCH", url, headers, json))
+
+    monkeypatch.setattr(settings, "SUPABASE_URL", "https://example-project.supabase.co")
+    monkeypatch.setattr(settings, "SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test")
+    monkeypatch.setattr("app.services.db.httpx.Client", DummyClient)
+
+    create_lead({"id": "WEB-CLOUD-SYNC", "first_name": "Cloud", "phone": "732-555-1212"})
+    assert len(captured_calls) >= 1
+    method, url, headers, payload = captured_calls[-1]
+    assert method == "POST"
+    assert "on_conflict=id" in url
+    assert isinstance(payload["review_request_sent"], bool)
+    assert payload["review_request_sent_at"] is None
+
+    switch_active_tenant_db("client_joe_the_roofer")
+    patch_calls = [c for c in captured_calls if c[0] == "PATCH" and "tenants" in c[1]]
+    assert len(patch_calls) >= 1
+    assert isinstance(patch_calls[-1][3]["is_active"], bool)
+
+    monkeypatch.setattr(settings, "SUPABASE_URL", None)
+    monkeypatch.setattr(settings, "SUPABASE_KEY", None)
+
+    # 3. Verify 24h auto-publish promotes expired pending review replies
+    old_rev = create_review(
+        {
+            "reviewer_name": "Auto Publish Tester",
+            "town_name": "Brick Township",
+            "rating": 5,
+            "review_text": "Great roof!",
+            "ai_reply_draft": "Thank you for your review in Brick Township!",
+            "reply_status": "pending",
+            "is_public": True,
+            "created_at": "2020-01-01 08:00:00",
+        }
+    )
+    res_rep = ReputationReviewAgent.run()
+    assert res_rep["metrics"]["replies_auto_published"] >= 1
+    updated_revs = [r for r in list_reviews() if r["id"] == old_rev["id"]]
+    assert updated_revs[0]["reply_status"] == "published"
+
+    # 4. Verify corrupt non-image upload returns 400 (not 500) and large RGBA PNG resizes cleanly
+    r_corrupt = client.post(
+        "/api/media/upload",
+        data={"town": "Toms River", "uploaded_by": "owner"},
+        files={"file": ("corrupt.jpg", b"not_a_real_image_stream", "image/jpeg")},
+    )
+    assert r_corrupt.status_code == 400
+
+    large_rgba = Image.new("RGBA", (2400, 1800), color=(20, 100, 140, 255))
+    png_buf = io.BytesIO()
+    large_rgba.save(png_buf, format="PNG")
+    r_png = client.post(
+        "/api/media/upload",
+        data={"town": "Lacey Township", "uploaded_by": "owner"},
+        files={"file": ("large_drone.png", png_buf.getvalue(), "image/png")},
+    )
+    assert r_png.status_code == 200
+    assert r_png.json()["project"]["verified_gps"]["has_gps"] is True
+
+    # 5. Verify Owner Admin PIN authentication endpoint
+    r_auth_ok = client.post("/api/admin/auth", json={"pin": "732999"})
+    assert r_auth_ok.status_code == 200
+    r_auth_bad = client.post("/api/admin/auth", json={"pin": "000000"})
+    assert r_auth_bad.status_code == 401

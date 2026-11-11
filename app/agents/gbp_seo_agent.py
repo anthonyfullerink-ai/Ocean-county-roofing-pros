@@ -256,6 +256,20 @@ class LocalSeoGbpAgent:
                 "cta_url": f"https://oceancountyroofingpros.com/{proj_slug}#quizSection",
             },
             {
+                "post_type": "Seasonal Tip",
+                "town_name": "Brick Township",
+                "town_slug": "roofing-brick-nj",
+                "title": "Coastal Wind & Salt-Air Roof Protection Tip for Ocean County Homeowners",
+                "content": (
+                    "Did you know 82% of Jersey Shore roof leaks in Brick Township, Toms River, and Lacey start at chimney counter-flashing "
+                    "and plumbing vent boots 12 months before ceiling stains appear? Our 4K FLIR thermal drone scan detects hidden moisture "
+                    "in 15 minutes with zero foot traffic on your shingles!"
+                ),
+                "image_url": "/static/images/drone-thermal-inspection.jpg",
+                "cta_type": "LEARN_MORE",
+                "cta_url": "https://oceancountyroofingpros.com/roofing-brick-nj#quizSection",
+            },
+            {
                 "post_type": "Offer",
                 "town_name": "Point Pleasant",
                 "town_slug": "roofing-point-pleasant-nj",

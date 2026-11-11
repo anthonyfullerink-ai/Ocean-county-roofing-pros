@@ -87,7 +87,11 @@ def stamp_exif_gps_and_save_webp(
     jpg_path = GEOTAGGED_DIR / jpg_name
     webp_path = WEBP_DIR / webp_name
 
-    img = Image.open(io.BytesIO(image_bytes))
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img.load()
+    except Exception as e:
+        raise ValueError(f"Invalid or unreadable image file: {e}") from e
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")
 
@@ -254,7 +258,7 @@ class MediaIngestorAgent:
             approval_status = "approved"
             auto_publish_at = ""
         else:
-            if media_res["width"] < 100 or media_res["height"] < 100:
+            if media_res["width"] < 200 or media_res["height"] < 200:
                 approval_status = "rejected"
                 auto_publish_at = ""
             else:
@@ -349,18 +353,20 @@ class MediaIngestorAgent:
                             "review_text": raw,
                         }
                     town_info = get_town_by_name_or_slug(data.get("town_name") or t_file.stem)
-                    create_review(
-                        {
-                            "reviewer_name": data.get("reviewer_name", "Verified Homeowner"),
-                            "town_name": town_info["town_name"],
-                            "town_slug": town_info["slug"],
-                            "service_performed": data.get("service_performed", "Full Roof Replacement"),
-                            "rating": int(data.get("rating", 5)),
-                            "review_text": data.get("review_text", raw),
-                            "source": data.get("source", "Website"),
-                            "is_public": True,
-                        }
-                    )
+                    from app.agents.reputation_agent import draft_seo_review_reply
+                    rev_payload = {
+                        "reviewer_name": data.get("reviewer_name", "Verified Homeowner"),
+                        "town_name": town_info["town_name"],
+                        "town_slug": town_info["slug"],
+                        "service_performed": data.get("service_performed", "Full Roof Replacement"),
+                        "rating": int(data.get("rating", 5)),
+                        "review_text": data.get("review_text", raw),
+                        "source": data.get("source", "Website"),
+                        "is_public": True,
+                    }
+                    rev_payload["ai_reply_draft"] = data.get("ai_reply_draft") or draft_seo_review_reply(rev_payload)
+                    rev_payload["reply_status"] = "published"
+                    create_review(rev_payload)
                     testimonials_ingested += 1
                     shutil.move(str(t_file), str(INBOX_PROCESSED_DIR / t_file.name))
                 except Exception as e:

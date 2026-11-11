@@ -64,7 +64,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # ==============================================================================
 
 @router.get("/admin", response_class=HTMLResponse)
-async def render_admin_command_center(request: Request):
+async def render_admin_command_center(request: Request, pin: Optional[str] = None):
     """
     Portal A: Owner Command Center (/admin)
     All-in-One Interactive Web Dashboard with 6 tabs:
@@ -87,6 +87,12 @@ async def render_admin_command_center(request: Request):
     latest_report = get_latest_daily_report()
     sys_settings = get_all_settings()
 
+    expected_pin = sys_settings.get("admin_pin", settings.ADMIN_PIN)
+    is_admin_authenticated = (
+        request.cookies.get("admin_authenticated") == "true"
+        or (pin and pin.strip() in (expected_pin, settings.ADMIN_PASSWORD, settings.ADMIN_PIN))
+    )
+
     return templates.TemplateResponse(
         request,
         "admin_dashboard.html",
@@ -102,6 +108,7 @@ async def render_admin_command_center(request: Request):
             "agent_runs": agent_runs,
             "latest_report": latest_report,
             "sys_settings": sys_settings,
+            "is_admin_authenticated": is_admin_authenticated,
         },
     )
 
@@ -396,17 +403,20 @@ async def api_upload_job_photo(
         img_bytes = _create_fallback_roof_image_bytes()
         filename = "job_photo.jpg"
 
-    project = MediaIngestorAgent.ingest_uploaded_photo(
-        image_bytes=img_bytes,
-        filename=filename,
-        town_query=town,
-        neighborhood=neighborhood,
-        service_type=service_type,
-        shingle_system=shingle_system,
-        caption=caption,
-        uploaded_by=uploaded_by,
-        tenant_id=tenant_id,
-    )
+    try:
+        project = MediaIngestorAgent.ingest_uploaded_photo(
+            image_bytes=img_bytes,
+            filename=filename,
+            town_query=town,
+            neighborhood=neighborhood,
+            service_type=service_type,
+            shingle_system=shingle_system,
+            caption=caption,
+            uploaded_by=uploaded_by,
+            tenant_id=tenant_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {
         "status": "success",
         "message": (
