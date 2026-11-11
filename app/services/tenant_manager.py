@@ -28,7 +28,7 @@ class TenantConfig(BaseModel):
     dispatch_phone: str = "+17326609121"
     notification_email: str = "dispatch@example.com"
     portal_pin: str = "732100"
-    google_calendar_id: str = "primary"
+    google_calendar_id: str = "7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com"
     service_license: str = "Fully Licensed & Insured NJ HIC"
     billing_type: str = "flat_monthly_retainer"
     monthly_rate: float = 1500.00
@@ -94,7 +94,7 @@ class TenantManager:
             assigned_estimator="Hannah",
             dispatch_phone="+17326609121",
             notification_email="powurnj@gmail.com",
-            google_calendar_id="primary",
+            google_calendar_id="7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com",
         )
 
     @classmethod
@@ -122,8 +122,23 @@ class TenantManager:
                 logger.error(f"Cannot switch to tenant '{new_tenant_id}': not found in DB or YAML.")
                 return False
 
+        target_cal = "primary"
+        rec = db_get_tenant(new_tenant_id)
+        if rec and (rec.get("calendar_id") or rec.get("google_calendar_id")):
+            target_cal = rec.get("calendar_id") or rec.get("google_calendar_id")
+        else:
+            target_file = TENANTS_DIR / f"{new_tenant_id}.yaml"
+            if target_file.exists():
+                try:
+                    with open(target_file, "r", encoding="utf-8") as tf:
+                        tdata = yaml.safe_load(tf) or {}
+                        target_cal = tdata.get("google_calendar_id", "primary")
+                except Exception:
+                    pass
+
         payload = {
             "active_tenant_id": new_tenant_id,
+            "google_calendar_id": target_cal,
             "last_switched_at": datetime.now().isoformat(),
             "switched_by": switched_by,
         }

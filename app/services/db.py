@@ -294,7 +294,7 @@ def init_db() -> None:
                 "+17326609121",
                 "powurnj@gmail.com",
                 "732100",
-                "primary",
+                "7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com",
                 "Fully Licensed & Insured NJ HIC",
                 1500.00,
                 1,

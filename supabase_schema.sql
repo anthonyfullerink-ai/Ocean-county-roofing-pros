@@ -163,6 +163,6 @@ ON CONFLICT (key) DO NOTHING;
 -- Default Tenants Seed
 INSERT INTO public.tenants (tenant_id, company_name, contact_name, estimator_name, dispatch_phone, email, portal_pin, calendar_id, monthly_retainer, is_active, notes)
 VALUES
-    ('client_joe_the_roofer', 'Joe The Roofer LLC', 'Joe', 'Hannah', '+17326609121', 'powurnj@gmail.com', '732100', 'primary', 1500.00, TRUE, 'Primary launch partner for Ocean County, NJ. Full 21-point drone inspections.'),
+    ('client_joe_the_roofer', 'Joe The Roofer LLC', 'Joe', 'Hannah', '+17326609121', 'powurnj@gmail.com', '732100', '7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com', 1500.00, TRUE, 'Primary launch partner for Ocean County, NJ. Full 21-point drone inspections.'),
     ('client_apex_roofing', 'Apex Shore Roofing & Restoration LLC', 'Mike Sullivan', 'Tyler', '+17325550199', 'dispatch@apexshoreroofing.com', '732200', 'apex_shore_calendar@group.calendar.google.com', 2000.00, FALSE, 'Backup / prospective tenant covering northern Ocean and Monmouth counties.')
 ON CONFLICT (tenant_id) DO NOTHING;

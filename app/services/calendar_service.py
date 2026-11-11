@@ -435,7 +435,8 @@ def update_calendar_event(event_id: str, new_email: Optional[str] = None, new_ad
     if not event_id:
         return False
 
-    cal_target = settings.GOOGLE_CALENDAR_ID if settings.GOOGLE_CALENDAR_ID else "primary"
+    tenant = TenantManager.get_active_tenant()
+    cal_target = tenant.google_calendar_id or settings.GOOGLE_CALENDAR_ID or "primary"
     args = [
         "gcalendar.cmd", "mutate", "update", event_id,
         "--cal", cal_target
