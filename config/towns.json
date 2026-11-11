@@ -26,17 +26,17 @@
     "lon": -74.1399
   },
   {
-    "slug": "roofing-howell-nj",
-    "town_name": "Howell",
-    "county": "Monmouth County",
+    "slug": "roofing-point-pleasant-nj",
+    "town_name": "Point Pleasant",
+    "county": "Ocean County",
     "state": "NJ",
-    "zip_codes": ["07731"],
-    "neighborhoods": ["Ramtown", "Freewood Acres", "Candlewood", "Land O'Pines", "Southard"],
-    "coastal_risk": "Severe seasonal thunderstorm winds, falling pine branches, and attic ventilation moisture traps.",
-    "meta_title": "Licensed Roofing Replacement in Howell, NJ | Ocean County Roofing Pros",
-    "meta_description": "Residential architectural shingle replacement and storm damage repair in Howell, NJ. Free on-site inspection and transparent pricing.",
-    "lat": 40.1698,
-    "lon": -74.2254
+    "zip_codes": ["08742"],
+    "neighborhoods": ["Point Pleasant Beach", "Point Pleasant Boro", "Bay Head Border", "Sunshine Harbor"],
+    "coastal_risk": "Direct Atlantic oceanfront nor'easters, driving salt spray, and extreme gale-force wind requirements.",
+    "meta_title": "Coastal Roofing & Storm Repair in Point Pleasant, NJ | 160 MPH Rated",
+    "meta_description": "Hurricane-rated 160 MPH architectural shingle systems engineered for Point Pleasant coastal homes. Emergency tarping and full replacements.",
+    "lat": 40.0829,
+    "lon": -74.0682
   },
   {
     "slug": "roofing-jackson-nj",
@@ -52,19 +52,6 @@
     "lon": -74.3674
   },
   {
-    "slug": "roofing-point-pleasant-nj",
-    "town_name": "Point Pleasant",
-    "county": "Ocean County",
-    "state": "NJ",
-    "zip_codes": ["08742"],
-    "neighborhoods": ["Point Pleasant Beach", "Point Pleasant Boro", "Bay Head Border", "Sunshine Harbor"],
-    "coastal_risk": "Direct Atlantic oceanfront nor'easters, driving salt spray, and extreme gale-force wind requirements.",
-    "meta_title": "Coastal Roofing & Storm Repair in Point Pleasant, NJ | 160 MPH Rated",
-    "meta_description": "Hurricane-rated 160 MPH architectural shingle systems engineered for Point Pleasant coastal homes. Emergency tarping and full replacements.",
-    "lat": 40.0829,
-    "lon": -74.0682
-  },
-  {
     "slug": "roofing-lacey-nj",
     "town_name": "Lacey Township",
     "county": "Ocean County",
@@ -76,6 +63,58 @@
     "meta_description": "Premier roof replacements and emergency leak triage in Lacey Township & Forked River, NJ. CertainTeed 4-Star 50-year warranty protection.",
     "lat": 39.8665,
     "lon": -74.1957
+  },
+  {
+    "slug": "roofing-lakewood-nj",
+    "town_name": "Lakewood",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08701"],
+    "neighborhoods": ["Lake Carasaljo", "Original Leisure Village", "Oak Street Corridor", "Pine Park", "Coventry Square"],
+    "coastal_risk": "Multi-gable colonial rooflines exposed to heavy seasonal downpours, valley flashing wear, and high wind gusts.",
+    "meta_title": "Licensed Roof Replacement & Repair in Lakewood, NJ | Free Drone Scan",
+    "meta_description": "Trusted architectural roof replacements and fast leak repairs in Lakewood, NJ. Free 21-point thermal drone inspection and 50-year warranty.",
+    "lat": 40.0979,
+    "lon": -74.2176
+  },
+  {
+    "slug": "roofing-barnegat-nj",
+    "town_name": "Barnegat",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08005"],
+    "neighborhoods": ["Barnegat Light Border", "Mirage", "Heritage Point", "Pheasant Run", "Settlers Landing"],
+    "coastal_risk": "Direct bayfront salt air corrosion and severe coastal squalls sweeping across Barnegat Inlet.",
+    "meta_title": "Barnegat, NJ Roof Replacement & Storm Damage Pros | 160 MPH Rated",
+    "meta_description": "CertainTeed certified roof replacements in Barnegat, NJ. Engineered for coastal wind resistance with 1-day installation and 50-year warranty.",
+    "lat": 39.7532,
+    "lon": -74.2226
+  },
+  {
+    "slug": "roofing-manahawkin-nj",
+    "town_name": "Manahawkin",
+    "county": "Ocean County",
+    "state": "NJ",
+    "zip_codes": ["08050"],
+    "neighborhoods": ["Beach Haven West", "Ocean Acres", "Stafford Park", "Cedar Bonnet Island", "Mallard Island"],
+    "coastal_risk": "Extreme barrier-island and lagoon wind uplift requiring 160 MPH hurricane-grade shingle fastening.",
+    "meta_title": "Manahawkin & Beach Haven West Roofing Contractors | Coastal Rated",
+    "meta_description": "Coastal-engineered roof replacements and emergency leak repair in Manahawkin & Stafford Township, NJ. Free 21-point drone roof scan.",
+    "lat": 39.6940,
+    "lon": -74.2588
+  },
+  {
+    "slug": "roofing-howell-nj",
+    "town_name": "Howell",
+    "county": "Monmouth County",
+    "state": "NJ",
+    "zip_codes": ["07731"],
+    "neighborhoods": ["Ramtown", "Freewood Acres", "Candlewood", "Land O'Pines", "Southard"],
+    "coastal_risk": "Severe seasonal thunderstorm winds, falling pine branches, and attic ventilation moisture traps.",
+    "meta_title": "Licensed Roofing Replacement in Howell, NJ | Ocean County Roofing Pros",
+    "meta_description": "Residential architectural shingle replacement and storm damage repair in Howell, NJ. Free on-site inspection and transparent pricing.",
+    "lat": 40.1698,
+    "lon": -74.2254
   },
   {
     "slug": "roofing-freehold-nj",

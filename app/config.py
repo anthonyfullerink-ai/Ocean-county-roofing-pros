@@ -1,7 +1,4 @@
 import os
-from pydantic_settings import BaseSettings
-from typing import Optional
-
 import json
 import yaml
 from pathlib import Path
@@ -18,16 +15,28 @@ class Settings(BaseSettings):
 
     # Business Defaults (Overridden dynamically by brand.yaml)
     BUSINESS_NAME: str = "Ocean County Roofing Pros"
-    PRIMARY_PHONE: str = "+17325550199"
+    PRIMARY_PHONE: str = "+17326609121"
     PRIMARY_CITY: str = "Toms River"
     PRIMARY_STATE: str = "NJ"
+    SITE_BASE_URL: str = "https://oceancountyroofingpros.com"
 
     # Feature Flags
     ENABLE_OUTBOUND_CALLBACK: bool = True  # Can be toggled on/off per client
     ENABLE_SMS_CONFIRMATION: bool = True
     MOCK_MODE: bool = True  # Allows running smoothly during development without live credentials
 
-    # Google Sheets CRM
+    # Supabase Primary Database & Zero-Config Local Mirror
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_KEY: Optional[str] = None
+    LOCAL_DB_PATH: str = "data/local_supabase_mirror.db"
+
+    # Portals & GBP Automation
+    ADMIN_PASSWORD: str = "732999"
+    ADMIN_PIN: str = "732999"
+    GBP_REVIEW_URL: str = "https://g.page/r/OceanCountyRoofingPros/review"
+    GBP_WEBHOOK_URL: Optional[str] = None
+
+    # Legacy Google Sheets CRM (Retired in favor of Supabase + Universal CRM I/O)
     GOOGLE_SERVICE_ACCOUNT_FILE: str = "google_credentials.json"
     GOOGLE_SHEET_ID: Optional[str] = None
 
@@ -110,12 +119,43 @@ def get_town_by_slug(slug: str) -> Optional[Dict[str, Any]]:
             return town
     return None
 
+def get_town_by_name_or_slug(query: str) -> Dict[str, Any]:
+    towns = load_towns_data()
+    if not towns:
+        return {
+            "slug": "roofing-toms-river-nj",
+            "town_name": "Toms River",
+            "county": "Ocean County",
+            "state": "NJ",
+            "zip_codes": ["08753"],
+            "neighborhoods": ["Silverton"],
+            "lat": 39.9537,
+            "lon": -74.1979
+        }
+    if not query:
+        return towns[0]
+    q = query.strip().lower()
+    for town in towns:
+        if town.get("slug", "").lower() == q or town.get("town_name", "").lower() == q:
+            return town
+        if town.get("town_name", "").lower() in q or q in town.get("town_name", "").lower():
+            return town
+    return towns[0]
+
 def get_output_path(*subpaths: str) -> str:
     """
     Resolves and automatically creates directories under settings.OUTPUT_DIR.
     Ensures safe output routing to Google Drive or local ./outputs fallback.
     """
-    target = os.path.join(settings.OUTPUT_DIR, *subpaths)
-    parent = os.path.dirname(target) if "." in os.path.basename(target) else target
-    os.makedirs(parent, exist_ok=True)
-    return target
+    base_dir = settings.OUTPUT_DIR
+    try:
+        target = os.path.join(base_dir, *subpaths)
+        parent = os.path.dirname(target) if "." in os.path.basename(target) else target
+        os.makedirs(parent, exist_ok=True)
+        return target
+    except Exception:
+        fallback_dir = os.path.join(str(PROJECT_ROOT), "outputs")
+        target = os.path.join(fallback_dir, *subpaths)
+        parent = os.path.dirname(target) if "." in os.path.basename(target) else target
+        os.makedirs(parent, exist_ok=True)
+        return target

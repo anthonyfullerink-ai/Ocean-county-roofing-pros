@@ -2,8 +2,16 @@ import os
 import yaml
 import logging
 from pathlib import Path
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
+
+from app.services.db import (
+    list_tenants as db_list_tenants,
+    get_active_tenant_record,
+    switch_active_tenant_db,
+    get_tenant as db_get_tenant,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +19,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 TENANTS_DIR = PROJECT_ROOT / "config" / "tenants"
 ACTIVE_TENANT_FILE = PROJECT_ROOT / "config" / "active_tenant.yaml"
 
+
 class TenantConfig(BaseModel):
     tenant_id: str
     company_name: str
-    contact_person: str
-    assigned_estimator: str
-    dispatch_phone: str
-    notification_email: str
+    contact_person: str = "Dispatcher"
+    assigned_estimator: str = "Hannah"
+    dispatch_phone: str = "+17326609121"
+    notification_email: str = "dispatch@example.com"
+    portal_pin: str = "732100"
     google_calendar_id: str = "primary"
     service_license: str = "Fully Licensed & Insured NJ HIC"
     billing_type: str = "flat_monthly_retainer"
@@ -26,23 +36,40 @@ class TenantConfig(BaseModel):
     status: str = "active"
     notes: Optional[str] = ""
 
+
+def _record_to_tenant_config(rec: Dict[str, Any]) -> TenantConfig:
+    return TenantConfig(
+        tenant_id=rec.get("tenant_id", "client_joe_the_roofer"),
+        company_name=rec.get("company_name", "Joe The Roofer LLC"),
+        contact_person=rec.get("contact_name") or rec.get("contact_person") or "Joe",
+        assigned_estimator=rec.get("estimator_name") or rec.get("assigned_estimator") or "Hannah",
+        dispatch_phone=rec.get("dispatch_phone") or "+17326609121",
+        notification_email=rec.get("email") or rec.get("notification_email") or "powurnj@gmail.com",
+        portal_pin=str(rec.get("portal_pin") or "732100"),
+        google_calendar_id=rec.get("calendar_id") or rec.get("google_calendar_id") or "primary",
+        service_license=rec.get("service_license") or "Fully Licensed & Insured NJ HIC",
+        monthly_rate=float(rec.get("monthly_retainer") or rec.get("monthly_rate") or 1500.00),
+        status="active" if rec.get("is_active") else "standby",
+        notes=rec.get("notes") or "",
+    )
+
+
 class TenantManager:
     """
     Central Multi-Tenant Switching Engine for Rank-and-Rent Assets:
-    Routes calendar events, SMS owner alerts, and Vapi bookings to the currently active roofer.
-    Allows changing clients in 1 second with zero site rebuilding or downtime.
+    Synchronizes active contractor state across Supabase/SQLite and YAML configs.
     """
     _cached_tenant: Optional[TenantConfig] = None
     _cached_id: Optional[str] = None
 
     @classmethod
     def get_active_tenant_id(cls) -> str:
-        # 1. Check environment variable first (Ideal for Netlify / Cloud deployments)
         env_tenant = os.environ.get("ACTIVE_TENANT_ID")
         if env_tenant and env_tenant.strip():
             return env_tenant.strip()
-
-        # 2. Check local active_tenant.yaml file
+        rec = get_active_tenant_record()
+        if rec and rec.get("tenant_id"):
+            return rec["tenant_id"]
         if ACTIVE_TENANT_FILE.exists():
             try:
                 with open(ACTIVE_TENANT_FILE, "r", encoding="utf-8") as f:
@@ -54,51 +81,27 @@ class TenantManager:
 
     @classmethod
     def get_active_tenant(cls) -> TenantConfig:
-        current_id = cls.get_active_tenant_id()
-        if cls._cached_tenant and cls._cached_id == current_id:
-            return cls._cached_tenant
-
-        tenant_file = TENANTS_DIR / f"{current_id}.yaml"
-        if not tenant_file.exists():
-            logger.warning(f"Tenant file {tenant_file} not found. Searching in {TENANTS_DIR}...")
-            # Fallback to any yaml in directory
-            all_files = list(TENANTS_DIR.glob("*.yaml"))
-            if all_files:
-                tenant_file = all_files[0]
-            else:
-                # Return default in-memory tenant
-                return TenantConfig(
-                    tenant_id="default_fallback",
-                    company_name="Independent Licensed NJ Contractor",
-                    contact_person="Lead Dispatcher",
-                    assigned_estimator="Hannah",
-                    dispatch_phone="+17326609121",
-                    notification_email="dispatch@example.com",
-                    google_calendar_id="primary"
-                )
-
-        try:
-            with open(tenant_file, "r", encoding="utf-8") as f:
-                raw_data = yaml.safe_load(f) or {}
-                config = TenantConfig(**raw_data)
-                cls._cached_tenant = config
-                cls._cached_id = current_id
-                logger.info(f"Loaded active tenant: {config.company_name} ({config.tenant_id})")
-                return config
-        except Exception as e:
-            logger.error(f"Error parsing tenant config {tenant_file}: {e}")
-            return TenantConfig(
-                tenant_id="fallback_error",
-                company_name="Licensed NJ Roofing Contractor",
-                contact_person="Dispatcher",
-                assigned_estimator="Hannah",
-                dispatch_phone="+17326609121",
-                notification_email="dispatch@example.com",
-                google_calendar_id="primary"
-            )
+        rec = get_active_tenant_record()
+        if rec:
+            cfg = _record_to_tenant_config(rec)
+            cls._cached_tenant = cfg
+            cls._cached_id = cfg.tenant_id
+            return cfg
+        return TenantConfig(
+            tenant_id="client_joe_the_roofer",
+            company_name="Joe The Roofer LLC",
+            contact_person="Joe",
+            assigned_estimator="Hannah",
+            dispatch_phone="+17326609121",
+            notification_email="powurnj@gmail.com",
+            google_calendar_id="primary",
+        )
 
     @classmethod
     def list_all_tenants(cls) -> List[TenantConfig]:
+        db_rows = db_list_tenants()
+        if db_rows:
+            return [_record_to_tenant_config(r) for r in db_rows]
         tenants = []
         if TENANTS_DIR.exists():
             for f in sorted(TENANTS_DIR.glob("*.yaml")):
@@ -112,27 +115,26 @@ class TenantManager:
 
     @classmethod
     def switch_tenant(cls, new_tenant_id: str, switched_by: str = "admin") -> bool:
-        target_file = TENANTS_DIR / f"{new_tenant_id}.yaml"
-        if not target_file.exists():
-            logger.error(f"Cannot switch to tenant '{new_tenant_id}': file {target_file} does not exist.")
-            return False
+        ok = switch_active_tenant_db(new_tenant_id)
+        if not ok:
+            target_file = TENANTS_DIR / f"{new_tenant_id}.yaml"
+            if not target_file.exists():
+                logger.error(f"Cannot switch to tenant '{new_tenant_id}': not found in DB or YAML.")
+                return False
 
-        from datetime import datetime
         payload = {
             "active_tenant_id": new_tenant_id,
             "last_switched_at": datetime.now().isoformat(),
-            "switched_by": switched_by
+            "switched_by": switched_by,
         }
-
         try:
+            ACTIVE_TENANT_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(ACTIVE_TENANT_FILE, "w", encoding="utf-8") as f:
                 yaml.dump(payload, f, default_flow_style=False)
-            
-            # Invalidate cache
-            cls._cached_tenant = None
-            cls._cached_id = None
-            logger.info(f"Successfully flipped active tenant to: {new_tenant_id}")
-            return True
         except Exception as e:
-            logger.error(f"Failed to update active tenant file: {e}")
-            return False
+            logger.warning(f"Could not write active_tenant.yaml (non-fatal): {e}")
+
+        cls._cached_tenant = None
+        cls._cached_id = None
+        logger.info(f"Successfully switched active tenant to: {new_tenant_id}")
+        return True

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homeowner Review & Care Hub | {{ brand.brand_name }}</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            navy: '#0A486D',
+                            teal: '#17ABA4',
+                            dark: '#062B42'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 py-4 px-4">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2.5">
+                <img src="/static/images/logo-icon.png" alt="Logo" class="h-10 w-auto">
+                <div>
+                    <span class="font-black text-base text-brand-navy block leading-none">OCEAN COUNTY ROOFING PROS</span>
+                    <span class="text-[11px] font-bold text-teal-600 uppercase tracking-wider">Verified Homeowner Care & Review Hub</span>
+                </div>
+            </a>
+            <a href="tel:{{ brand.primary_phone }}" class="text-xs font-extrabold text-brand-navy bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl">
+                📞 {{ brand.formatted_phone or brand.primary_phone }}
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content: Both Public Google Review & Direct Management Resolution Always Visible (Zero Gating) -->
+    <main class="max-w-4xl mx-auto px-4 py-10 space-y-8 w-full">
+
+        <div class="text-center max-w-2xl mx-auto space-y-2">
+            <span class="inline-block bg-teal-100 text-teal-900 text-xs font-black uppercase px-3.5 py-1 rounded-full">
+                Thank You, {{ lead.first_name or 'Neighbor' }}!
+            </span>
+            <h1 class="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
+                How Did Our Crew Do on Your Roof in {{ lead.city or 'Ocean County' }}?
+            </h1>
+            <p class="text-sm text-slate-600">
+                Your honest feedback helps your neighbors across {{ lead.city or 'Ocean County' }} find a trusted, licensed roofing crew—and ensures we stand behind our workmanship 100%.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-12 gap-6 items-start">
+
+            <!-- ============================================================= -->
+            <!-- PRIMARY CARD (GOLD / EMERALD): PUBLIC GOOGLE REVIEW CTA -->
+            <!-- ============================================================= -->
+            <div class="md:col-span-7 bg-white border-2 border-emerald-500 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 relative">
+                <div class="flex items-center justify-between">
+                    <span class="bg-emerald-100 text-emerald-800 text-xs font-black uppercase px-3 py-1 rounded-full">
+                        Public Google Review
+                    </span>
+                    <span class="text-amber-400 text-xl font-black tracking-widest">★★★★★</span>
+                </div>
+
+                <div>
+                    <h2 class="text-xl sm:text-2xl font-black text-slate-900">Post a Public Review on Google</h2>
+                    <p class="text-xs sm:text-sm text-slate-600 mt-1">
+                        Takes 30 seconds. Sharing your experience on Google helps other homeowners in <strong>{{ lead.city or 'Ocean County' }}</strong> choose a vetted local crew with confidence.
+                    </p>
+                </div>
+
+                <!-- Helpful Keyword Prompt Box -->
+                <div class="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 space-y-2">
+                    <div class="text-xs font-extrabold text-amber-900 flex items-center justify-between">
+                        <span>💡 Helpful Keyword Tip for Neighbors:</span>
+                        <button type="button" onclick="copyReviewStarter()" id="copyStarterBtn" class="text-[11px] bg-amber-200/80 hover:bg-amber-300 text-amber-950 font-black px-2.5 py-1 rounded-lg transition">
+                            📋 Tap to Copy Starter
+                        </button>
+                    </div>
+                    <p class="text-xs text-amber-900 leading-relaxed">
+                        Mentioning your town (<strong>{{ lead.city or 'Toms River' }}</strong>) and service (<strong>{{ lead.service_requested or 'Full Roof Replacement' }}</strong>) helps neighbors find our local crew!
+                    </p>
+                    <div id="starterPromptText" class="bg-white border border-amber-200 rounded-xl p-2.5 text-xs text-slate-700 italic">
+                        "Ocean County Roofing Pros did an awesome job with our {{ lead.service_requested or 'roof replacement and 21-point drone inspection' }} in {{ lead.city or 'Toms River' }}, NJ! Fast response, transparent estimate, and clean 1-day workmanship."
+                    </div>
+                </div>
+
+                <!-- Direct 1-Click Google Review Button -->
+                <a href="{{ gbp_review_url }}" target="_blank" rel="noopener" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-base py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition transform hover:scale-[1.01]">
+                    <span>⭐ Open Google to Post Your Review</span>
+                    <span>↗</span>
+                </a>
+
+                <!-- Optional: Also Post Testimonial Directly to Website -->
+                <details class="pt-2 border-t border-slate-100 text-xs">
+                    <summary class="font-bold text-brand-navy cursor-pointer hover:underline">
+                        + Want to feature your testimonial on our {{ lead.city or 'Ocean County' }} town page too? Click here
+                    </summary>
+                    <form onsubmit="submitWebsiteTestimonial(event)" class="space-y-3 pt-3">
+                        <input type="hidden" id="wt_lead_id" value="{{ lead.id }}">
+                        <input type="hidden" id="wt_town" value="{{ lead.city or 'Toms River' }}">
+                        <input type="hidden" id="wt_service" value="{{ lead.service_requested or 'Full Roof Replacement' }}">
+                        <input type="text" id="wt_name" value="{{ lead.first_name }} {{ lead.last_name[:1] if lead.last_name else '' }}." placeholder="Your Name" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs">
+                        <textarea id="wt_text" rows="3" required placeholder="Share how our crew did on your roof..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs"></textarea>
+                        <button type="submit" class="bg-brand-navy hover:bg-slate-800 text-white font-bold px-4 py-2 rounded-xl text-xs">Post Website Testimonial</button>
+                        <div id="wt_success" class="hidden text-emerald-600 font-bold">✓ Thank you! Your testimonial has been added to our {{ lead.city }} page!</div>
+                    </form>
+                </details>
+            </div>
+
+            <!-- ============================================================= -->
+            <!-- SECONDARY CARD (DIRECT OWNER LINE): FAST MANAGEMENT RESOLUTION -->
+            <!-- ============================================================= -->
+            <div class="md:col-span-5 bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-md space-y-4">
+                <span class="bg-slate-100 text-slate-700 text-[11px] font-black uppercase px-3 py-1 rounded-full inline-block">
+                    Direct Owner Resolution Line
+                </span>
+
+                <div>
+                    <h2 class="text-lg sm:text-xl font-black text-slate-900">Need Something Fixed Immediately? Message Management Directly</h2>
+                    <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Did we miss a stray nail in the yard, have a scheduling hiccup, or leave a question unanswered? Send an urgent note straight to our Owner & Dispatch Manager for <strong>same-day resolution</strong>.
+                    </p>
+                </div>
+
+                <form id="resolutionForm" onsubmit="submitDirectResolution(event)" class="space-y-3 text-xs">
+                    <input type="hidden" id="res_lead_id" value="{{ lead.id }}">
+                    <div>
+                        <label class="block font-bold text-slate-700 uppercase text-[10px] mb-1">Your Name</label>
+                        <input type="text" id="res_name" value="{{ lead.first_name }} {{ lead.last_name }}" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold text-slate-700 uppercase text-[10px] mb-1">Phone Number</label>
+                            <input type="tel" id="res_phone" value="{{ lead.phone }}" placeholder="(732) 555-0199" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 font-medium">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 uppercase text-[10px] mb-1">Town</label>
+                            <input type="text" id="res_town" value="{{ lead.city or 'Toms River' }}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 font-medium">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 uppercase text-[10px] mb-1">How Can Management Make It Right Today? *</label>
+                        <textarea id="res_message" rows="3" required placeholder="Describe any issue or scheduling question so our owner can resolve it immediately..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 font-medium"></textarea>
+                    </div>
+                    <button type="submit" id="resSubmitBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3.5 rounded-xl shadow transition">
+                        🚨 Send Priority Message to Management
+                    </button>
+                </form>
+
+                <div id="resolutionSuccess" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl p-4 text-xs space-y-1">
+                    <div class="font-black text-sm">✓ Priority Resolution Dispatched!</div>
+                    <p>Our Owner & Dispatch Manager has received your direct SMS alert and will contact you today to resolve this personally.</p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+        <div class="max-w-4xl mx-auto px-4">
+            © 2026 {{ brand.brand_name }} • 100% Transparent Homeowner Feedback Policy (Both public Google reviews and direct management support are available at all times).
+        </div>
+    </footer>
+
+    <script>
+        function copyReviewStarter() {
+            const text = document.getElementById('starterPromptText').innerText.replace(/^"|"$/g, '');
+            navigator.clipboard.writeText(text);
+            const btn = document.getElementById('copyStarterBtn');
+            btn.innerText = '✓ Copied! Paste in Google';
+        }
+
+        async function submitDirectResolution(e) {
+            e.preventDefault();
+            const btn = document.getElementById('resSubmitBtn');
+            btn.disabled = true;
+            btn.innerText = 'Sending to Management...';
+
+            const payload = {
+                lead_id: document.getElementById('res_lead_id').value,
+                name: document.getElementById('res_name').value,
+                phone: document.getElementById('res_phone').value,
+                town: document.getElementById('res_town').value,
+                message: document.getElementById('res_message').value
+            };
+
+            const res = await fetch('/api/feedback/resolution', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                document.getElementById('resolutionForm').classList.add('hidden');
+                document.getElementById('resolutionSuccess').classList.remove('hidden');
+            } else {
+                btn.disabled = false;
+                btn.innerText = '🚨 Send Priority Message to Management';
+            }
+        }
+
+        async function submitWebsiteTestimonial(e) {
+            e.preventDefault();
+            const payload = {
+                lead_id: document.getElementById('wt_lead_id').value,
+                reviewer_name: document.getElementById('wt_name').value,
+                town_name: document.getElementById('wt_town').value,
+                service_performed: document.getElementById('wt_service').value,
+                rating: 5,
+                review_text: document.getElementById('wt_text').value
+            };
+            const res = await fetch('/api/feedback/public-testimonial', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                document.getElementById('wt_success').classList.remove('hidden');
+                e.target.reset();
+            }
+        }
+    </script>
+</body>
+</html>

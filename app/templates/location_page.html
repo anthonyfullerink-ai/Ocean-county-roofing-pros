@@ -4,43 +4,15 @@
 {% block meta_description %}{{ town.meta_description }}{% endblock %}
 
 {% block schema %}
+{% if dynamic_json_ld %}
+<script type="application/ld+json">
+{{ dynamic_json_ld | safe }}
+</script>
+{% endif %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
-    {
-      "@type": "RoofingContractor",
-      "@id": "https://oceancountyroofingpros.com/#business",
-      "name": "{{ brand.brand_name }} - {{ town.town_name }}",
-      "telephone": "{{ brand.primary_phone }}",
-      "url": "https://oceancountyroofingpros.com/{{ town.slug }}",
-      "logo": "https://oceancountyroofingpros.com/static/images/logo.png",
-      "image": "https://oceancountyroofingpros.com/static/images/hero-drone-poster.webp",
-      "priceRange": "$$",
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "{{ town.town_name }}",
-        "addressRegion": "{{ town.state }}",
-        "postalCode": "{{ town.zip_codes[0] }}",
-        "addressCountry": "US"
-      },
-      "geo": {
-        "@type": "GeoCoordinates",
-        "latitude": {{ town.lat }},
-        "longitude": {{ town.lon }}
-      },
-      "areaServed": [
-        {% for n in town.neighborhoods %}
-        "{{ n }}"{% if not loop.last %},{% endif %}
-        {% endfor %}
-      ],
-      "openingHoursSpecification": {
-        "@type": "OpeningHoursSpecification",
-        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
-        "opens": "00:00",
-        "closes": "23:59"
-      }
-    },
     {
       "@type": "FAQPage",
       "@id": "https://oceancountyroofingpros.com/{{ town.slug }}#faq",
@@ -547,6 +519,48 @@
 </section>
 
 <!-- ========================================================================= -->
+<!-- 5.5 RECENT VERIFIED GEO-TAGGED ROOFING PROJECTS IN {{ town.town_name }} -->
+<!-- ========================================================================= -->
+{% if town_projects %}
+<section id="verified-projects" class="py-20 bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-14">
+            <span class="text-xs font-black uppercase tracking-widest text-brand-teal block mb-2">GPS-Verified Local Proof</span>
+            <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Recent Verified Projects in {{ town.town_name }} & Ocean County</h3>
+            <p class="text-slate-600 text-base mt-3">Real roof replacements and storm restorations uploaded directly from the field by our certified crews and stamped with Ocean County GPS coordinates.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            {% for p in town_projects[:3] %}
+            <div class="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition flex flex-col justify-between group">
+                <div>
+                    <div class="relative aspect-[16/10] overflow-hidden bg-slate-900">
+                        <img src="{{ p.image_webp_url }}" alt="{{ p.shingle_system }} in {{ p.town_name }}, NJ" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        <div class="absolute top-3 left-3 bg-slate-950/85 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full backdrop-blur-sm">
+                            📍 {{ p.neighborhood }}, {{ p.town_name }}
+                        </div>
+                        <div class="absolute bottom-3 right-3 bg-brand-navy/90 text-white text-[10px] font-mono px-2.5 py-1 rounded-lg backdrop-blur-sm">
+                            GPS: {{ "%.4f"|format(p.lat) }}, {{ "%.4f"|format(p.lon) }}
+                        </div>
+                    </div>
+                    <div class="p-6 space-y-2.5">
+                        <div class="text-xs font-extrabold text-brand-blue uppercase tracking-wider">{{ p.shingle_system }}</div>
+                        <h4 class="text-lg font-black text-slate-900 leading-snug">{{ p.caption }}</h4>
+                        <p class="text-xs text-slate-600 leading-relaxed">{{ p.ai_seo_summary }}</p>
+                    </div>
+                </div>
+                <div class="px-6 pb-6 pt-3 border-t border-slate-200/70 flex items-center justify-between text-xs">
+                    <span class="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">✓ Verified NJ HIC Crew</span>
+                    <a href="#quizSection" class="font-extrabold text-brand-blue hover:underline">Get Same Spec Quote →</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- ========================================================================= -->
 <!-- 6. VERIFIED OCEAN COUNTY REVIEWS & 100% RISK-REVERSAL GUARANTEE -->
 <!-- ========================================================================= -->
 <section id="reviews" class="py-20 bg-white">
@@ -554,63 +568,37 @@
         
         <div class="text-center max-w-3xl mx-auto mb-16">
             <span class="text-xs font-black uppercase tracking-widest text-brand-blue block mb-2">Local Reputation</span>
-            <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Verified Ocean County Homeowner Reviews</h3>
-            <p class="text-slate-600 text-base mt-3">Read what your neighbors across Toms River, Brick, and the Jersey Shore say about our dispatched crews.</p>
+            <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Verified {{ town.town_name }} & Ocean County Homeowner Reviews</h3>
+            <p class="text-slate-600 text-base mt-3">Read what your neighbors across {{ town.town_name }}, Toms River, Brick, and the Jersey Shore say about our dispatched crews.</p>
         </div>
 
         <div class="grid md:grid-cols-3 gap-8">
-            
-            <!-- Review 1 -->
+            {% for r in (town_reviews or [])[:3] %}
             <div class="bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
                 <div>
-                    <div class="flex items-center text-amber-400 text-lg mb-3">★★★★★</div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-amber-400 text-lg">{% for _ in range(r.rating or 5) %}★{% endfor %}</span>
+                        <span class="text-[10px] font-bold uppercase text-slate-400">{{ r.source }} Review</span>
+                    </div>
                     <p class="text-sm text-slate-700 leading-relaxed italic">
-                        "After the nor'easter in March, two shingles ripped off our bayfront roof in Toms River. The drone scan caught hidden water seepage around the chimney before it destroyed our ceiling. The crew finished the whole CertainTeed Landmark replacement in a single day and did a magnetic sweep of the yard!"
+                        "{{ r.review_text }}"
                     </p>
+                    {% if r.ai_reply_draft and r.reply_status == 'published' %}
+                    <div class="mt-4 bg-white border border-slate-200 rounded-2xl p-3 text-xs text-slate-600">
+                        <strong class="text-brand-navy block text-[10px] uppercase tracking-wider mb-0.5">Owner Response:</strong>
+                        {{ r.ai_reply_draft }}
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="pt-6 border-t border-slate-200 mt-6 flex items-center justify-between">
                     <div>
-                        <div class="font-extrabold text-sm text-slate-900">Mark & Sarah D.</div>
-                        <div class="text-xs text-slate-500">Silverton, Toms River, NJ</div>
+                        <div class="font-extrabold text-sm text-slate-900">{{ r.reviewer_name }}</div>
+                        <div class="text-xs text-slate-500">{{ r.town_name }}, NJ • {{ r.service_performed }}</div>
                     </div>
                     <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Verified Job</span>
                 </div>
             </div>
-
-            <!-- Review 2 -->
-            <div class="bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
-                <div>
-                    <div class="flex items-center text-amber-400 text-lg mb-3">★★★★★</div>
-                    <p class="text-sm text-slate-700 leading-relaxed italic">
-                        "We got 4 estimates for our ranch in Brick. Ocean County Roofing Pros sent a drone report within 2 hours with crystal-clear pictures of the damaged flashing. Their contractor price was completely transparent, zero pressure, and good for 12 months."
-                    </p>
-                </div>
-                <div class="pt-6 border-t border-slate-200 mt-6 flex items-center justify-between">
-                    <div>
-                        <div class="font-extrabold text-sm text-slate-900">David M.</div>
-                        <div class="text-xs text-slate-500">Brick Township, NJ</div>
-                    </div>
-                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Verified Job</span>
-                </div>
-            </div>
-
-            <!-- Review 3 -->
-            <div class="bg-slate-50 p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
-                <div>
-                    <div class="flex items-center text-amber-400 text-lg mb-3">★★★★★</div>
-                    <p class="text-sm text-slate-700 leading-relaxed italic">
-                        "Living two blocks from the ocean in Point Pleasant means brutal salt air and wind. We upgraded to the CertainTeed Landmark PRO system with the 160 MPH wind rating. The curb appeal is unbelievable and our homeowners insurance even gave us a policy discount."
-                    </p>
-                </div>
-                <div class="pt-6 border-t border-slate-200 mt-6 flex items-center justify-between">
-                    <div>
-                        <div class="font-extrabold text-sm text-slate-900">Elena R.</div>
-                        <div class="text-xs text-slate-500">Point Pleasant Beach, NJ</div>
-                    </div>
-                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">Verified Job</span>
-                </div>
-            </div>
-
+            {% endfor %}
         </div>
 
         <!-- 100% Risk Reversal Box -->
@@ -861,6 +849,9 @@
                 phone: document.getElementById('phone').value,
                 first_name: document.getElementById('first_name').value,
                 address: document.getElementById('address').value,
+                city: "{{ town.town_name }}",
+                diagnostic_situation: quizData.situation || '',
+                home_architecture: quizData.homeType || '',
                 notes: notes,
                 consent_given: true
             };

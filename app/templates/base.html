@@ -45,11 +45,15 @@
 </head>
 <body class="bg-brand-light text-slate-800 font-sans antialiased pb-20 md:pb-0">
 
-    <!-- Top Emergency Announcement Bar with Rotating Dispatch Ticker -->
-    <div class="bg-brand-navy text-white text-xs md:text-sm py-2 px-4 text-center font-medium flex justify-center items-center gap-2 overflow-hidden">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+    <!-- Top Emergency Announcement Bar with NWS Storm Triage & Live Dispatch Ticker -->
+    <div class="{% if storm_alert_active %}bg-amber-600{% else %}bg-brand-navy{% endif %} text-white text-xs md:text-sm py-2 px-4 text-center font-medium flex justify-center items-center gap-2 overflow-hidden">
+        <span class="inline-block w-2.5 h-2.5 rounded-full {% if storm_alert_active %}bg-white{% else %}bg-emerald-400{% endif %} animate-pulse shrink-0"></span>
         <span id="dispatchTicker" class="transition-opacity duration-300 font-semibold">
-            🟢 Active in {{ current_town.town_name if current_town else brand.base_city }} Today — 21-Point Drone Roof Inspections Dispatched Daily
+            {% if storm_alert_active %}
+                {{ storm_alert_headline }}
+            {% else %}
+                🟢 Active in {{ current_town.town_name if current_town else brand.base_city }} Today — 21-Point Drone Roof Inspections Dispatched Daily
+            {% endif %}
         </span>
     </div>
 
@@ -72,6 +76,7 @@
             </a>
 
             <div class="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
+                <a href="#verified-projects" class="hover:text-brand-blue transition">Local Projects</a>
                 <a href="#before-after" class="hover:text-brand-blue transition">Before & After</a>
                 <a href="#inspection" class="hover:text-brand-blue transition">Drone Inspection</a>
                 <a href="#systems" class="hover:text-brand-blue transition">Roof Packages</a>
@@ -112,9 +117,12 @@
                     {{ brand.brand_name }} is an independent homeowner referral and marketing concierge network. All roofing inspections, estimates, repairs, and installations are performed exclusively by independent, state-licensed, and insured New Jersey Home Improvement Contractors. {{ brand.brand_name }} does not directly perform construction or roofing trade services.
                 </p>
             </div>
-            <div class="flex gap-6">
+            <div class="flex flex-wrap justify-center gap-5">
                 <a href="/privacy-policy" class="hover:text-white transition">Privacy Policy</a>
                 <a href="/terms" class="hover:text-white transition">Terms of Service</a>
+                <a href="/feedback" class="hover:text-white transition">Customer Review Hub</a>
+                <a href="/portal" class="hover:text-teal-400 transition">Partner Portal</a>
+                <a href="/admin" class="hover:text-teal-400 transition">Command Center</a>
                 <a href="tel:{{ brand.primary_phone }}" class="text-emerald-400 font-bold">{{ brand.formatted_phone or brand.primary_phone }}</a>
             </div>
         </div>
@@ -131,22 +139,21 @@
         </a>
     </div>
 
-    <!-- Live Ocean County Activity Ticker Script -->
+    <!-- Live Ocean County Activity Ticker Script (Powered by Agent 4 Watchdog) -->
     <script>
         (function() {
             const tickerEl = document.getElementById('dispatchTicker');
             if (!tickerEl) return;
-            
+
             const currentTown = "{{ current_town.town_name if current_town else 'Ocean County' }}";
-            const messages = [
+            const dbTicker = {{ (dispatch_ticker_messages or []) | tojson }};
+            const messages = dbTicker.length > 0 ? dbTicker : [
                 `🟢 Dispatched 14m ago: Free 21-Point Drone Inspection in Silverton, Toms River`,
                 `🟢 Dispatched 28m ago: Emergency Leak & Flashing Triage in Brick Township`,
                 `🟢 Dispatched 41m ago: CertainTeed Landmark Roof Replacement in Point Pleasant`,
-                `🟢 Dispatched 56m ago: Storm & Nor'easter Wind Damage Assessment in Jackson, NJ`,
-                `🟢 Dispatched 1h 12m ago: Free Drone Roof Scan in Bayville / Berkeley`,
                 `🟢 Active Estimator on-duty in ${currentTown} — Booking Same-Day Drone Inspections`
             ];
-            
+
             let idx = 0;
             setInterval(() => {
                 idx = (idx + 1) % messages.length;
@@ -157,50 +164,6 @@
                 }, 300);
             }, 4500);
         })();
-    </script>
-
-    <!-- AJAX Form Handling Script -->
-    <script>
-        const form = document.getElementById('leadForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const formSuccess = document.getElementById('formSuccess');
-
-        if (form) {
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = `<span>Dispatching Estimator...</span>`;
-
-                const payload = {
-                    service: document.getElementById('service').value,
-                    phone: document.getElementById('phone').value,
-                    first_name: document.getElementById('first_name').value,
-                    address: document.getElementById('address').value,
-                    consent_given: true
-                };
-
-                try {
-                    const response = await fetch('/api/leads/webform', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.ok) {
-                        form.classList.add('hidden');
-                        formSuccess.classList.remove('hidden');
-                    } else {
-                        alert('There was a slight error submitting your request. Please call us directly at {{ brand.primary_phone }}');
-                        submitBtn.disabled = false;
-                        submitBtn.innerText = 'Get My Free Estimate & Inspection';
-                    }
-                } catch (err) {
-                    console.error(err);
-                    form.classList.add('hidden');
-                    formSuccess.classList.remove('hidden');
-                }
-            });
-        }
     </script>
     {% block scripts %}{% endblock %}
 </body>

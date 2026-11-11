@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Command Center | {{ brand.brand_name }}</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            navy: '#0A486D',
+                            teal: '#17ABA4',
+                            dark: '#062B42'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
+
+    <!-- Top Command Center Header -->
+    <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <a href="/" class="flex items-center gap-2.5">
+                    <img src="/static/images/logo-icon-white.png" alt="Logo" class="h-9 w-auto">
+                    <div>
+                        <div class="font-black text-sm tracking-tight text-white flex items-center gap-2">
+                            <span>OWNER COMMAND CENTER</span>
+                            <span class="bg-teal-500/20 text-teal-300 border border-teal-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full">v2.0 SUPABASE + 5-AGENT OPS</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">
+                            Active Partner: <strong class="text-emerald-400">{{ kpis.active_tenant.company_name }}</strong> • DB: {% if kpis.supabase_cloud_connected %}🟢 Cloud Supabase{% else %}🟢 Zero-Config Local Supabase Mirror{% endif %}
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="flex items-center gap-2.5">
+                <button onclick="runAllAgentsNow()" id="headerRunAllBtn" class="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
+                    <span>⚡ Run Full 5-Agent Ops Suite</span>
+                </button>
+                <a href="/portal" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition">
+                    👷 Partner Portal
+                </a>
+                <a href="/" target="_blank" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition">
+                    🌐 Live Site ↗
+                </a>
+            </div>
+        </div>
+
+        <!-- 6-Tab Navigation Bar -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto border-t border-slate-800/80 text-xs font-bold">
+            <button onclick="switchTab('overview')" id="tabBtn-overview" class="tab-btn px-4 py-3 border-b-2 border-teal-400 text-teal-300 whitespace-nowrap">
+                1. Executive ROI & Daily Briefing
+            </button>
+            <button onclick="switchTab('crm')" id="tabBtn-crm" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+                2. Master CRM & Universal I/O ({{ leads|length }})
+            </button>
+            <button onclick="switchTab('launchpad')" id="tabBtn-launchpad" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap flex items-center gap-1.5">
+                <span>3. Hybrid 24h Queue & GBP Launchpad</span>
+                {% if kpis.pending_approval_total > 0 %}
+                <span class="bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">{{ kpis.pending_approval_total }}</span>
+                {% endif %}
+            </button>
+            <button onclick="switchTab('agents')" id="tabBtn-agents" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+                4. 5-Agent Workforce & Logs
+            </button>
+            <button onclick="switchTab('tenants')" id="tabBtn-tenants" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+                5. Contractor Partners ({{ tenants|length }})
+            </button>
+            <button onclick="switchTab('settings')" id="tabBtn-settings" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
+                6. Kill-Switches & Settings
+            </button>
+        </div>
+    </header>
+
+    <!-- Toast Notification Banner -->
+    <div id="toastBanner" class="hidden fixed bottom-5 right-5 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-extrabold border border-emerald-400"></div>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- ================================================================= -->
+        <!-- TAB 1: EXECUTIVE OVERVIEW, ROI SCOREBOARD & 7:30 AM BRIEFING -->
+        <!-- ================================================================= -->
+        <section id="tab-overview" class="tab-panel space-y-6">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <div class="text-[11px] font-bold uppercase text-slate-400">Total Leads</div>
+                    <div class="text-3xl font-black text-white mt-1">{{ kpis.total_leads }}</div>
+                    <div class="text-xs text-teal-400 mt-1">{{ kpis.booked_count }} Booked Inspections</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <div class="text-[11px] font-bold uppercase text-slate-400">Active Pipeline Value</div>
+                    <div class="text-3xl font-black text-emerald-400 mt-1">${{ "{:,.0f}".format(kpis.active_pipeline_value) }}</div>
+                    <div class="text-xs text-slate-400 mt-1">Won/Closed: ${{ "{:,.0f}".format(kpis.won_revenue_value) }}</div>
+                </div>
+                <div class="bg-slate-900 border border-teal-500/40 rounded-2xl p-5 relative overflow-hidden">
+                    <div class="text-[11px] font-bold uppercase text-teal-300">Renter Retainer ROI</div>
+                    <div class="text-3xl font-black text-amber-400 mt-1">{{ kpis.roi_multiple }}x ROI</div>
+                    <div class="text-xs text-slate-300 mt-1">${{ "{:,.0f}".format(kpis.monthly_retainer) }}/mo Retainer</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <div class="text-[11px] font-bold uppercase text-slate-400">Geo-Tagged Projects</div>
+                    <div class="text-3xl font-black text-white mt-1">{{ kpis.approved_projects_count }}</div>
+                    <div class="text-xs text-amber-400 mt-1">{{ kpis.pending_projects_count }} Pending 24h Queue</div>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                    <div class="text-[11px] font-bold uppercase text-slate-400">Reputation Flywheel</div>
+                    <div class="text-3xl font-black text-amber-300 mt-1">★ {{ kpis.avg_rating }}</div>
+                    <div class="text-xs text-slate-400 mt-1">{{ kpis.total_reviews_count }} Verified Reviews</div>
+                </div>
+            </div>
+
+            <!-- 7:30 AM Daily Executive Briefing Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+                <div class="flex flex-wrap justify-between items-center gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider bg-teal-500/20 text-teal-300 px-2.5 py-1 rounded-full">Agent 5: Chief Briefing Officer</span>
+                        <h2 class="text-xl font-black text-white mt-1">📊 7:30 AM Daily Executive Briefing</h2>
+                        <p class="text-xs text-slate-400">Saved automatically to Dashboard, <code>outputs/reports/</code>, and Owner SMS.</p>
+                    </div>
+                    <button onclick="runSingleAgent('briefing')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition">
+                        🔄 Generate Fresh 7:30 AM Briefing Now
+                    </button>
+                </div>
+
+                {% if latest_report %}
+                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed overflow-x-auto">{{ latest_report.markdown_content }}</div>
+                {% else %}
+                <div class="text-center py-8 text-slate-400 text-sm">
+                    Click <strong>"Generate Fresh 7:30 AM Briefing Now"</strong> or <strong>"Run Full 5-Agent Ops Suite"</strong> to compile today's executive digest.
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 2: MASTER CRM, LIVE TABLE EDITOR & UNIVERSAL IMPORT/EXPORT -->
+        <!-- ================================================================= -->
+        <section id="tab-crm" class="tab-panel hidden space-y-6">
+            <!-- Universal CRM Portability Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider bg-sky-500/20 text-sky-300 px-2.5 py-1 rounded-full">100% CRM Portability</span>
+                        <h3 class="text-lg font-black text-white mt-1">Universal CRM Export & Import Engine</h3>
+                        <p class="text-xs text-slate-400">1-click export formatted for GoHighLevel, JobNimbus, HubSpot, or Universal RFC-4180 CSV/JSON.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <a href="/api/crm/export?format=universal_csv" class="bg-slate-800 hover:bg-teal-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition">⬇️ Universal CSV</a>
+                        <a href="/api/crm/export?format=universal_json" class="bg-slate-800 hover:bg-teal-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition">⬇️ Universal JSON</a>
+                        <a href="/api/crm/export?format=gohighlevel_csv" class="bg-slate-800 hover:bg-sky-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition">⬇️ GoHighLevel CSV</a>
+                        <a href="/api/crm/export?format=jobnimbus_csv" class="bg-slate-800 hover:bg-amber-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition">⬇️ JobNimbus CSV</a>
+                        <a href="/api/crm/export?format=hubspot_csv" class="bg-slate-800 hover:bg-orange-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition">⬇️ HubSpot CSV</a>
+                    </div>
+                </div>
+
+                <!-- Universal Import Form + Add Manual Lead Toggle -->
+                <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                    <form id="crmImportForm" class="flex flex-wrap items-center gap-2" onsubmit="handleCrmImport(event)">
+                        <label class="text-xs font-bold text-slate-300">⬆️ Import External CRM (CSV/JSON):</label>
+                        <input type="file" id="crmImportFile" accept=".csv,.json" required class="text-xs text-slate-300 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5">
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl transition">Upload & Map Columns</button>
+                    </form>
+                    <button onclick="document.getElementById('newLeadModal').classList.toggle('hidden')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl transition">
+                        + Add Manual Lead
+                    </button>
+                </div>
+
+                <!-- Add Manual Lead Inline Drawer -->
+                <form id="newLeadModal" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3" onsubmit="createManualLead(event)">
+                    <input type="text" id="nl_first" placeholder="First Name *" required class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="text" id="nl_last" placeholder="Last Name" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="text" id="nl_phone" placeholder="Phone (732-555-0199) *" required class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="text" id="nl_city" placeholder="Town (e.g. Toms River)" value="Toms River" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="number" id="nl_value" placeholder="Est Value ($)" value="12500" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl px-4 py-2">Save Lead</button>
+                </form>
+            </div>
+
+            <!-- Live Master CRM Table Editor -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+                <div class="p-4 border-b border-slate-800 flex flex-wrap justify-between items-center gap-3">
+                    <h3 class="font-black text-sm text-white">Live Master Leads Table (Inline Editable)</h3>
+                    <input type="text" id="crmSearchInput" oninput="filterCrmTable()" placeholder="Search homeowner, town, phone, or ID..." class="bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-1.5 text-xs w-72 text-white">
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                                <th class="p-3">Lead ID & Source</th>
+                                <th class="p-3">Homeowner & Phone</th>
+                                <th class="p-3">Town & Service</th>
+                                <th class="p-3">Pipeline Status</th>
+                                <th class="p-3">Est. Value ($)</th>
+                                <th class="p-3">Assigned Partner</th>
+                                <th class="p-3">Notes / Call Recording</th>
+                                <th class="p-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crmTableBody" class="divide-y divide-slate-800/70">
+                            {% for l in leads %}
+                            <tr class="crm-row hover:bg-slate-800/40 transition" data-search="{{ l.id }} {{ l.first_name }} {{ l.last_name }} {{ l.phone }} {{ l.city }} {{ l.status }}">
+                                <td class="p-3 align-top">
+                                    <div class="font-mono font-bold text-teal-300">{{ l.id }}</div>
+                                    <div class="text-[10px] text-slate-500">{{ l.lead_source }}</div>
+                                    <div class="text-[10px] text-slate-500">{{ l.created_at[:16] }}</div>
+                                </td>
+                                <td class="p-3 align-top">
+                                    <div class="font-bold text-white">{{ l.first_name }} {{ l.last_name }}</div>
+                                    <a href="tel:{{ l.phone }}" class="text-emerald-400 font-semibold hover:underline">{{ l.phone }}</a>
+                                    <div class="text-[10px] text-slate-400">{{ l.street_address }}</div>
+                                </td>
+                                <td class="p-3 align-top">
+                                    <div class="font-bold text-slate-200">📍 {{ l.city }}, {{ l.state }}</div>
+                                    <div class="text-[11px] text-slate-400">{{ l.service_requested }}</div>
+                                    {% if l.appointment_slot %}
+                                    <div class="text-[10px] text-amber-300 mt-0.5">🗓️ {{ l.appointment_slot }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="p-3 align-top">
+                                    <select onchange="updateLeadInline('{{ l.id }}', {status: this.value})" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-bold text-white">
+                                        {% for st in ['New Lead', 'Booked', 'Inspected', 'Job Won', 'Completed', 'Lost'] %}
+                                        <option value="{{ st }}" {% if l.status == st %}selected{% endif %}>{{ st }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% if l.review_request_sent %}
+                                    <div class="text-[10px] text-emerald-400 mt-1">✓ Review SMS Sent</div>
+                                    {% endif %}
+                                </td>
+                                <td class="p-3 align-top">
+                                    <input type="number" value="{{ l.estimated_value|int }}" onchange="updateLeadInline('{{ l.id }}', {estimated_value: this.value})" class="w-24 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs font-bold text-emerald-300">
+                                </td>
+                                <td class="p-3 align-top">
+                                    <select onchange="updateLeadInline('{{ l.id }}', {assigned_tenant_id: this.value})" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200">
+                                        {% for t in tenants %}
+                                        <option value="{{ t.tenant_id }}" {% if l.assigned_tenant_id == t.tenant_id %}selected{% endif %}>{{ t.company_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="p-3 align-top max-w-xs">
+                                    <input type="text" value="{{ l.notes }}" onchange="updateLeadInline('{{ l.id }}', {notes: this.value})" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300">
+                                    {% if l.call_recording_url %}
+                                    <a href="{{ l.call_recording_url }}" target="_blank" class="inline-block mt-1 text-[10px] text-sky-400 hover:underline">🎧 Play Call Recording ({{ l.call_duration_sec }}s)</a>
+                                    {% endif %}
+                                </td>
+                                <td class="p-3 align-top space-y-1">
+                                    <a href="/feedback/{{ l.id }}" target="_blank" class="block text-[10px] bg-slate-800 hover:bg-slate-700 text-center px-2 py-1 rounded text-teal-300">Review Link ↗</a>
+                                    <button onclick="deleteLeadRow('{{ l.id }}')" class="w-full text-[10px] bg-rose-950/60 hover:bg-rose-800 text-rose-300 px-2 py-1 rounded">Delete</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 3: HYBRID CONTENT & GBP LAUNCHPAD (APPROVE / AUTO-PUBLISH 24H) -->
+        <!-- ================================================================= -->
+        <section id="tab-launchpad" class="tab-panel hidden space-y-8">
+            <!-- Owner Direct Upload Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+                <span class="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full">Hybrid Smart Mode: Owner Immediate Publish</span>
+                <h3 class="text-lg font-black text-white mt-1">📸 Upload Verified Job-Site Photo (Auto EXIF Geo-Tag + WebP)</h3>
+                <p class="text-xs text-slate-400 mb-4">Owner uploads go live immediately on the target Ocean County town page with embedded GPS EXIF coordinates.</p>
+
+                <form id="ownerPhotoUploadForm" onsubmit="handlePhotoUpload(event, 'owner')" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 items-end">
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Ocean County Town</label>
+                        <select name="town" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                            {% for t in towns %}
+                            <option value="{{ t.slug }}">{{ t.town_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Neighborhood</label>
+                        <input type="text" name="neighborhood" placeholder="e.g. Silverton / Midstreams" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Shingle System</label>
+                        <input type="text" name="shingle_system" value="CertainTeed Landmark PRO" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Job Caption & Photo File</label>
+                        <div class="flex gap-2">
+                            <input type="text" name="caption" placeholder="1-day tear-off & coastal install..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                            <input type="file" name="file" accept="image/*" class="w-40 text-[11px] text-slate-300 bg-slate-950 border border-slate-700 rounded-xl px-2 py-1.5">
+                        </div>
+                    </div>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-2.5 px-4 rounded-xl transition">
+                        ⚡ Stamp GPS & Publish Live
+                    </button>
+                </form>
+            </div>
+
+            <!-- Section A: Job Projects & Contractor Photo Queue -->
+            <div class="space-y-4">
+                <h3 class="text-base font-black text-white flex items-center gap-2">
+                    <span>📍 Geo-Tagged Job Projects & 24h Contractor Queue ({{ projects|length }})</span>
+                </h3>
+                <div class="grid md:grid-cols-2 gap-4">
+                    {% for p in projects %}
+                    <div class="bg-slate-900 border {% if p.approval_status == 'pending_auto_24h' %}border-amber-500/60{% else %}border-slate-800{% endif %} rounded-2xl p-4 flex gap-4">
+                        <img src="{{ p.image_webp_url }}" alt="{{ p.town_name }}" class="w-28 h-28 rounded-xl object-cover shrink-0 border border-slate-700">
+                        <div class="flex-1 space-y-1.5 text-xs">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-black text-white">📍 {{ p.neighborhood }}, {{ p.town_name }}</span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase {% if p.approval_status == 'approved' %}bg-emerald-500/20 text-emerald-300{% elif p.approval_status == 'pending_auto_24h' %}bg-amber-500/20 text-amber-300{% else %}bg-rose-500/20 text-rose-300{% endif %}">
+                                    {{ p.approval_status }}
+                                </span>
+                            </div>
+                            <div class="text-[11px] text-teal-300 font-semibold">{{ p.shingle_system }} • GPS: {{ p.lat }}, {{ p.lon }}</div>
+                            <p class="text-[11px] text-slate-400 line-clamp-2">{{ p.ai_seo_summary }}</p>
+                            <div class="flex flex-wrap gap-2 pt-2">
+                                {% if p.approval_status != 'approved' %}
+                                <button onclick="projectAction('{{ p.id }}', 'approve')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1 rounded-lg">✓ Approve Now</button>
+                                {% endif %}
+                                {% if p.approval_status != 'rejected' %}
+                                <button onclick="projectAction('{{ p.id }}', 'reject')" class="bg-rose-950 hover:bg-rose-800 text-rose-300 text-[11px] font-bold px-2.5 py-1 rounded-lg">Reject</button>
+                                {% endif %}
+                                <a href="{{ p.image_geotagged_jpg_url }}" download class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold px-2.5 py-1 rounded-lg">⬇️ Geo-Tagged JPG</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Section B: Dual-Mode GBP Post Launchpad -->
+            <div class="space-y-4">
+                <h3 class="text-base font-black text-white">📢 Google Business Profile (GBP) 1-Click Launchpad & Auto-Webhook ({{ gbp_posts|length }})</h3>
+                <div class="grid md:grid-cols-2 gap-4">
+                    {% for g in gbp_posts %}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 text-xs">
+                        <div class="flex justify-between items-center">
+                            <span class="bg-sky-500/20 text-sky-300 font-black text-[10px] uppercase px-2.5 py-0.5 rounded-full">{{ g.post_type }} • {{ g.town_name }}</span>
+                            <span class="text-[10px] font-bold uppercase {% if g.status == 'published' %}text-emerald-400{% elif g.status == 'approved' %}text-teal-300{% else %}text-amber-300{% endif %}">{{ g.status }}</span>
+                        </div>
+                        <div class="font-black text-sm text-white">{{ g.title }}</div>
+                        <p class="text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800" id="gbpText-{{ g.id }}">{{ g.content }}</p>
+                        <div class="flex flex-wrap gap-2 pt-1">
+                            <button onclick="copyTextById('gbpText-{{ g.id }}')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-3 py-1.5 rounded-lg">📋 1-Click Copy Text</button>
+                            <a href="{{ g.image_url }}" download class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-1.5 rounded-lg">⬇️ Geo-Tagged Photo</a>
+                            <button onclick="gbpAction('{{ g.id }}', 'publish')" class="bg-teal-600 hover:bg-teal-500 text-white font-bold px-3 py-1.5 rounded-lg">🚀 Approve & Dispatch GBP</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Section C: AI Review Reply Queue -->
+            <div class="space-y-4">
+                <h3 class="text-base font-black text-white">⭐ Verified Reviews & AI SEO Owner Replies ({{ reviews|length }})</h3>
+                <div class="space-y-3">
+                    {% for r in reviews %}
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2 text-xs">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-black text-white">{{ r.reviewer_name }}</span>
+                                <span class="text-slate-400">• {{ r.town_name }} ({{ r.source }})</span>
+                                <span class="text-amber-400 ml-2">{% for _ in range(r.rating) %}★{% endfor %}</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase {% if r.reply_status == 'published' %}bg-emerald-500/20 text-emerald-300{% else %}bg-amber-500/20 text-amber-300{% endif %}">
+                                Reply: {{ r.reply_status }}
+                            </span>
+                        </div>
+                        <p class="text-slate-300 italic">"{{ r.review_text }}"</p>
+                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                            <div class="text-[10px] font-bold uppercase text-teal-400">AI-Drafted Local SEO Reply:</div>
+                            <textarea id="revReply-{{ r.id }}" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-slate-200">{{ r.ai_reply_draft }}</textarea>
+                            <div class="flex gap-2">
+                                <button onclick="reviewAction('{{ r.id }}', 'publish_reply')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded-lg">✓ Approve & Publish Reply</button>
+                                <button onclick="copyInputVal('revReply-{{ r.id }}')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-1 rounded-lg">📋 Copy Reply for Google</button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 4: 5-AGENT WORKFORCE CONTROL & EXECUTION LOGS -->
+        <!-- ================================================================= -->
+        <section id="tab-agents" class="tab-panel hidden space-y-6">
+            <div class="grid md:grid-cols-5 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div>
+                        <span class="text-[10px] font-black uppercase text-teal-400">Agent 1</span>
+                        <h4 class="font-black text-sm text-white mt-0.5">Media & EXIF Geo-Tagger</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Scans <code>content_inbox/</code>, stamps Ocean County GPS EXIF, creates WebP & town project cards.</p>
+                    </div>
+                    <button onclick="runSingleAgent('media_ingestor')" class="w-full bg-slate-800 hover:bg-teal-600 text-white text-xs font-extrabold py-2 rounded-xl transition">▶ Run Agent 1 Now</button>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div>
+                        <span class="text-[10px] font-black uppercase text-sky-400">Agent 2</span>
+                        <h4 class="font-black text-sm text-white mt-0.5">GBP & Local SEO Specialist</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Checks live NWS Ocean County storm alerts, drafts 3x/wk GBP posts & dynamic JSON-LD.</p>
+                    </div>
+                    <button onclick="runSingleAgent('gbp_seo')" class="w-full bg-slate-800 hover:bg-teal-600 text-white text-xs font-extrabold py-2 rounded-xl transition">▶ Run Agent 2 Now</button>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div>
+                        <span class="text-[10px] font-black uppercase text-amber-400">Agent 3</span>
+                        <h4 class="font-black text-sm text-white mt-0.5">Reputation & Review Engine</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Texts compliant <code>/feedback</code> links on Completed jobs & drafts SEO owner replies.</p>
+                    </div>
+                    <button onclick="runSingleAgent('reputation')" class="w-full bg-slate-800 hover:bg-teal-600 text-white text-xs font-extrabold py-2 rounded-xl transition">▶ Run Agent 3 Now</button>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div>
+                        <span class="text-[10px] font-black uppercase text-emerald-400">Agent 4</span>
+                        <h4 class="font-black text-sm text-white mt-0.5">Technical CRO Watchdog</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Audits all 10 town pages, Vapi webhooks, and updates the Live Dispatch Activity Ticker.</p>
+                    </div>
+                    <button onclick="runSingleAgent('watchdog')" class="w-full bg-slate-800 hover:bg-teal-600 text-white text-xs font-extrabold py-2 rounded-xl transition">▶ Run Agent 4 Now</button>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div>
+                        <span class="text-[10px] font-black uppercase text-purple-400">Agent 5</span>
+                        <h4 class="font-black text-sm text-white mt-0.5">Chief Analytics & Briefing</h4>
+                        <p class="text-[11px] text-slate-400 mt-1">Compiles the 7:30 AM Daily Executive Briefing + Contractor Retainer ROI Scoreboard.</p>
+                    </div>
+                    <button onclick="runSingleAgent('briefing')" class="w-full bg-slate-800 hover:bg-teal-600 text-white text-xs font-extrabold py-2 rounded-xl transition">▶ Run Agent 5 Now</button>
+                </div>
+            </div>
+
+            <!-- Agent Execution Audit Log -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <h3 class="font-black text-sm text-white">5-Agent Workforce Execution Log</h3>
+                    <span class="text-xs text-slate-400">{{ agent_runs|length }} recent runs recorded</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                                <th class="p-3">Timestamp</th>
+                                <th class="p-3">Agent</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3">Summary</th>
+                                <th class="p-3">Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            {% for run in agent_runs %}
+                            <tr>
+                                <td class="p-3 font-mono text-slate-400 whitespace-nowrap">{{ run.created_at }}</td>
+                                <td class="p-3 font-bold text-white whitespace-nowrap">{{ run.agent_name }}</td>
+                                <td class="p-3"><span class="bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full">{{ run.status }}</span></td>
+                                <td class="p-3 text-slate-300">{{ run.summary }}</td>
+                                <td class="p-3 font-mono text-slate-400">{{ run.duration_ms }}ms</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="p-6 text-center text-slate-500">No agent runs logged yet. Click "Run Full 5-Agent Ops Suite" above.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 5: TENANT & CONTRACTOR PARTNER MANAGER -->
+        <!-- ================================================================= -->
+        <section id="tab-tenants" class="tab-panel hidden space-y-6">
+            <div class="grid md:grid-cols-2 gap-6">
+                {% for t in tenants %}
+                <div class="bg-slate-900 border-2 {% if t.is_active %}border-emerald-500{% else %}border-slate-800{% endif %} rounded-3xl p-6 space-y-4">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] font-black uppercase px-2.5 py-1 rounded-full {% if t.is_active %}bg-emerald-500/20 text-emerald-300{% else %}bg-slate-800 text-slate-400{% endif %}">
+                                {% if t.is_active %}🟢 ACTIVE DISPATCH PARTNER{% else %}⚪ STANDBY PARTNER{% endif %}
+                            </span>
+                            <h3 class="text-xl font-black text-white mt-2">{{ t.company_name }}</h3>
+                            <p class="text-xs text-slate-400">ID: <code>{{ t.tenant_id }}</code> • Estimator: <strong>{{ t.estimator_name }}</strong></p>
+                        </div>
+                        {% if not t.is_active %}
+                        <button onclick="switchActiveTenant('{{ t.tenant_id }}')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow transition">
+                            ⚡ Set Active in 1s
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                        <div><span class="text-slate-500 block">Dispatch Phone:</span><strong class="text-white">{{ t.dispatch_phone }}</strong></div>
+                        <div><span class="text-slate-500 block">Notification Email:</span><strong class="text-white">{{ t.email }}</strong></div>
+                        <div><span class="text-slate-500 block">Monthly Retainer:</span><strong class="text-emerald-400">${{ "{:,.2f}".format(t.monthly_retainer) }}/mo</strong></div>
+                        <div><span class="text-slate-500 block">Partner Portal PIN:</span><strong class="font-mono text-amber-300">{{ t.portal_pin }}</strong></div>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-1">
+                        <a href="/portal?tenant_id={{ t.tenant_id }}&pin={{ t.portal_pin }}" class="text-xs font-bold text-teal-400 hover:underline">
+                            Open {{ t.company_name }}'s Partner Portal (/portal) →
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Add / Update Roofing Partner Form -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+                <h3 class="text-base font-black text-white mb-4">+ Add or Update Roofing Partner Tenant</h3>
+                <form onsubmit="saveTenantPartner(event)" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <input type="text" id="tp_name" placeholder="Company Name *" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="text" id="tp_estimator" placeholder="Estimator Name (e.g. Hannah)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="text" id="tp_phone" placeholder="Dispatch Phone (+1732...)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="email" id="tp_email" placeholder="Partner Email" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="text" id="tp_pin" placeholder="6-Digit Portal PIN (e.g. 732300)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl px-4 py-2">Save Partner</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 6: SYSTEM & AUTOMATION KILL-SWITCHES -->
+        <!-- ================================================================= -->
+        <section id="tab-settings" class="tab-panel hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6 max-w-3xl">
+                <div>
+                    <span class="text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 px-2.5 py-1 rounded-full">Manual Override Controls</span>
+                    <h3 class="text-lg font-black text-white mt-1">Global Automation Kill-Switches & GBP Connectors</h3>
+                    <p class="text-xs text-slate-400">Changes take effect immediately across all 5 autonomous agents and web routes.</p>
+                </div>
+
+                <form onsubmit="saveKillSwitches(event)" class="space-y-4 text-xs">
+                    <label class="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-2xl cursor-pointer">
+                        <div>
+                            <div class="font-bold text-white">24-Hour Hybrid Auto-Publish Mode</div>
+                            <div class="text-slate-400">Automatically publish contractor photos & AI GBP drafts after 24h if not rejected.</div>
+                        </div>
+                        <input type="checkbox" id="ks_auto_publish_24h" {% if sys_settings.get('auto_publish_24h') == 'true' %}checked{% endif %} class="w-5 h-5 accent-teal-500">
+                    </label>
+
+                    <label class="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-2xl cursor-pointer">
+                        <div>
+                            <div class="font-bold text-white">Automated Compliant Review SMS on 'Completed' Status</div>
+                            <div class="text-slate-400">Immediately text homeowner their <code>/feedback/{lead_id}</code> link when contractor taps Completed.</div>
+                        </div>
+                        <input type="checkbox" id="ks_enable_review_sms" {% if sys_settings.get('enable_review_sms') == 'true' %}checked{% endif %} class="w-5 h-5 accent-teal-500">
+                    </label>
+
+                    <label class="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-2xl cursor-pointer">
+                        <div>
+                            <div class="font-bold text-white">Live NWS Weather Storm Triage Banner</div>
+                            <div class="text-slate-400">Automatically activate emergency storm banner when NWS issues Ocean County wind/gale alerts.</div>
+                        </div>
+                        <input type="checkbox" id="ks_enable_weather_storm_banner" {% if sys_settings.get('enable_weather_storm_banner') == 'true' %}checked{% endif %} class="w-5 h-5 accent-teal-500">
+                    </label>
+
+                    <label class="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-2xl cursor-pointer">
+                        <div>
+                            <div class="font-bold text-white">Vapi 30-Second Outbound Speed-to-Lead Callback</div>
+                            <div class="text-slate-400">Trigger instant AI voice callback when a homeowner submits the 60-second website quiz.</div>
+                        </div>
+                        <input type="checkbox" id="ks_enable_vapi_callback" {% if sys_settings.get('enable_vapi_callback') == 'true' %}checked{% endif %} class="w-5 h-5 accent-teal-500">
+                    </label>
+
+                    <div class="grid sm:grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Google Business Profile Review Link</label>
+                            <input type="text" id="ks_gbp_review_url" value="{{ sys_settings.get('gbp_review_url', '') }}" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">GBP OAuth / Make / Zapier Auto-Post Webhook URL</label>
+                            <input type="text" id="ks_gbp_webhook_url" value="{{ sys_settings.get('gbp_webhook_url', '') }}" placeholder="https://hook.us1.make.com/..." class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-3 rounded-xl shadow transition">
+                        💾 Save System & Automation Settings
+                    </button>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        function showToast(msg) {
+            const el = document.getElementById('toastBanner');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3500);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('border-teal-400', 'text-teal-300');
+                b.classList.add('border-transparent', 'text-slate-400');
+            });
+            const panel = document.getElementById('tab-' + tabName);
+            const btn = document.getElementById('tabBtn-' + tabName);
+            if (panel) panel.classList.remove('hidden');
+            if (btn) {
+                btn.classList.add('border-teal-400', 'text-teal-300');
+                btn.classList.remove('border-transparent', 'text-slate-400');
+            }
+        }
+
+        function filterCrmTable() {
+            const q = (document.getElementById('crmSearchInput').value || '').toLowerCase();
+            document.querySelectorAll('.crm-row').forEach(row => {
+                const text = (row.getAttribute('data-search') || '').toLowerCase();
+                row.style.display = text.includes(q) ? '' : 'none';
+            });
+        }
+
+        async function updateLeadInline(leadId, payload) {
+            const res = await fetch(`/api/admin/leads/${leadId}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                let msg = `Saved ${leadId}!`;
+                if (data.review_sms_result && data.review_sms_result.sent) {
+                    msg += ` Review SMS automatically dispatched!`;
+                }
+                showToast(msg);
+            }
+        }
+
+        async function createManualLead(e) {
+            e.preventDefault();
+            const payload = {
+                first_name: document.getElementById('nl_first').value,
+                last_name: document.getElementById('nl_last').value,
+                phone: document.getElementById('nl_phone').value,
+                city: document.getElementById('nl_city').value,
+                estimated_value: document.getElementById('nl_value').value,
+                lead_source: 'Owner Manual Entry'
+            };
+            const res = await fetch('/api/admin/leads', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast('Lead added! Reloading...');
+                setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        async function deleteLeadRow(leadId) {
+            const res = await fetch(`/api/admin/leads/${leadId}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast(`Deleted ${leadId}`);
+                setTimeout(() => location.reload(), 500);
+            }
+        }
+
+        async function handleCrmImport(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('crmImportFile');
+            if (!fileInput.files.length) return;
+            const fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            const res = await fetch('/api/crm/import', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`Imported ${data.imported_count} new, updated ${data.updated_count} leads!`);
+                setTimeout(() => location.reload(), 900);
+            }
+        }
+
+        async function handlePhotoUpload(e, uploadedBy) {
+            e.preventDefault();
+            const form = e.target;
+            const fd = new FormData(form);
+            fd.append('uploaded_by', uploadedBy);
+            const res = await fetch('/api/media/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(data.message);
+                setTimeout(() => location.reload(), 900);
+            }
+        }
+
+        async function projectAction(projectId, action) {
+            const res = await fetch(`/api/admin/projects/${projectId}/action`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action})
+            });
+            if (res.ok) {
+                showToast(`Project ${action}d!`);
+                setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        async function gbpAction(postId, action) {
+            const res = await fetch(`/api/admin/gbp/${postId}/action`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action})
+            });
+            if (res.ok) {
+                showToast(`GBP Post ${action}ed!`);
+                setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        async function reviewAction(revId, action) {
+            const draft = document.getElementById('revReply-' + revId).value;
+            const res = await fetch(`/api/admin/reviews/${revId}/action`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action, ai_reply_draft: draft})
+            });
+            if (res.ok) {
+                showToast('Review reply approved & published!');
+                setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        async function runSingleAgent(agentKey) {
+            showToast(`Running ${agentKey}...`);
+            const res = await fetch(`/api/agents/run/${agentKey}`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(data.summary || `Completed ${agentKey}`);
+                setTimeout(() => location.reload(), 900);
+            }
+        }
+
+        async function runAllAgentsNow() {
+            const btn = document.getElementById('headerRunAllBtn');
+            btn.disabled = true;
+            btn.innerText = '⏳ Running All 5 Agents...';
+            const res = await fetch('/api/agents/run-all', { method: 'POST' });
+            if (res.ok) {
+                showToast('All 5 Autonomous Agents executed successfully!');
+                setTimeout(() => location.reload(), 900);
+            }
+        }
+
+        async function switchActiveTenant(tenantId) {
+            const res = await fetch('/api/admin/tenants/switch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({tenant_id: tenantId, switched_by: 'owner_command_center'})
+            });
+            if (res.ok) {
+                showToast(`Switched active partner to ${tenantId}!`);
+                setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        async function saveTenantPartner(e) {
+            e.preventDefault();
+            const payload = {
+                company_name: document.getElementById('tp_name').value,
+                estimator_name: document.getElementById('tp_estimator').value,
+                dispatch_phone: document.getElementById('tp_phone').value,
+                email: document.getElementById('tp_email').value,
+                portal_pin: document.getElementById('tp_pin').value,
+                monthly_retainer: 1500
+            };
+            const res = await fetch('/api/admin/tenants', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast('Partner saved!');
+                setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        async function saveKillSwitches(e) {
+            e.preventDefault();
+            const payload = {
+                auto_publish_24h: document.getElementById('ks_auto_publish_24h').checked,
+                enable_review_sms: document.getElementById('ks_enable_review_sms').checked,
+                enable_weather_storm_banner: document.getElementById('ks_enable_weather_storm_banner').checked,
+                enable_vapi_callback: document.getElementById('ks_enable_vapi_callback').checked,
+                gbp_review_url: document.getElementById('ks_gbp_review_url').value,
+                gbp_webhook_url: document.getElementById('ks_gbp_webhook_url').value
+            };
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast('System settings & kill-switches updated!');
+            }
+        }
+
+        function copyTextById(elId) {
+            const text = document.getElementById(elId).innerText;
+            navigator.clipboard.writeText(text);
+            showToast('Copied to clipboard!');
+        }
+
+        function copyInputVal(elId) {
+            const text = document.getElementById(elId).value;
+            navigator.clipboard.writeText(text);
+            showToast('Copied reply to clipboard!');
+        }
+    </script>
+</body>
+</html>

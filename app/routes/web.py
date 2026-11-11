@@ -1,19 +1,28 @@
+import json
 import logging
-from fastapi import APIRouter, Request, HTTPException, Response
-from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
 import os
 from datetime import datetime
+from typing import Dict, Any
+from fastapi import APIRouter, Request, HTTPException, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 from app.config import (
     settings,
     load_brand_config,
     load_services_data,
     load_towns_data,
-    get_town_by_slug
+    get_town_by_slug,
 )
 from app.services.tenant_manager import TenantManager
+from app.services.db import (
+    list_job_projects,
+    list_reviews,
+    get_setting,
+    get_bool_setting,
+)
+from app.agents.gbp_seo_agent import build_dynamic_town_json_ld
 
 router = APIRouter(tags=["Website, SEO & Tenant Management"])
 logger = logging.getLogger(__name__)
@@ -22,9 +31,64 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+
 class TenantSwitchRequest(BaseModel):
     tenant_id: str
     switched_by: str = "admin"
+
+
+def _build_town_page_context(town: Dict[str, Any]) -> Dict[str, Any]:
+    brand = load_brand_config()
+    services = load_services_data()
+    all_towns = load_towns_data()
+    town_slug = town.get("slug", "roofing-toms-river-nj")
+
+    approved_all = list_job_projects(approval_status="approved")
+    town_projects = [p for p in approved_all if p.get("town_slug") == town_slug]
+    # Supplement with nearby Ocean County approved projects so every town silo displays rich visual proof
+    other_projects = [p for p in approved_all if p.get("town_slug") != town_slug]
+    display_projects = (town_projects + other_projects)[:6]
+
+    public_reviews = list_reviews(public_only=True)
+    town_reviews = [r for r in public_reviews if r.get("town_slug") == town_slug]
+    other_reviews = [r for r in public_reviews if r.get("town_slug") != town_slug]
+    display_reviews = (town_reviews + other_reviews)[:6]
+
+    dynamic_json_ld = build_dynamic_town_json_ld(
+        town=town,
+        brand=brand,
+        projects=display_projects,
+        reviews=display_reviews,
+    )
+
+    storm_alert_active = get_bool_setting("storm_alert_active", False) and get_bool_setting(
+        "enable_weather_storm_banner", True
+    )
+    storm_alert_headline = get_setting(
+        "storm_alert_headline",
+        "🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily",
+    )
+    raw_ticker = get_setting("dispatch_ticker_json", "[]")
+    try:
+        ticker_list = json.loads(raw_ticker)
+    except Exception:
+        ticker_list = []
+
+    return {
+        "brand": brand,
+        "services": services,
+        "town": town,
+        "all_towns": all_towns,
+        "current_town": town,
+        "town_projects": display_projects,
+        "exact_town_project_count": len(town_projects),
+        "town_reviews": display_reviews,
+        "dynamic_json_ld": dynamic_json_ld,
+        "storm_alert_active": storm_alert_active,
+        "storm_alert_headline": storm_alert_headline,
+        "dispatch_ticker_messages": ticker_list,
+    }
+
 
 @router.get("/", response_class=HTMLResponse)
 async def render_hub_page(request: Request):
@@ -32,22 +96,11 @@ async def render_hub_page(request: Request):
     Renders the Master County Hub Landing Page.
     Defaults to the primary base city (Toms River, NJ) with county-wide silo links.
     """
-    brand = load_brand_config()
-    services = load_services_data()
     all_towns = load_towns_data()
     primary_town = get_town_by_slug("roofing-toms-river-nj") or (all_towns[0] if all_towns else {})
+    ctx = _build_town_page_context(primary_town)
+    return templates.TemplateResponse(request, "location_page.html", ctx)
 
-    return templates.TemplateResponse(
-        request,
-        "location_page.html",
-        {
-            "brand": brand,
-            "services": services,
-            "town": primary_town,
-            "all_towns": all_towns,
-            "current_town": primary_town
-        }
-    )
 
 @router.get("/privacy-policy", response_class=HTMLResponse)
 async def render_privacy_policy(request: Request):
@@ -58,9 +111,10 @@ async def render_privacy_policy(request: Request):
         {
             "brand": brand,
             "business_name": brand.get("brand_name", settings.BUSINESS_NAME),
-            "phone_number": brand.get("primary_phone", settings.PRIMARY_PHONE)
-        }
+            "phone_number": brand.get("primary_phone", settings.PRIMARY_PHONE),
+        },
     )
+
 
 @router.get("/terms", response_class=HTMLResponse)
 async def render_terms(request: Request):
@@ -71,9 +125,10 @@ async def render_terms(request: Request):
         {
             "brand": brand,
             "business_name": brand.get("brand_name", settings.BUSINESS_NAME),
-            "phone_number": brand.get("primary_phone", settings.PRIMARY_PHONE)
-        }
+            "phone_number": brand.get("primary_phone", settings.PRIMARY_PHONE),
+        },
     )
+
 
 # ------------------------------------------------------------------------------
 # SEO MOAT: DYNAMIC XML SITEMAP & ROBOTS.TXT
@@ -85,16 +140,18 @@ async def get_robots_txt():
     content = (
         "User-agent: *\n"
         "Allow: /\n"
-        "Disallow: /api/\n\n"
+        "Disallow: /api/\n"
+        "Disallow: /admin\n"
+        "Disallow: /portal\n\n"
         "Sitemap: https://oceancountyroofingpros.com/sitemap.xml\n"
     )
     return PlainTextResponse(content=content, media_type="text/plain")
 
+
 @router.get("/sitemap.xml")
 async def get_sitemap_xml():
     """
-    Generates dynamic XML sitemap indexing all county town silos for Googlebot.
-    Enables ranking in organic search results below the Google Map Pack.
+    Generates dynamic XML sitemap indexing all 10 county town silos for Googlebot.
     """
     base_url = "https://oceancountyroofingpros.com"
     today_iso = datetime.now().strftime("%Y-%m-%d")
@@ -112,26 +169,32 @@ async def get_sitemap_xml():
     for town in all_towns:
         slug = town.get("slug")
         if slug:
-            urls.append(f"""  <url>
+            urls.append(
+                f"""  <url>
     <loc>{base_url}/{slug}</loc>
     <lastmod>{today_iso}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-  </url>""")
+  </url>"""
+            )
 
-    urls.append(f"""  <url>
+    urls.append(
+        f"""  <url>
     <loc>{base_url}/privacy-policy</loc>
     <lastmod>{today_iso}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
-  </url>""")
+  </url>"""
+    )
 
-    urls.append(f"""  <url>
+    urls.append(
+        f"""  <url>
     <loc>{base_url}/terms</loc>
     <lastmod>{today_iso}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
-  </url>""")
+  </url>"""
+    )
 
     sitemap_xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -139,6 +202,7 @@ async def get_sitemap_xml():
 </urlset>"""
 
     return Response(content=sitemap_xml, media_type="application/xml")
+
 
 # ------------------------------------------------------------------------------
 # MULTI-TENANT ADMIN ENDPOINTS (RANK AND RENT ENGINE)
@@ -151,27 +215,31 @@ async def list_tenants_admin():
     all_tenants = TenantManager.list_all_tenants()
     return {
         "active_tenant_id": active_tenant.tenant_id,
-        "active_tenant": active_tenant.dict(),
+        "active_tenant": active_tenant.model_dump(),
         "total_tenants": len(all_tenants),
-        "tenants": [t.dict() for t in all_tenants]
+        "tenants": [t.model_dump() for t in all_tenants],
     }
+
 
 @router.post("/api/admin/tenants/switch")
 async def switch_tenant_admin(body: TenantSwitchRequest):
     """
     Switches active contractor tenant in 1 second without server rebuild or downtime.
-    Redirects calendar appointments, SMS lead alerts, and estimator assignments.
     """
     success = TenantManager.switch_tenant(body.tenant_id, switched_by=body.switched_by)
     if not success:
-        raise HTTPException(status_code=400, detail=f"Failed to switch to tenant '{body.tenant_id}'. Verify tenant file exists.")
-    
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to switch to tenant '{body.tenant_id}'. Verify tenant exists.",
+        )
+
     new_active = TenantManager.get_active_tenant()
     return {
         "status": "success",
         "message": f"Successfully switched active contractor to: {new_active.company_name}",
-        "active_tenant": new_active.dict()
+        "active_tenant": new_active.model_dump(),
     }
+
 
 # ------------------------------------------------------------------------------
 # DYNAMIC GEO-SILO TOWN PAGES (Catch-all for town slugs)
@@ -190,18 +258,5 @@ async def render_dynamic_location_page(request: Request, town_slug: str):
     if not town:
         raise HTTPException(status_code=404, detail=f"Location page '{town_slug}' not found.")
 
-    brand = load_brand_config()
-    services = load_services_data()
-    all_towns = load_towns_data()
-
-    return templates.TemplateResponse(
-        request,
-        "location_page.html",
-        {
-            "brand": brand,
-            "services": services,
-            "town": town,
-            "all_towns": all_towns,
-            "current_town": town
-        }
-    )
+    ctx = _build_town_page_context(town)
+    return templates.TemplateResponse(request, "location_page.html", ctx)
