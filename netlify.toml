@@ -13,7 +13,6 @@
     "google_credentials.json",
     "brand.yaml"
   ]
-  timeout = 26
 
 # Serve static files directly from Netlify Global CDN at edge speed
 [[redirects]]
