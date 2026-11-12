@@ -234,12 +234,18 @@ def get_spread_open_slots(target_date: datetime.date, events: List[Dict[str, Any
 def check_available_slots(date_str: str, preferred_time: Optional[str] = None) -> Dict[str, Any]:
     """
     Dynamic Availability Engine:
-    1. If caller provides a preferred time:
-       - Checks if that exact time is free.
-       - If taken, finds the 2-3 closest alternative available times on that day.
-    2. If caller does not specify a time:
-       - Offers open times spread across morning and afternoon.
+    - If tenant uses an external scheduling tool (Calendly, SavvyCal, etc.), returns their direct booking URL.
+    - Otherwise queries live Google Calendar for the active tenant dispatch calendar.
     """
+    tenant = TenantManager.get_active_tenant()
+    if tenant.scheduling_type == "external_link" and tenant.booking_url:
+        return {
+            "available": True,
+            "scheduling_type": "external_link",
+            "booking_url": tenant.booking_url,
+            "message": f"Please select your preferred roof inspection time directly on {tenant.company_name}'s calendar: {tenant.booking_url}"
+        }
+
     target_date, date_iso = resolve_target_date(date_str)
     events = get_live_calendar_events(date_iso)
     parsed_req_time = parse_time_string(preferred_time) if preferred_time else None
@@ -300,9 +306,19 @@ def check_available_slots(date_str: str, preferred_time: Optional[str] = None) -
 def book_calendar_appointment(customer_name: str, phone: str, address: str, service: str, date_str: str, time_str: str, customer_email: Optional[str] = None) -> Dict[str, Any]:
     """
     Validates availability in real-time, then books the appointment to Google Calendar.
-    Sends Google Calendar invitation and auto-syncs to the customer's calendar if email is provided.
-    If a conflict is detected, returns closest alternatives.
+    If tenant uses an external booking link (Calendly, etc.), acknowledges and returns booking link.
     """
+    tenant = TenantManager.get_active_tenant()
+    if tenant.scheduling_type == "external_link" and tenant.booking_url:
+        return {
+            "status": "success",
+            "scheduling_type": "external_link",
+            "booking_url": tenant.booking_url,
+            "message": f"Appointment request noted. Please finalize your slot at: {tenant.booking_url}",
+            "customer_name": customer_name,
+            "phone": phone
+        }
+
     target_date, date_iso = resolve_target_date(date_str)
     parsed_time = parse_time_string(time_str)
     if not parsed_time:

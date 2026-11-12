@@ -28,6 +28,8 @@ class TenantConfig(BaseModel):
     dispatch_phone: str = "+17326609121"
     notification_email: str = "dispatch@example.com"
     portal_pin: str = "732100"
+    scheduling_type: str = "google_calendar"  # "google_calendar" or "external_link"
+    booking_url: Optional[str] = ""            # e.g. "https://calendly.com/joe-the-roofer/inspection"
     google_calendar_id: str = "7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com"
     service_license: str = "Fully Licensed & Insured NJ HIC"
     billing_type: str = "flat_monthly_retainer"
@@ -46,6 +48,8 @@ def _record_to_tenant_config(rec: Dict[str, Any]) -> TenantConfig:
         dispatch_phone=rec.get("dispatch_phone") or "+17326609121",
         notification_email=rec.get("email") or rec.get("notification_email") or "powurnj@gmail.com",
         portal_pin=str(rec.get("portal_pin") or "732100"),
+        scheduling_type=rec.get("scheduling_type") or "google_calendar",
+        booking_url=rec.get("booking_url") or "",
         google_calendar_id=rec.get("calendar_id") or rec.get("google_calendar_id") or "primary",
         service_license=rec.get("service_license") or "Fully Licensed & Insured NJ HIC",
         monthly_rate=float(rec.get("monthly_retainer") or rec.get("monthly_rate") or 1500.00),
