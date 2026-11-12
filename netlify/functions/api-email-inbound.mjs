@@ -4,7 +4,22 @@
  */
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 
-const RESEND_API_URL = "https://api.resend.com/emails";
+const RESEND_RECEIVING_API_URL = "https://api.resend.com/emails/receiving";
+
+function stripHtmlTags(html) {
+  if (!html) return "";
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<\/(div|p|br|li|tr|h[1-6])>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 export default async (req, context) => {
   if (req.method !== "POST") {
@@ -28,7 +43,7 @@ export default async (req, context) => {
 
     console.log("[api-email-inbound] Received webhook event:", payload.type);
 
-    // Only process email.received events
+    // Only process email.received events (or direct test payloads)
     if (payload.type !== "email.received" && !payload.data?.email_id && !payload.from) {
       return new Response(JSON.stringify({ status: "ignored", reason: "not_inbound_email" }), {
         status: 200,
@@ -39,17 +54,19 @@ export default async (req, context) => {
     const emailData = payload.data || payload;
     const emailId = emailData.email_id || emailData.id;
     let from = emailData.from || "";
-    let subject = emailData.subject || "Inquiry";
+    let to = emailData.to || [];
+    let subject = emailData.subject || "Roofing Inquiry";
     let textBody = emailData.text || "";
     let htmlBody = emailData.html || "";
-    const messageId = emailData.message_id || emailId;
+    let messageId = emailData.message_id || emailId;
+    let emailHeaders = emailData.headers || {};
 
-    // If body text is not provided in webhook payload, fetch from Resend REST API
+    // Fetch full inbound email content from Resend Receiving API
     const resendApiKey = process.env.RESEND_API_KEY;
-    if (emailId && (!textBody || textBody.length === 0) && resendApiKey) {
+    if (emailId && (!textBody || textBody.trim().length === 0) && resendApiKey) {
       try {
-        console.log(`[api-email-inbound] Fetching full email content for ${emailId} from Resend...`);
-        const fetchRes = await fetch(`${RESEND_API_URL}/${emailId}`, {
+        console.log(`[api-email-inbound] Fetching full email content for ${emailId} from Resend Receiving API...`);
+        const fetchRes = await fetch(`${RESEND_RECEIVING_API_URL}/${emailId}`, {
           headers: {
             "Authorization": `Bearer ${resendApiKey}`,
             "Content-Type": "application/json"
@@ -58,23 +75,34 @@ export default async (req, context) => {
 
         if (fetchRes.ok) {
           const fullEmail = await fetchRes.json();
-          from = from || fullEmail.from;
-          subject = subject || fullEmail.subject;
-          textBody = fullEmail.text || fullEmail.html || "";
-          htmlBody = fullEmail.html || "";
+          from = fullEmail.headers?.from || fullEmail.from || from;
+          to = fullEmail.to || to;
+          subject = fullEmail.subject || subject;
+          htmlBody = fullEmail.html || htmlBody;
+          textBody = fullEmail.text || stripHtmlTags(htmlBody) || "";
+          messageId = fullEmail.message_id || messageId;
+          emailHeaders = fullEmail.headers || emailHeaders;
+          console.log(`[api-email-inbound] Successfully retrieved inbound text body (${textBody.length} chars).`);
+        } else {
+          console.error(`[api-email-inbound] Resend Receiving API returned ${fetchRes.status}`);
         }
       } catch (fetchErr) {
-        console.error("[api-email-inbound] Error fetching full email from Resend:", fetchErr);
+        console.error("[api-email-inbound] Error fetching inbound email from Resend:", fetchErr);
       }
+    } else if (!textBody && htmlBody) {
+      textBody = stripHtmlTags(htmlBody);
     }
 
-    // Process email with Autonomous AI Email Agent
+    // Process email with Autonomous Rank-and-Rent AI Email Agent
     const result = await AIEmailAgent.processInboundEmail({
       from,
+      to,
       subject,
       textBody,
       htmlBody,
-      messageId
+      messageId,
+      emailId,
+      headers: emailHeaders
     });
 
     return new Response(JSON.stringify({

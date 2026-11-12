@@ -227,23 +227,26 @@ export class EmailService {
   }
 
   /**
-   * 3. AI Agent Automated Outbound Response (Signed by Riley)
+   * 3. AI Agent Automated Outbound Response (Signed by Active Estimator)
    */
-  static async sendAgentReply(toEmail, subject, textBody, inReplyToMessageId = null) {
+  static async sendAgentReply(toEmail, subject, textBody, inReplyToMessageId = null, tenant = null) {
     const headers = {};
     if (inReplyToMessageId) {
       headers["In-Reply-To"] = inReplyToMessageId;
       headers["References"] = inReplyToMessageId;
     }
 
+    const estimator = tenant?.estimator_name ? (tenant.estimator_name === "Riley" ? "Riley Davis" : tenant.estimator_name) : "Riley Davis";
+    const dispatchPhone = "(732) 660-9121";
+
     const htmlBody = `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; color: #1e293b; line-height: 1.6;">
   ${textBody.replace(/\n/g, "<br>")}
   <br><br>
   --<br>
-  <strong>Riley Davis</strong><br>
+  <strong>${estimator}</strong><br>
   Lead Scheduling Coordinator | Ocean County Roofing Pros<br>
-  Direct Dispatch: (732) 660-9121<br>
+  Direct Dispatch: ${dispatchPhone}<br>
   Website: <a href="https://oceancountyroofingpros.com">https://oceancountyroofingpros.com</a><br>
   <span style="color: #64748b; font-size: 12px;">Ocean County Roofing Pros is operated by Offgrid Media, LLC</span>
 </div>
@@ -255,6 +258,7 @@ export class EmailService {
       reply_to: this.getReplyToAddress(),
       subject: subject.startsWith("Re:") ? subject : `Re: ${subject}`,
       html: htmlBody,
+      text: `${textBody}\n\n--\n${estimator}\nLead Scheduling Coordinator | Ocean County Roofing Pros\nDirect Dispatch: ${dispatchPhone}\nWebsite: https://oceancountyroofingpros.com\nOcean County Roofing Pros is operated by Offgrid Media, LLC`,
       headers
     });
   }
