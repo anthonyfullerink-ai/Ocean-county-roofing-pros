@@ -48,11 +48,12 @@ def test_vapi_assistant_state_and_empathy_prompts():
     assert "License #" not in riley_prompt
 
 
-    # 4. Verify clean transfer protocol to avoid repetitive announcements
-    assert "Transfer Protocol" in sarah_prompt
-    assert "Do NOT speak an elaborate pre-transfer sentence" in sarah_prompt
+    # 4. Verify Sarah's industry knowledge base and low-friction qualification
+    assert "Roofing Industry Knowledge Base" in sarah_prompt
+    assert "Sun Exposure & Facing" in sarah_prompt
+    assert "Low-Friction Conversational Qualification Flow" in sarah_prompt
 
-    # 5. Verify 5-Point Lead Qualification Protocol & Attic Access
+    # 5. Verify 5-Point Lead Qualification Protocol & Attic Access in Riley
     assert "homeowner of the property" in riley_prompt
     assert "access to the attic" in riley_prompt
     assert "stairs or should our specialist bring a ladder" in riley_prompt
@@ -70,8 +71,8 @@ def test_vapi_cloud_assistant_properties():
 
     assert "Riley" in riley.get("name", "")
     assert riley.get("backchannelingEnabled") is True
-    assert riley.get("startSpeakingPlan", {}).get("waitSeconds") == 0.25
-    assert "Hi there, this is Riley with scheduling" in riley.get("firstMessage", "")
+    assert riley.get("startSpeakingPlan", {}).get("waitSeconds") == 0.85
+    assert "Hello, thanks for holding! This is Riley over in scheduling" in riley.get("firstMessage", "")
     assert riley.get("firstMessageMode") == "assistant-speaks-first"
     assert riley.get("voice", {}).get("voiceId") == "nPczCjzI2devNBz1zQrb"
     assert riley.get("voice", {}).get("model") == "eleven_v3"
