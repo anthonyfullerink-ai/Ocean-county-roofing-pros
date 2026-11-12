@@ -140,13 +140,13 @@ export default async (req, context) => {
         if (tenant.scheduling_type === "external_link" && tenant.booking_url) {
           results.push({
             toolCallId: callId,
-            result: `Appointment request registered for ${name} with ${tenant.company_name}! I have sent an SMS to ${phone} with a direct booking link to finalize your 15-minute arrival window: ${tenant.booking_url}. Our certified estimator ${tenant.assigned_estimator} looks forward to inspecting your roof at ${address}.`
+            result: `Appointment request registered for ${name} with ${tenant.company_name}! I have sent an SMS to ${phone} with a direct booking link to finalize your 15-minute arrival window: ${tenant.booking_url}. One of our certified roofing specialists will meet you at ${address} for the free 21-point inspection.`
           });
         } else {
           const inviteNote = email ? ` A calendar invite has been sent to ${email}.` : "";
           results.push({
             toolCallId: callId,
-            result: `Appointment successfully confirmed for ${name} on ${dateStr} at ${timeStr}. Our estimator ${tenant.assigned_estimator} from our certified crew will arrive at ${address} for the free 21-point roof inspection.${inviteNote}`
+            result: `Appointment successfully confirmed for ${name} on ${dateStr} at ${timeStr}. One of our certified roofing specialists from our local crew will arrive at ${address} for the free 21-point roof inspection.${inviteNote}`
           });
         }
       }

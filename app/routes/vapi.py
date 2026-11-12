@@ -215,13 +215,13 @@ async def handle_vapi_tool_calls(request: Request):
                 confirmation_msg = (
                     f"Appointment request registered for {name} with {active_tenant.company_name}! "
                     f"I have sent an SMS to {phone} with a direct booking link to finalize your 15-minute arrival window: {booking_url}. "
-                    f"Our certified estimator {active_tenant.assigned_estimator} looks forward to completing your free 21-point roof inspection at {address}."
+                    f"One of our certified roofing specialists will meet you at {address} for the free 21-point roof inspection."
                 )
             else:
                 invite_note = f" A calendar invite has been sent to {email}." if email else ""
                 confirmation_msg = (
                     f"Appointment successfully confirmed for {name} on {clean_date} at {clean_time}. "
-                    f"Our estimator {active_tenant.assigned_estimator} from our certified crew will arrive at {address} for the free 21-point roof inspection.{invite_note}"
+                    f"One of our certified roofing specialists from our local crew will arrive at {address} for the free 21-point roof inspection.{invite_note}"
                 )
             results.append({"toolCallId": call_id, "result": confirmation_msg})
 
