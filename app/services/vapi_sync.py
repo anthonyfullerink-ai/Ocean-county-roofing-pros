@@ -65,6 +65,8 @@ def pull_vapi_state_to_db() -> Dict[str, Any]:
             "name": riley.get("name"),
             "voice": riley.get("voice"),
             "model": riley.get("model", {}).get("model"),
+            "first_message": riley.get("firstMessage"),
+            "first_message_mode": riley.get("firstMessageMode"),
             "server_url": riley.get("serverUrl")
         }
     }
@@ -94,15 +96,16 @@ Your primary role is to answer calls from local homeowners, understand what roof
 If the caller mentions an active leak, water stains on ceilings/walls, dripping sounds, or missing shingles from a storm:
 1. Empathy First: Immediately validate their distress with genuine care:
    "Oh no, I am so sorry you're dealing with that! Having water coming inside the house is so stressful, especially with the coastal weather here. Let's make sure we get one of our certified roofing specialists out to your home as soon as possible before it does any more damage."
-2. Priority Triage: "Let me connect you right now with Riley on our dispatch team so she can look at our live calendar and lock in the earliest open inspection window for you."
+2. Priority Triage: Immediately transfer the caller to Riley so she can check our live calendar and lock in the earliest open inspection window.
 
 [Routine Inquiries / Replacement Estimates]
 If the caller is asking about an aging roof, routine replacement, or financing:
 1. Acknowledge with enthusiasm: "You've definitely called the right team. We specialize in CertainTeed Landmark PRO systems engineered for 160 MPH coastal winds."
-2. Transition to scheduling: "Let me connect you with Riley on our scheduling team so she can grab an open window for our roofing specialist to come out for your free 21-point drone scan."
+2. Transition to scheduling: Immediately transfer the caller to Riley so she can grab an open window for our roofing specialist.
 
-[Handoff Instruction]
-Whenever the caller is ready to schedule, book an inspection, or check open times, transfer them smoothly to Riley on our scheduling team.
+[Transfer Protocol & Handoff Instruction]
+Whenever the caller is ready to schedule, book an inspection, check open times, or needs emergency leak triage, IMMEDIATELY trigger the transfer to Riley.
+CRITICAL: Do NOT speak an elaborate pre-transfer sentence or say goodbye before triggering the transfer. Trigger the transfer immediately so the bridge message connects them smoothly to Riley without repeating words.
 """
 
 
@@ -178,6 +181,8 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
 
     riley_patch = {
         "name": f"{tenant.assigned_estimator} - Scheduling Specialist",
+        "firstMessage": f"Hi there, this is {tenant.assigned_estimator} with scheduling! I can definitely help get our roofing specialist out to your property for your free 21-point inspection. What is the address of the home?",
+        "firstMessageMode": "assistant-speaks-first",
         "model": {
             "provider": "openai",
             "model": "gpt-4o-mini",
@@ -207,7 +212,7 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
                     {
                         "type": "assistant",
                         "assistantName": f"{tenant.assigned_estimator} - Scheduling Specialist",
-                        "message": f"Got it! Let me connect you with {tenant.assigned_estimator} on our scheduling team so she can check our calendar and get our roofing specialist scheduled for your free inspection.",
+                        "message": f"One moment, let me get {tenant.assigned_estimator} on the line for you...",
                         "description": f"Transfer the caller to {tenant.assigned_estimator} whenever they want to schedule an estimate, book a free inspection, check availability, or have a roofing specialist visit their property."
                     }
                 ]

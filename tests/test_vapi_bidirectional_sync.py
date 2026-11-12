@@ -48,6 +48,11 @@ def test_vapi_assistant_state_and_empathy_prompts():
     assert "License #" not in riley_prompt
 
 
+    # 4. Verify clean transfer protocol to avoid repetitive announcements
+    assert "Transfer Protocol" in sarah_prompt
+    assert "Do NOT speak an elaborate pre-transfer sentence" in sarah_prompt
+
+
 def test_vapi_cloud_assistant_properties():
     """Queries live Vapi Cloud to verify assistant configuration."""
     riley = fetch_vapi_assistant(ASSISTANT_RILEY_ID)
@@ -56,6 +61,8 @@ def test_vapi_cloud_assistant_properties():
     assert "Riley" in riley.get("name", "")
     assert riley.get("backchannelingEnabled") is True
     assert riley.get("startSpeakingPlan", {}).get("waitSeconds") == 0.25
+    assert "Hi there, this is Riley with scheduling" in riley.get("firstMessage", "")
+    assert riley.get("firstMessageMode") == "assistant-speaks-first"
 
     assert "Sarah" in sarah.get("name", "")
     assert sarah.get("backchannelingEnabled") is True
