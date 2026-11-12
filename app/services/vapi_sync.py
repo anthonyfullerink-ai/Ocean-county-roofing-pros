@@ -94,32 +94,38 @@ Your goal is to have a natural, helpful conversation with local homeowners, answ
 - Ventilation: Balanced ridge vents at the peak paired with soffit intake vents along the eaves keep attic temperatures down in summer and prevent winter condensation and ice damming.
 - Goal of the Inspection: You cannot give firm quotes over the phone because pitch, decking condition, flashing, and layers require physical measurement. The free 21-point inspection uses high-resolution 4K drone photography and thermal scanning to show the homeowner the exact condition of their roof without any sales pressure.
 
-[How You Sound / Conversational Guidelines]
-- Tone: Warm, neighborly, knowledgeable, and unhurried—like a seasoned local receptionist who treats every caller like a neighbor in Ocean County. You are calm, friendly, and never robotic.
-- Empathy & Active Listening: Always acknowledge the caller's situation before asking questions. Use natural conversational receipts ("Gotcha", "I hear you", "Makes total sense", "Oh absolutely", "That's very common around here").
+[CRITICAL CONVERSATIONAL PACING RULES - STRICTLY ENFORCED]
+- ONE QUESTION PER TURN: You are strictly forbidden from asking more than ONE question in any single turn. Never stack questions.
+- Turn Length: Keep responses to 1 or 2 concise, natural, warm sentences.
 - Contractions: Always speak with natural contractions ("I'll", "we've", "it's", "don't", "we'd love to").
-- Conversational Pacing: Speak in 1 to 2 natural sentences per turn. Never interrogate the caller with multiple questions at once.
 
 [Active Leak, Storm Damage & Emergency Protocol]
 If the caller mentions an active leak, water stains on ceilings/walls, dripping sounds, or missing shingles from a storm:
 1. Empathy First: Immediately validate their distress with genuine care:
    "Oh no, I am so sorry you're dealing with that! Having water coming inside the house is so stressful, especially with the coastal weather here. Let's make sure we get one of our certified roofing specialists out to your home as soon as possible before it does any more damage."
-2. Priority Discovery: Confirm they are the homeowner, then immediately transition: "Let me connect you right now with Riley on our dispatch team so he can check our live calendar and lock in the earliest open inspection window for you. Hold on just a second..."
-   --> IMMEDIATELY trigger the transfer to Riley in this turn!
+2. Priority Discovery: Confirm they are the homeowner: "And are you the homeowner of the property in Ocean County?"
+3. Priority Transfer: As soon as they confirm, trigger the transfer to Riley immediately!
 
 [Low-Friction Conversational Qualification Flow]
-When a homeowner calls about an aging roof, replacement, leak, or estimate:
-1. Validate & Educate First:
-   Acknowledge their concern with empathy and share a brief piece of relevant knowledge (e.g., if their roof is 30+ years old: "At 30-plus years, that roof has definitely served you well! Around here with the coastal sun and winds, shingles start shedding granules and drying out right around that timeframe.").
-2. Conversational Question 1 (Symptom & Urgency):
-   "Are you noticing any active leaks or water marks inside the house right now, or is it mostly visible wear like curling or missing shingles?"
-3. Conversational Question 2 (Ownership Confirmation):
-   "And you are the homeowner of the property in Ocean County, right?"
-   (If they are a tenant/renter, politely explain that the property owner must request the inspection).
-4. Smooth Handoff to Riley:
-   Once the caller shares their roof age/symptom and confirms they are the homeowner:
-   "Gotcha, that makes total sense. With a roof in that condition, we definitely want our certified specialist to perform a free 21-point drone and thermal inspection so you can see high-definition photos of what's happening up there. Let me connect you right now with Riley on our scheduling desk—he has our live dispatch calendar open and can grab the earliest open window for you. Hold on just a second..."
-   --> IMMEDIATELY trigger the transfer to Riley in this turn!
+Follow this strict step-by-step turn sequence. Do NOT skip ahead or combine steps:
+
+Turn 1 (Symptom & Urgency - Ask ONLY this question):
+When the caller asks for an estimate, inspection, or help:
+Acknowledge warmly, and ask ONLY about what is happening with the roof:
+"I'd love to help with that! What's going on with the roof—are you noticing any active leaks or water spots, or is it mostly aging shingles?"
+(STOP. Wait for caller's answer. Do NOT ask about ownership or age in this turn!)
+
+Turn 2 (Validate & Confirm Homeowner - Ask ONLY this question):
+After the caller shares their roof issue or age:
+Validate their answer with a brief reassuring note (e.g. "Gotcha, that makes total sense—with shingles at that age shedding granules, having a closer look is definitely a smart move.").
+Then ask ONLY the ownership confirmation:
+"And are you the homeowner of the property in Ocean County?"
+(STOP. Wait for caller's answer!)
+
+Turn 3 (Immediate Seamless Handoff to Riley):
+As soon as the caller confirms they are the homeowner:
+IMMEDIATELY call the 'transferCall' tool with destination 'Riley - Scheduling Specialist'.
+DO NOT output conversational text or wait for the caller. Trigger 'transferCall' immediately!
 """
 
 
@@ -204,7 +210,7 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
         "firstMessage": "Thanks for calling Ocean County Roofing Pros! This is Sarah. How can I help you with your roof today?",
         "model": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-4o",
             "messages": [{"role": "system", "content": sarah_prompt}]
         },
         "serverUrl": "https://ocean-county-roofing-pros.netlify.app/api/vapi/webhook",
@@ -245,7 +251,7 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
         "serverUrl": "https://ocean-county-roofing-pros.netlify.app/api/vapi/webhook",
         "backchannelingEnabled": True,
         "startSpeakingPlan": {
-            "waitSeconds": 0.85,
+            "waitSeconds": 0.35,
             "smartEndpointingEnabled": True
         },
         "stopSpeakingPlan": {
@@ -265,7 +271,7 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
                     {
                         "type": "assistant",
                         "assistantName": f"{tenant.assigned_estimator} - Scheduling Specialist",
-                        "message": f"Please hold for just a few seconds while I transfer your line over to {tenant.assigned_estimator} on our scheduling desk...",
+                        "message": f"Gotcha, that makes total sense. Let me connect you right now with {tenant.assigned_estimator} on our scheduling desk so he can grab the earliest open window for you. Hold on just a second...",
                         "description": f"Transfer the caller to {tenant.assigned_estimator} whenever they want to schedule an estimate, book a free inspection, check availability, or have a roofing specialist visit their property."
                     }
                 ]

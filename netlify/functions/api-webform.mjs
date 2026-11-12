@@ -2,6 +2,8 @@
  * Netlify Serverless Function: Inbound Web Form Handler
  * Routes: POST /api/leads/webform
  */
+import { EmailService } from "./services/email-service.mjs";
+
 export default async (req, context) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -124,6 +126,33 @@ export default async (req, context) => {
       } catch (err) {
         console.error("Error dispatching SMS:", err);
       }
+    }
+
+    // 4. Send Domain-Branded Email Alerts via Resend
+    const customerEmail = body.email || "";
+    const emailLeadPayload = {
+      lead_id: leadId,
+      name: `${firstName} ${lastName}`.trim(),
+      phone: phone,
+      email: customerEmail,
+      address: `${address}, ${city}, NJ`.trim(),
+      date: body.preferred_date || "Pending Dispatch",
+      time: body.preferred_time || "Pending Dispatch",
+      service: service,
+      roof_age: body.diagnostic_situation || service,
+      attic_access: body.attic_access || "Attic access pending confirmation",
+      ladder_needed: "Standard",
+      decision_makers_present: "Yes",
+      source: "Website Lead Form"
+    };
+
+    try {
+      if (customerEmail && customerEmail.includes("@")) {
+        EmailService.sendBookingConfirmation(emailLeadPayload).catch(e => console.error("Webform confirmation email err:", e));
+      }
+      EmailService.sendOwnerLeadAlert(emailLeadPayload).catch(e => console.error("Webform owner email err:", e));
+    } catch (eErr) {
+      console.error("Webform email dispatch err:", eErr);
     }
 
     return new Response(JSON.stringify({

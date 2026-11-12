@@ -42,6 +42,12 @@
   to = "/.netlify/functions/api-admin"
   status = 200
 
+# Resend Inbound Email Webhook & AI Agent
+[[redirects]]
+  from = "/api/email/*"
+  to = "/.netlify/functions/api-email-inbound"
+  status = 200
+
 # Direct Static CDN Assets
 [[redirects]]
   from = "/static/*"

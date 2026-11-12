@@ -2,6 +2,8 @@
  * Netlify Serverless Function: Vapi Voice AI Tool Calling Handler
  * Routes: POST /api/vapi/tools
  */
+import { EmailService } from "./services/email-service.mjs";
+
 export default async (req, context) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
@@ -171,6 +173,29 @@ export default async (req, context) => {
           } catch (err) {
             console.error("Error logging Vapi lead to Supabase:", err);
           }
+        }
+
+        // Domain-branded email dispatch via Resend
+        const leadPayloadForEmail = {
+          lead_id: leadId,
+          name: name,
+          phone: phone,
+          email: email,
+          address: address,
+          date: dateStr,
+          time: timeStr,
+          service: service,
+          attic_access: atticAccess,
+          ladder_needed: ladderNeeded,
+          decision_makers_present: decisionMakers,
+          source: `Voice AI (${tenant.assigned_estimator || "Riley"})`
+        };
+
+        try {
+          EmailService.sendBookingConfirmation(leadPayloadForEmail).catch(e => console.error("Resend confirmation err:", e));
+          EmailService.sendOwnerLeadAlert(leadPayloadForEmail).catch(e => console.error("Resend owner alert err:", e));
+        } catch (emailErr) {
+          console.error("Email dispatch trigger error:", emailErr);
         }
 
         if (tenant.scheduling_type === "external_link" && tenant.booking_url) {
