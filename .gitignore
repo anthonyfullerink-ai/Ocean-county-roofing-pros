@@ -39,6 +39,7 @@ htmlcov/
 # Local Outputs & Logs
 outputs/
 *.log
+.netlify/
 
 # OS artifacts
 .DS_Store

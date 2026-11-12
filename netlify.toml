@@ -1,27 +1,43 @@
 [build]
-  command = "pip install -r requirements.txt"
+  command = "pip install -r requirements.txt && python build_static.py"
+  publish = "dist"
   functions = "netlify/functions"
-  publish = "app/static"
 
 [build.environment]
   PYTHON_VERSION = "3.11"
 
-[functions]
-  included_files = [
-    "app/**",
-    "config/**",
-    "google_credentials.json",
-    "brand.yaml"
-  ]
-
-# Serve static files directly from Netlify Global CDN at edge speed
+# Inbound Web Form Handler
 [[redirects]]
-  from = "/static/*"
-  to = "/:splat"
+  from = "/api/leads/webform"
+  to = "/.netlify/functions/api-webform"
   status = 200
 
-# Route all web pages, sitemaps, and Vapi API endpoints to the FastAPI Mangum handler
+# Vapi Voice AI Tool Calling
 [[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/api"
+  from = "/api/vapi/tools"
+  to = "/.netlify/functions/api-vapi-tools"
+  status = 200
+
+# Vapi End of Call & Webhook
+[[redirects]]
+  from = "/api/vapi/*"
+  to = "/.netlify/functions/api-vapi-webhook"
+  status = 200
+
+# Feedback / Resolution Hub
+[[redirects]]
+  from = "/api/feedback/*"
+  to = "/.netlify/functions/api-feedback"
+  status = 200
+
+# Admin & Tenant Management API
+[[redirects]]
+  from = "/api/admin/*"
+  to = "/.netlify/functions/api-admin"
+  status = 200
+
+# Direct Static CDN Assets
+[[redirects]]
+  from = "/static/*"
+  to = "/static/:splat"
   status = 200
