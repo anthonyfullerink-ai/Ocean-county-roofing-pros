@@ -617,12 +617,30 @@ export default async (req, context) => {
     if (path.includes("/settings")) {
       if (req.method === "GET") {
         const sysSettings = await AIEmailAgent.loadSystemSettings();
-        return jsonResponse({ status: "success", settings: sysSettings });
+        return new Response(JSON.stringify({ status: "success", settings: sysSettings }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"
+          }
+        });
       }
       if (req.method === "POST") {
         const body = await req.json();
+        const syncedBody = { ...body };
+        if ("emergency_banner_enabled" in body) {
+          syncedBody.storm_alert_active = String(body.emergency_banner_enabled) === "true" ? "true" : "false";
+        }
+        if ("emergency_banner_text" in body) {
+          syncedBody.storm_alert_headline = body.emergency_banner_text;
+        }
+        if ("ticker_messages_json" in body) {
+          syncedBody.dispatch_ticker_json = typeof body.ticker_messages_json === "string"
+            ? body.ticker_messages_json
+            : JSON.stringify(body.ticker_messages_json);
+        }
         if (supabaseUrl && supabaseKey) {
-          const rows = Object.entries(body).map(([k, v]) => ({
+          const rows = Object.entries(syncedBody).map(([k, v]) => ({
             key: k,
             value: typeof v === "object" ? JSON.stringify(v) : String(v),
             updated_at: new Date().toISOString()
@@ -635,7 +653,7 @@ export default async (req, context) => {
             });
           }
         }
-        return jsonResponse({ status: "success", settings: body });
+        return jsonResponse({ status: "success", settings: syncedBody });
       }
     }
 

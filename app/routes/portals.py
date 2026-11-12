@@ -672,9 +672,20 @@ async def api_admin_diagnostics():
     }
 
 
+@router.get("/api/admin/settings")
+async def api_get_system_settings():
+    return {"status": "success", "settings": get_all_settings()}
+
+
 @router.post("/api/admin/settings")
 async def api_update_system_settings(request: Request):
     body = await request.json()
+    if "emergency_banner_enabled" in body:
+        body["storm_alert_active"] = "true" if str(body["emergency_banner_enabled"]).lower() == "true" else "false"
+    if "emergency_banner_text" in body:
+        body["storm_alert_headline"] = body["emergency_banner_text"]
+    if "ticker_messages_json" in body:
+        body["dispatch_ticker_json"] = body["ticker_messages_json"]
     updated = update_settings_bulk(body)
     return {"status": "success", "settings": updated}
 

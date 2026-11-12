@@ -929,18 +929,30 @@ function hydrateSettingsInputs() {
 
 async function saveWebsiteCroSettings(e) {
     e.preventDefault();
+    const tickerRaw = document.getElementById('cro_ticker_messages_json').value.trim();
+    try {
+        const parsed = JSON.parse(tickerRaw);
+        if (!Array.isArray(parsed)) throw new Error('Ticker must be a JSON array');
+    } catch (err) {
+        return showToast('Invalid JSON array in Dispatch Activity Ticker Messages.', true);
+    }
     const payload = {
         emergency_banner_enabled: document.getElementById('cro_emergency_banner_enabled').checked ? 'true' : 'false',
         emergency_banner_text: document.getElementById('cro_emergency_banner_text').value,
         dispatch_phone_display: document.getElementById('cro_dispatch_phone_display').value,
-        ticker_messages_json: document.getElementById('cro_ticker_messages_json').value
+        ticker_messages_json: tickerRaw
     };
     const res = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
-    if (res.ok) showToast('Website & CRO settings saved to Supabase!');
+    if (res.ok) {
+        showToast('Website & CRO controls pushed live!');
+        refreshPreviewFrame();
+    } else {
+        showToast('Failed to save CRO controls.', true);
+    }
 }
 
 function previewWebsiteInRightPane(url = '/') {

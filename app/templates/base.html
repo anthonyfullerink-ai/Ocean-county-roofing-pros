@@ -46,8 +46,8 @@
 <body class="bg-brand-light text-slate-800 font-sans antialiased pb-20 md:pb-0">
 
     <!-- Top Emergency Announcement Bar with NWS Storm Triage & Live Dispatch Ticker -->
-    <div class="{% if storm_alert_active %}bg-amber-600{% else %}bg-brand-navy{% endif %} text-white text-xs md:text-sm py-2 px-4 text-center font-medium flex justify-center items-center gap-2 overflow-hidden">
-        <span class="inline-block w-2.5 h-2.5 rounded-full {% if storm_alert_active %}bg-white{% else %}bg-emerald-400{% endif %} animate-pulse shrink-0"></span>
+    <div id="topAnnouncementBar" class="{% if storm_alert_active %}bg-amber-600{% else %}bg-brand-navy{% endif %} text-white text-xs md:text-sm py-2 px-4 text-center font-medium flex justify-center items-center gap-2 overflow-hidden transition-colors duration-300">
+        <span id="topAnnouncementDot" class="inline-block w-2.5 h-2.5 rounded-full {% if storm_alert_active %}bg-white{% else %}bg-emerald-400{% endif %} animate-pulse shrink-0"></span>
         <span id="dispatchTicker" class="transition-opacity duration-300 font-semibold">
             {% if storm_alert_active %}
                 {{ storm_alert_headline }}
@@ -92,7 +92,7 @@
                     </svg>
                     <div class="text-left hidden sm:block">
                         <span class="block text-[10px] uppercase font-bold text-emerald-100 leading-none">24/7 Dispatch</span>
-                        <span class="text-sm font-extrabold leading-none">{{ brand.formatted_phone or brand.primary_phone }}</span>
+                        <span class="text-sm font-extrabold leading-none live-dispatch-phone">{{ brand.formatted_phone or brand.primary_phone }}</span>
                     </div>
                     <span class="sm:hidden font-extrabold">Call Now</span>
                 </a>
@@ -121,7 +121,7 @@
                 <a href="/privacy-policy" class="hover:text-white transition">Privacy Policy</a>
                 <a href="/terms" class="hover:text-white transition">Terms of Service</a>
                 <a href="/feedback" class="hover:text-white transition">Customer Review Hub</a>
-                <a href="tel:{{ brand.primary_phone }}" class="text-emerald-400 font-bold">{{ brand.formatted_phone or brand.primary_phone }}</a>
+                <a href="tel:{{ brand.primary_phone }}" class="text-emerald-400 font-bold live-dispatch-phone">{{ brand.formatted_phone or brand.primary_phone }}</a>
             </div>
         </div>
     </footer>
@@ -137,23 +137,91 @@
         </a>
     </div>
 
-    <!-- Live Ocean County Activity Ticker Script (Powered by Agent 4 Watchdog) -->
+    <!-- Live Ocean County Activity Ticker & Real-Time CRO Controls Hydration -->
     <script>
         (function() {
             const tickerEl = document.getElementById('dispatchTicker');
+            const barEl = document.getElementById('topAnnouncementBar');
+            const dotEl = document.getElementById('topAnnouncementDot');
             if (!tickerEl) return;
 
             const currentTown = "{{ current_town.town_name if current_town else 'Ocean County' }}";
             const dbTicker = {{ (dispatch_ticker_messages or []) | tojson }};
-            const messages = dbTicker.length > 0 ? dbTicker : [
+            let messages = dbTicker.length > 0 ? dbTicker : [
                 `🟢 Dispatched 14m ago: Free 21-Point Drone Inspection in Silverton, Toms River`,
                 `🟢 Dispatched 28m ago: Emergency Leak & Flashing Triage in Brick Township`,
                 `🟢 Dispatched 41m ago: CertainTeed Landmark Roof Replacement in Point Pleasant`,
                 `🟢 Active Estimator on-duty in ${currentTown} — Booking Same-Day Drone Inspections`
             ];
-
+            let stormActive = {{ 'true' if storm_alert_active else 'false' }};
+            let stormHeadline = {{ (storm_alert_headline or '') | tojson }};
             let idx = 0;
+
+            function applyBannerState() {
+                if (barEl && dotEl) {
+                    if (stormActive) {
+                        barEl.classList.remove('bg-brand-navy');
+                        barEl.classList.add('bg-amber-600');
+                        dotEl.classList.remove('bg-emerald-400');
+                        dotEl.classList.add('bg-white');
+                    } else {
+                        barEl.classList.remove('bg-amber-600');
+                        barEl.classList.add('bg-brand-navy');
+                        dotEl.classList.remove('bg-white');
+                        dotEl.classList.add('bg-emerald-400');
+                    }
+                }
+                if (stormActive && stormHeadline) {
+                    tickerEl.innerText = stormHeadline;
+                } else if (messages.length > 0) {
+                    tickerEl.innerText = messages[0];
+                }
+            }
+
+            function applyPhoneDisplay(phoneDisplay) {
+                if (!phoneDisplay || !phoneDisplay.trim()) return;
+                const trimmed = phoneDisplay.trim();
+                const digits = trimmed.replace(/\D/g, '');
+                const e164 = digits.length === 10 ? `+1${digits}` : (digits.length === 11 && digits.startsWith('1') ? `+${digits}` : trimmed);
+                document.querySelectorAll('.live-dispatch-phone').forEach(el => {
+                    el.innerText = trimmed;
+                });
+                document.querySelectorAll('a[href^="tel:"]').forEach(a => {
+                    a.setAttribute('href', `tel:${e164}`);
+                });
+            }
+
+            applyBannerState();
+
+            fetch(`/api/admin/settings?_t=${Date.now()}`, { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data || !data.settings) return;
+                    const s = data.settings;
+                    if ('emergency_banner_enabled' in s) {
+                        stormActive = String(s.emergency_banner_enabled).toLowerCase() === 'true';
+                    }
+                    if (s.emergency_banner_text) {
+                        stormHeadline = s.emergency_banner_text;
+                    }
+                    if (s.ticker_messages_json) {
+                        try {
+                            const parsed = JSON.parse(s.ticker_messages_json);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                messages = parsed;
+                            }
+                        } catch (e) {}
+                    }
+                    if (s.dispatch_phone_display) {
+                        applyPhoneDisplay(s.dispatch_phone_display);
+                    }
+                    applyBannerState();
+                })
+                .catch(() => {});
+
             setInterval(() => {
+                if (stormActive && stormHeadline) return;
+                if (!messages || messages.length === 0) return;
                 idx = (idx + 1) % messages.length;
                 tickerEl.style.opacity = '0';
                 setTimeout(() => {
