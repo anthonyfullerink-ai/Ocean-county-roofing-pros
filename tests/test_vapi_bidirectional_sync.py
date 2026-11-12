@@ -52,6 +52,16 @@ def test_vapi_assistant_state_and_empathy_prompts():
     assert "Transfer Protocol" in sarah_prompt
     assert "Do NOT speak an elaborate pre-transfer sentence" in sarah_prompt
 
+    # 5. Verify 5-Point Lead Qualification Protocol & Attic Access
+    assert "homeowner of the property" in riley_prompt
+    assert "access to the attic" in riley_prompt
+    assert "stairs or should our specialist bring a ladder" in riley_prompt
+    assert "spouse or co-owner be available" in riley_prompt
+
+    # 6. Verify wrap-up closing inquiry & dynamic date
+    assert "anything else I can help you with today" in riley_prompt
+    assert "Current Date Context" in riley_prompt
+
 
 def test_vapi_cloud_assistant_properties():
     """Queries live Vapi Cloud to verify assistant configuration."""
@@ -63,6 +73,8 @@ def test_vapi_cloud_assistant_properties():
     assert riley.get("startSpeakingPlan", {}).get("waitSeconds") == 0.25
     assert "Hi there, this is Riley with scheduling" in riley.get("firstMessage", "")
     assert riley.get("firstMessageMode") == "assistant-speaks-first"
+    assert riley.get("voice", {}).get("voiceId") == "nPczCjzI2devNBz1zQrb"
+    assert riley.get("voice", {}).get("model") == "eleven_v3"
 
     assert "Sarah" in sarah.get("name", "")
     assert sarah.get("backchannelingEnabled") is True

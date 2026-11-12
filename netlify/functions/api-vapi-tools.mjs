@@ -102,6 +102,42 @@ export default async (req, context) => {
         const timeStr = (args.time || "1:00 PM").trim();
         const leadId = `CALL-${Date.now() % 100000000}`;
 
+        const isHomeowner = args.is_homeowner || "Yes";
+        const roofAge = args.roof_age || "Standard inspection";
+        const atticAccess = args.attic_access || "Yes";
+        const ladderNeeded = args.ladder_needed || "Pull-down stairs";
+        const decisionMakers = args.decision_makers_present || "Yes";
+
+        const qualificationNotes = `Qualification: Homeowner: ${isHomeowner} | Roof Age: ${roofAge} | Attic Access: ${atticAccess} (Ladder: ${ladderNeeded}) | Both Decision Makers: ${decisionMakers}.`;
+
+        // Trigger Google Calendar Webhook (Google Apps Script) if configured
+        const gcalWebhookUrl = process.env.GOOGLE_CALENDAR_WEBHOOK_URL || "";
+        const secondaryCalId = "7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com";
+        if (gcalWebhookUrl) {
+          try {
+            await fetch(gcalWebhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                calendar_id: tenant.google_calendar_id || secondaryCalId,
+                customer_name: name,
+                phone: phone,
+                customer_email: email,
+                address: address,
+                service: service,
+                start: `${dateStr} ${timeStr}`,
+                is_homeowner: isHomeowner,
+                roof_age: roofAge,
+                attic_access: atticAccess,
+                ladder_needed: ladderNeeded,
+                decision_makers_present: decisionMakers
+              })
+            });
+          } catch (calErr) {
+            console.error("Error triggering Google Calendar Webhook:", calErr);
+          }
+        }
+
         // Save to Supabase Cloud
         if (supabaseUrl && supabaseKey) {
           try {
@@ -129,7 +165,7 @@ export default async (req, context) => {
                 status: "Inspection Booked",
                 appointment_slot: `${dateStr} ${timeStr}`,
                 assigned_tenant_id: tenant.tenant_id,
-                notes: `Booked via Voice AI dispatch for ${tenant.company_name}.`
+                notes: `Booked via Voice AI dispatch for ${tenant.company_name}. ${qualificationNotes}`
               })
             });
           } catch (err) {
