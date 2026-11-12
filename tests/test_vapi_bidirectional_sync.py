@@ -39,6 +39,14 @@ def test_vapi_assistant_state_and_empathy_prompts():
     assert "roofing specialist" in riley_prompt
     assert "CertainTeed" in sarah_prompt
 
+    # 3. Verify zero references to contractor or license numbers (Modular & Contractor-Agnostic)
+    assert "Joe The Roofer" not in sarah_prompt
+    assert "Joe The Roofer" not in riley_prompt
+    assert "13VH" not in sarah_prompt
+    assert "13VH" not in riley_prompt
+    assert "License #" not in sarah_prompt
+    assert "License #" not in riley_prompt
+
 
 def test_vapi_cloud_assistant_properties():
     """Queries live Vapi Cloud to verify assistant configuration."""
