@@ -1,21 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Operations Desk | Ocean County Roofing Pros</title>
+    <title>Operations Desk | Ocean County Roofing Pros — Partner Field Workspace</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
                     colors: {
+                        obsidian: {
+                            bg: '#0a0a0c',
+                            sidebar: '#0f1014',
+                            card: '#14161c',
+                            hover: '#1a1d26',
+                            border: '#1f222a',
+                            accent: '#14b8a6'
+                        },
                         brand: {
                             navy: '#0A486D',
-                            teal: '#17ABA4',
+                            teal: '#14b8a6',
                             dark: '#062B42'
                         }
                     }
@@ -23,238 +35,1291 @@
             }
         }
     </script>
+    <style>
+        body {
+            background-color: #0a0a0c;
+            color: #f1f5f9;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f222a;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #14b8a6;
+        }
+        .sidebar-collapsed .sidebar-label {
+            display: none !important;
+        }
+        .sidebar-collapsed .sidebar-item {
+            justify-content: center;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        .portal-nav-btn.active {
+            background-color: rgba(20, 184, 166, 0.12);
+            color: #f8fafc;
+            border-left: 2px solid #14b8a6;
+        }
+        .portal-nav-btn:not(.active) {
+            border-left: 2px solid transparent;
+            color: #94a3b8;
+        }
+        .portal-nav-btn:not(.active):hover {
+            background-color: #14161c;
+            color: #e2e8f0;
+        }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen pb-16">
+<body class="bg-[#0a0a0c] text-slate-100 font-sans antialiased h-screen overflow-hidden flex flex-col">
 
-    <!-- Top Mobile-First Partner Header -->
-    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
-        <div class="max-w-5xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <img src="/static/images/logo-icon-white.png" alt="Logo" class="h-9 w-auto">
-                <div>
-                    <div class="text-[10px] font-black uppercase tracking-wider text-teal-400">Partner Field Workspace</div>
-                    <h1 class="text-base sm:text-lg font-black text-white leading-tight">{{ tenant.company_name }}</h1>
-                </div>
-            </div>
+    <!-- Toast Notification Banner -->
+    <div id="portalToast" class="hidden fixed bottom-5 right-5 left-5 sm:left-auto z-50 bg-[#14161c] text-white px-5 py-3.5 rounded-xl shadow-2xl text-xs font-extrabold border border-[#14b8a6] flex items-center gap-2.5 max-w-md">
+        <span class="w-2 h-2 rounded-full bg-[#14b8a6] animate-ping shrink-0"></span>
+        <span id="portalToastText">Action completed</span>
+    </div>
 
-            <!-- Partner PIN Login / Switcher -->
-            <form onsubmit="handlePartnerLogin(event)" class="flex items-center gap-2">
-                <input type="text" id="partnerIdentifier" placeholder="Email or ID (optional)" class="hidden sm:block bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white w-36">
-                <input type="password" id="partnerPin" placeholder="6-Digit PIN (e.g. {{ tenant.portal_pin }})" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-amber-300 font-mono w-40">
-                <button type="submit" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-3 py-1.5 rounded-xl">Unlock</button>
-            </form>
-        </div>
-    </header>
-
-    <!-- Toast Banner -->
-    <div id="portalToast" class="hidden fixed bottom-5 right-5 left-5 sm:left-auto z-50 bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-xs font-extrabold border border-emerald-400 text-center"></div>
-
-    <main class="max-w-5xl mx-auto px-4 py-6 space-y-8">
+    <!-- ===================================================================== -->
+    <!-- 3-PANE ANTIGRAVITY OBSIDIAN WORKSPACE SHELL                           -->
+    <!-- ===================================================================== -->
+    <div class="flex flex-1 h-full overflow-hidden">
 
         <!-- ================================================================= -->
-        <!-- 1. MY LIVE CONTRACTOR ROI SCOREBOARD -->
+        <!-- PANE 1: LEFT COLLAPSIBLE SIDEBAR (#portalLeftSidebar)             -->
         <!-- ================================================================= -->
-        <section class="bg-gradient-to-br from-slate-900 via-brand-dark to-slate-900 border border-teal-500/30 rounded-3xl p-5 sm:p-6 shadow-xl">
-            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
-                <div>
-                    <span class="bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full">Live Partner ROI Scoreboard</span>
-                    <h2 class="text-lg sm:text-xl font-black text-white mt-1">Your Dispatched Pipeline & Retainer Return</h2>
-                </div>
-                <div class="text-right">
-                    <span class="text-[11px] text-slate-400 block">Assigned Estimator: <strong class="text-white">{{ tenant.estimator_name }}</strong></span>
-                    <span class="text-[11px] text-slate-400 block">Dispatch Line: <strong class="text-emerald-400">{{ tenant.dispatch_phone }}</strong></span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
-                    <div class="text-[10px] uppercase font-bold text-slate-400">Leads Dispatched</div>
-                    <div class="text-2xl sm:text-3xl font-black text-white mt-1" id="kpiTotalLeads">{{ kpis.total_leads }}</div>
-                    <div class="text-[11px] text-teal-400 mt-0.5">{{ kpis.booked_count }} Booked Inspections</div>
-                </div>
-                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
-                    <div class="text-[10px] uppercase font-bold text-slate-400">Active Pipeline</div>
-                    <div class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1" id="kpiPipelineVal">${{ "{:,.0f}".format(kpis.active_pipeline_value) }}</div>
-                    <div class="text-[11px] text-slate-400 mt-0.5">Est. Job Value</div>
-                </div>
-                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
-                    <div class="text-[10px] uppercase font-bold text-slate-400">Jobs Won / Completed</div>
-                    <div class="text-2xl sm:text-3xl font-black text-sky-400 mt-1" id="kpiWonVal">${{ "{:,.0f}".format(kpis.won_revenue_value) }}</div>
-                    <div class="text-[11px] text-slate-400 mt-0.5">{{ kpis.jobs_won_count }} Jobs Won</div>
-                </div>
-                <div class="bg-slate-950/90 border-2 border-amber-400/50 rounded-2xl p-4">
-                    <div class="text-[10px] uppercase font-black text-amber-300">Retainer ROI Multiple</div>
-                    <div class="text-2xl sm:text-3xl font-black text-amber-400 mt-1" id="kpiRoiMult">{{ kpis.roi_multiple }}x ROI</div>
-                    <div class="text-[11px] text-slate-300 mt-0.5">vs. ${{ "{:,.0f}".format(kpis.monthly_retainer) }}/mo Retainer</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ================================================================= -->
-        <!-- 2. JOB-SITE PHOTO & TESTIMONIAL SNAP DROPZONE (MOBILE FIRST) -->
-        <!-- ================================================================= -->
-        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4">
+        <aside id="portalLeftSidebar" class="w-60 bg-[#0f1014] border-r border-[#1f222a] flex flex-col justify-between transition-all duration-200 shrink-0 select-none z-30">
+            <!-- Top Brand & Collapse Toggle -->
             <div>
-                <span class="bg-teal-500/20 text-teal-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full">Field Crew Dropzone</span>
-                <h2 class="text-lg font-black text-white mt-1">📸 Snap & Upload Job-Site Roof Photo</h2>
-                <p class="text-xs text-slate-400">Select the Ocean County town and snap a roof photo from your truck. Our AI agent automatically stamps GPS coordinates, optimizes to WebP, and publishes to the town page (24h hybrid queue).</p>
-            </div>
-
-            <form id="partnerPhotoForm" onsubmit="submitPartnerPhoto(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <input type="hidden" name="uploaded_by" value="contractor">
-                <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
-
-                <div>
-                    <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1">1. Ocean County Town *</label>
-                    <select name="town" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-3 text-sm font-bold text-white">
-                        {% for t in towns %}
-                        <option value="{{ t.slug }}">{{ t.town_name }}, NJ</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1">2. Shingle System Installed</label>
-                    <select name="shingle_system" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-3 text-sm font-bold text-white">
-                        <option value="CertainTeed Landmark PRO">CertainTeed Landmark PRO (50-Yr)</option>
-                        <option value="CertainTeed Landmark">CertainTeed Landmark Architectural</option>
-                        <option value="Coastal 160-MPH Storm System">Coastal 160-MPH Storm System</option>
-                        <option value="Emergency Leak & Flashing Repair">Emergency Leak & Flashing Repair</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1">3. Neighborhood / Street Note</label>
-                    <input type="text" name="caption" required placeholder="e.g. Landmark Pro Pewter install on Kettle Creek Rd" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-3 text-sm text-white">
-                </div>
-
-                <div>
-                    <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1">4. Snap or Select Roof Photo</label>
-                    <input type="file" name="file" accept="image/*" capture="environment" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-200">
-                </div>
-
-                <div class="sm:col-span-2 pt-1">
-                    <button type="submit" id="partnerUploadBtn" class="w-full bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-black text-sm py-3.5 rounded-2xl shadow-lg transition">
-                        📤 Upload Job Photo (Auto GPS Geo-Tag + 24h Hybrid Queue)
+                <div class="h-14 px-3.5 border-b border-[#1f222a] flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5 overflow-hidden">
+                        <img src="/static/images/logo-icon-white.png" alt="Logo" class="h-7 w-7 shrink-0 rounded-lg bg-[#14161c] p-1 border border-[#1f222a]">
+                        <div class="sidebar-label truncate">
+                            <div class="text-[10px] font-black uppercase tracking-widest text-[#14b8a6]">Operations Desk</div>
+                            <div class="text-xs font-extrabold text-white truncate">Partner Workspace</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="toggleLeftSidebar()" title="Collapse / Expand Left Sidebar (◧)" class="text-slate-400 hover:text-white bg-[#14161c] hover:bg-[#1f222a] border border-[#1f222a] rounded-lg p-1.5 text-xs transition shrink-0">
+                        ◧
                     </button>
                 </div>
-            </form>
-        </section>
 
-        <!-- ================================================================= -->
-        <!-- 3. MY DISPATCHED LEADS & 1-TAP STATUS PIPELINE -->
-        <!-- ================================================================= -->
-        <section class="space-y-4">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-lg font-black text-white">🚚 My Dispatched Leads & 1-Tap Status Pipeline ({{ leads|length }})</h2>
-                    <p class="text-xs text-slate-400">Tap <strong>Completed</strong> when the job finishes to automatically text the homeowner your Google Review link!</p>
+                <!-- Navigation Section Header -->
+                <div class="px-3 pt-4 pb-1.5 sidebar-label">
+                    <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Contractor Field OS</span>
                 </div>
+
+                <!-- 4 Clean Navigation Tabs -->
+                <nav class="px-2 py-2 space-y-1" aria-label="Partner Portal Navigation">
+                    <button type="button" id="navBtn-leads" onclick="switchPortalTab('leads')" class="portal-nav-btn active sidebar-item w-full flex items-center justify-between px-3 py-2.5 rounded-r-lg text-xs font-bold transition">
+                        <span class="flex items-center gap-2.5">
+                            <span class="text-sm">🚚</span>
+                            <span class="sidebar-label">Assigned Leads</span>
+                        </span>
+                        <span id="navBadgeLeads" class="sidebar-label font-mono text-[10px] bg-[#14b8a6]/20 text-[#14b8a6] border border-[#14b8a6]/30 px-1.5 py-0.5 rounded-md font-bold">{{ leads|length }}</span>
+                    </button>
+
+                    <button type="button" id="navBtn-revenue" onclick="switchPortalTab('revenue')" class="portal-nav-btn sidebar-item w-full flex items-center justify-between px-3 py-2.5 rounded-r-lg text-xs font-bold transition">
+                        <span class="flex items-center gap-2.5">
+                            <span class="text-sm">💰</span>
+                            <span class="sidebar-label">Completed Jobs & Revenue</span>
+                        </span>
+                        <span id="navBadgeRoi" class="sidebar-label font-mono text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded-md font-bold">{{ kpis.roi_multiple }}x</span>
+                    </button>
+
+                    <button type="button" id="navBtn-photos" onclick="switchPortalTab('photos')" class="portal-nav-btn sidebar-item w-full flex items-center justify-between px-3 py-2.5 rounded-r-lg text-xs font-bold transition">
+                        <span class="flex items-center gap-2.5">
+                            <span class="text-sm">📸</span>
+                            <span class="sidebar-label">Upload Job Photo</span>
+                        </span>
+                        <span class="sidebar-label font-mono text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-md">GPS</span>
+                    </button>
+
+                    <button type="button" id="navBtn-settings" onclick="switchPortalTab('settings')" class="portal-nav-btn sidebar-item w-full flex items-center justify-between px-3 py-2.5 rounded-r-lg text-xs font-bold transition">
+                        <span class="flex items-center gap-2.5">
+                            <span class="text-sm">🗓️</span>
+                            <span class="sidebar-label">Booking & Calendar Settings</span>
+                        </span>
+                    </button>
+                </nav>
             </div>
 
-            <div class="space-y-4">
-                {% for l in leads %}
-                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4 shadow-md" id="leadCard-{{ l.id }}">
-                    <div class="flex flex-wrap justify-between items-start gap-3">
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="font-mono text-xs font-bold text-teal-400">{{ l.id }}</span>
-                                <span class="bg-slate-800 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-full">{{ l.lead_source }}</span>
-                                <span id="statusBadge-{{ l.id }}" class="bg-emerald-500/20 text-emerald-300 text-xs font-black px-2.5 py-0.5 rounded-full">{{ l.status }}</span>
+            <!-- Sidebar Bottom Partner Profile Summary -->
+            <div class="p-3 border-t border-[#1f222a] space-y-2">
+                <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-2.5 sidebar-label">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] uppercase font-extrabold text-[#14b8a6]">Active Partner</span>
+                        <span id="sidebarSyncDot" class="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Live
+                        </span>
+                    </div>
+                    <div id="sidebarCompanyName" class="text-xs font-black text-white truncate mt-1">{{ tenant.company_name }}</div>
+                    <div class="text-[11px] text-slate-400 mt-1 space-y-0.5">
+                        <div>Estimator: <strong id="sidebarEstimator" class="text-slate-200">{{ tenant.estimator_name }}</strong></div>
+                        <div>Dispatch: <strong id="sidebarDispatchPhone" class="text-[#14b8a6] font-mono">{{ tenant.dispatch_phone }}</strong></div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between px-1 sidebar-label text-[10px] text-slate-500">
+                    <a href="/" target="_blank" class="hover:text-[#14b8a6] transition">↗ Live Site</a>
+                    <a href="/feedback" target="_blank" class="hover:text-[#14b8a6] transition">↗ Review Hub</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ================================================================= -->
+        <!-- PANE 2: CENTER WORKSPACE (Flexible 1fr)                           -->
+        <!-- ================================================================= -->
+        <div class="flex-1 flex flex-col min-w-0 bg-[#0a0a0c] overflow-hidden">
+
+            <!-- Top Header Bar -->
+            <header class="h-14 bg-[#0f1014] border-b border-[#1f222a] px-4 flex items-center justify-between gap-3 shrink-0 z-20">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button type="button" onclick="toggleLeftSidebar()" class="sm:hidden bg-[#14161c] border border-[#1f222a] text-slate-300 hover:text-white rounded-lg p-1.5 text-xs">
+                        ☰
+                    </button>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black uppercase tracking-wider text-[#14b8a6] bg-[#14b8a6]/10 border border-[#14b8a6]/30 px-2 py-0.5 rounded-md">Partner Field Workspace</span>
+                            <span class="hidden md:inline-block text-[10px] font-mono text-slate-400">Operations Desk</span>
+                            <span id="portalCloudStatus" class="hidden lg:inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                                ● Cloud Synced
+                            </span>
+                        </div>
+                        <h1 id="headerCompanyName" class="text-sm sm:text-base font-black text-white truncate mt-0.5">{{ tenant.company_name }}</h1>
+                    </div>
+                </div>
+
+                <!-- Partner PIN / Tenant Switcher + Right Inspector Toggle -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- Quick Tenant Switcher -->
+                    <select id="portalTenantSwitcher" onchange="switchPortalTenant(this.value)" title="Switch Contractor Partner View" class="hidden lg:block bg-[#14161c] border border-[#1f222a] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-semibold focus:border-[#14b8a6] outline-none">
+                        {% for t in all_tenants %}
+                        <option value="{{ t.tenant_id }}" {% if t.tenant_id == tenant.tenant_id %}selected{% endif %}>{{ t.company_name }} ({{ t.tenant_id }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <!-- Partner PIN Login Form -->
+                    <form onsubmit="handlePartnerLogin(event)" class="flex items-center gap-1.5">
+                        <input type="text" id="partnerIdentifier" placeholder="Email or ID (opt)" class="hidden xl:block bg-[#14161c] border border-[#1f222a] focus:border-[#14b8a6] rounded-lg px-2.5 py-1.5 text-xs text-white w-32 outline-none">
+                        <input type="password" id="partnerPin" placeholder="PIN (e.g. {{ tenant.portal_pin }})" required class="bg-[#14161c] border border-[#1f222a] focus:border-[#14b8a6] rounded-lg px-2.5 py-1.5 text-xs text-amber-300 font-mono w-32 sm:w-36 outline-none">
+                        <button type="submit" class="bg-[#14b8a6] hover:bg-teal-400 text-slate-950 text-xs font-extrabold px-3 py-1.5 rounded-lg transition">
+                            Unlock
+                        </button>
+                    </form>
+
+                    <!-- Refresh Live Cloud Data -->
+                    <button type="button" onclick="loadPortalCloudData()" title="Sync Live Cloud Data" class="bg-[#14161c] hover:bg-[#1f222a] border border-[#1f222a] text-slate-300 hover:text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
+                        ↻
+                    </button>
+
+                    <!-- Right Inspector Pane Toggle -->
+                    <button type="button" id="rightPaneToggleBtn" onclick="toggleRightPane()" title="Toggle Lead Dossier & Call Recording Inspector (◨)" class="bg-[#14161c] hover:bg-[#1f222a] border border-[#1f222a] text-[#14b8a6] text-xs font-extrabold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                        <span>◨</span>
+                        <span class="hidden sm:inline">Inspector</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Scrollable Center Workspace Content -->
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+
+                <!-- ========================================================= -->
+                <!-- TOP 4 KPI CARDS (Shared across Leads & Revenue Views)      -->
+                <!-- ========================================================= -->
+                <section id="portalKpiSection" class="space-y-3">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-[#14b8a6]/15 text-[#14b8a6] border border-[#14b8a6]/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">Live Partner ROI Scoreboard</span>
+                            <span class="text-xs text-slate-400 hidden sm:inline">Your Dispatched Pipeline & Retainer Return</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400 flex items-center gap-3">
+                            <span>Assigned Estimator: <strong id="kpiEstimatorName" class="text-white">{{ tenant.estimator_name }}</strong></span>
+                            <span>Dispatch Line: <strong id="kpiDispatchPhone" class="text-[#14b8a6] font-mono">{{ tenant.dispatch_phone }}</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                        <!-- KPI 1: Assigned Leads -->
+                        <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">Assigned Leads</span>
+                                <span class="text-xs text-[#14b8a6]">🚚</span>
                             </div>
-                            <h3 class="text-lg font-black text-white mt-1">{{ l.first_name }} {{ l.last_name }}</h3>
-                            <p class="text-xs text-slate-300">📍 {{ l.street_address }}, {{ l.city }}, {{ l.state }} {{ l.zip_code }}</p>
-                            <p class="text-xs text-amber-300 font-semibold mt-0.5">🛠️ {{ l.service_requested }} {% if l.appointment_slot %}• 🗓️ {{ l.appointment_slot }}{% endif %}</p>
+                            <div class="text-2xl sm:text-3xl font-black text-white mt-1.5 font-mono" id="kpiTotalLeads">{{ kpis.total_leads }}</div>
+                            <div class="text-[11px] text-[#14b8a6] mt-1 font-semibold"><span id="kpiBookedSub">{{ kpis.booked_count }}</span> Booked Inspections</div>
                         </div>
 
-                        <div class="flex items-center gap-2">
-                            <a href="tel:{{ l.phone }}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow">
-                                <span>📞 Call {{ l.phone }}</span>
-                            </a>
-                            <div class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-right">
-                                <span class="text-[10px] text-slate-400 block uppercase font-bold">Est. Job Value</span>
-                                <div class="flex items-center gap-1">
-                                    <span class="text-emerald-400 font-black text-xs">$</span>
-                                    <input type="number" value="{{ l.estimated_value|int }}" onchange="tapStatus('{{ l.id }}', '{{ l.status }}', this.value)" class="w-20 bg-transparent text-emerald-400 font-black text-sm outline-none">
+                        <!-- KPI 2: Scheduled Inspections -->
+                        <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">Scheduled Inspections</span>
+                                <span class="text-xs text-sky-400">🗓️</span>
+                            </div>
+                            <div class="text-2xl sm:text-3xl font-black text-sky-400 mt-1.5 font-mono" id="kpiBookedCount">{{ kpis.booked_count }}</div>
+                            <div class="text-[11px] text-slate-400 mt-1">AI Voice & Web Dispatched</div>
+                        </div>
+
+                        <!-- KPI 3: Completed Jobs -->
+                        <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400">Completed Jobs</span>
+                                <span class="text-xs text-emerald-400">⭐</span>
+                            </div>
+                            <div class="flex items-baseline gap-2 mt-1.5">
+                                <div class="text-2xl sm:text-3xl font-black text-emerald-400 font-mono" id="kpiWonVal">${{ "{:,.0f}".format(kpis.won_revenue_value) }}</div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 mt-1"><span id="kpiJobsWonCount" class="text-white font-bold">{{ kpis.jobs_won_count }}</span> Jobs Won / Completed</div>
+                        </div>
+
+                        <!-- KPI 4: Pipeline Value & ROI -->
+                        <div class="bg-[#14161c] border border-[#14b8a6]/40 rounded-xl p-4 relative overflow-hidden">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] uppercase font-extrabold tracking-wider text-[#14b8a6]">Pipeline Value</span>
+                                <span id="kpiRoiMult" class="font-mono text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md">{{ kpis.roi_multiple }}x ROI</span>
+                            </div>
+                            <div class="text-2xl sm:text-3xl font-black text-white mt-1.5 font-mono" id="kpiPipelineVal">${{ "{:,.0f}".format(kpis.active_pipeline_value) }}</div>
+                            <div class="text-[11px] text-slate-400 mt-1">vs. $<span id="kpiRetainerVal">{{ "{:,.0f}".format(kpis.monthly_retainer) }}</span>/mo Retainer</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================================= -->
+                <!-- TAB 1: ASSIGNED LEADS (Kanban / Cards + Table View)        -->
+                <!-- ========================================================= -->
+                <section id="portalTab-leads" class="space-y-4">
+                    <!-- Controls Bar -->
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                                <span>🚚 My Dispatched Leads & 1-Tap Status Pipeline</span>
+                                <span id="leadsHeaderCount" class="font-mono text-xs bg-[#0f1014] border border-[#1f222a] text-[#14b8a6] px-2 py-0.5 rounded-md">({{ leads|length }})</span>
+                            </h2>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Click any lead to open the <strong>Right Dossier & Call Recording Inspector</strong>. Tap <strong>Completed</strong> when finished to automatically text the homeowner your Google Review link!</p>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <!-- Search Filter -->
+                            <input type="text" id="portalLeadSearch" oninput="filterPortalLeads()" placeholder="Search homeowner, town, phone..." class="bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-lg px-3 py-1.5 text-xs text-white outline-none w-48 sm:w-56">
+
+                            <!-- Status Filter -->
+                            <select id="portalStatusFilter" onchange="filterPortalLeads()" class="bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-semibold outline-none">
+                                <option value="ALL">All Statuses</option>
+                                <option value="New">New / New Lead</option>
+                                <option value="Contacted">Contacted</option>
+                                <option value="Scheduled">Scheduled / Booked</option>
+                                <option value="Inspected">Inspected</option>
+                                <option value="Job Won">Job Won</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Lost">Lost</option>
+                            </select>
+
+                            <!-- View Toggle: Cards vs Table -->
+                            <div class="inline-flex rounded-lg border border-[#1f222a] bg-[#0a0a0c] p-0.5">
+                                <button type="button" id="viewBtnCards" onclick="setLeadsViewMode('cards')" class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#14b8a6] text-slate-950 transition">Cards</button>
+                                <button type="button" id="viewBtnTable" onclick="setLeadsViewMode('table')" class="px-2.5 py-1 rounded-md text-[11px] font-bold text-slate-400 hover:text-white transition">Table</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Compact Table View (Hidden by default, toggled via Table button) -->
+                    <div id="portalLeadsTableWrapper" class="hidden bg-[#14161c] border border-[#1f222a] rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-[#1f222a] bg-[#0f1014] text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">Lead / Homeowner</th>
+                                        <th class="py-3 px-3">Location & Maps</th>
+                                        <th class="py-3 px-3">Service & Slot</th>
+                                        <th class="py-3 px-3">Est. Value</th>
+                                        <th class="py-3 px-3">Status</th>
+                                        <th class="py-3 px-4 text-right">1-Tap Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="portalLeadsTableBody" class="divide-y divide-[#1f222a] text-xs">
+                                    {% for l in leads %}
+                                    <tr class="hover:bg-[#1a1d26] transition cursor-pointer" onclick="openLeadInspector('{{ l.id }}')">
+                                        <td class="py-3 px-4">
+                                            <div class="font-mono text-[10px] text-[#14b8a6] font-bold">{{ l.id }}</div>
+                                            <div class="font-bold text-white">{{ l.first_name }} {{ l.last_name }}</div>
+                                            <a href="tel:{{ l.phone }}" onclick="event.stopPropagation()" class="text-[11px] text-emerald-400 hover:underline font-mono">{{ l.phone }}</a>
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <div class="text-slate-200">{{ l.street_address }}, {{ l.city }}</div>
+                                            <a href="https://maps.google.com/?q={{ (l.street_address ~ ', ' ~ l.city ~ ', ' ~ l.state ~ ' ' ~ l.zip_code)|urlencode }}" target="_blank" onclick="event.stopPropagation()" class="text-[10px] text-[#14b8a6] hover:underline">🗺️ Open Maps ↗</a>
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <div class="text-amber-300 font-semibold">{{ l.service_requested }}</div>
+                                            {% if l.appointment_slot %}
+                                            <div class="text-[11px] text-slate-400">🗓️ {{ l.appointment_slot }}</div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="py-3 px-3" onclick="event.stopPropagation()">
+                                            <div class="inline-flex items-center bg-[#0a0a0c] border border-[#1f222a] rounded-lg px-2 py-1">
+                                                <span class="text-emerald-400 font-bold mr-1">$</span>
+                                                <input type="number" value="{{ l.estimated_value|int }}" onchange="tapStatus('{{ l.id }}', '{{ l.status }}', this.value)" class="w-20 bg-transparent text-emerald-400 font-mono font-bold text-xs outline-none">
+                                            </div>
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <span class="bg-[#14b8a6]/15 text-[#14b8a6] border border-[#14b8a6]/30 text-[11px] font-bold px-2 py-0.5 rounded-md">{{ l.status }}</span>
+                                        </td>
+                                        <td class="py-3 px-4 text-right" onclick="event.stopPropagation()">
+                                            <div class="inline-flex items-center gap-1">
+                                                <button type="button" onclick="tapStatus('{{ l.id }}', 'Contacted')" class="px-2 py-1 rounded bg-[#0a0a0c] hover:bg-slate-800 border border-[#1f222a] text-[10px] font-bold text-slate-300">Contacted</button>
+                                                <button type="button" onclick="tapStatus('{{ l.id }}', 'Scheduled')" class="px-2 py-1 rounded bg-[#0a0a0c] hover:bg-slate-800 border border-[#1f222a] text-[10px] font-bold text-sky-300">Scheduled</button>
+                                                <button type="button" onclick="tapStatus('{{ l.id }}', 'Completed')" class="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-600 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 hover:text-white">⭐ Completed</button>
+                                                <button type="button" onclick="openLeadInspector('{{ l.id }}')" class="px-2 py-1 rounded bg-[#14b8a6]/15 border border-[#14b8a6]/30 text-[10px] font-bold text-[#14b8a6]">Inspect ◨</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Server-Rendered & Live-Hydrated Lead Cards (#portalLeadsCardsContainer) -->
+                    <div id="portalLeadsCardsContainer" class="space-y-3.5">
+                        {% for l in leads %}
+                        <div class="lead-card-item bg-[#14161c] hover:bg-[#181b22] border border-[#1f222a] rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-md transition cursor-pointer"
+                             id="leadCard-{{ l.id }}"
+                             data-lead-id="{{ l.id }}"
+                             data-status="{{ l.status }}"
+                             data-search="{{ (l.id ~ ' ' ~ l.first_name ~ ' ' ~ l.last_name ~ ' ' ~ l.city ~ ' ' ~ l.street_address ~ ' ' ~ l.phone ~ ' ' ~ l.service_requested)|lower }}"
+                             onclick="openLeadInspector('{{ l.id }}')">
+                            <div class="flex flex-wrap justify-between items-start gap-3">
+                                <div class="space-y-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-mono text-xs font-bold text-[#14b8a6]">{{ l.id }}</span>
+                                        <span class="bg-[#0a0a0c] border border-[#1f222a] text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-md">{{ l.lead_source }}</span>
+                                        {% if l.urgency and l.urgency != 'Standard' %}
+                                        <span class="bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">{{ l.urgency }}</span>
+                                        {% endif %}
+                                        <span id="statusBadge-{{ l.id }}" class="bg-[#14b8a6]/20 border border-[#14b8a6]/40 text-[#14b8a6] text-xs font-black px-2.5 py-0.5 rounded-md">{{ l.status }}</span>
+                                    </div>
+                                    <h3 class="text-base sm:text-lg font-black text-white">{{ l.first_name }} {{ l.last_name }}</h3>
+                                    <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+                                        <span>📍 {{ l.street_address }}, {{ l.city }}, {{ l.state }} {{ l.zip_code }}</span>
+                                        <a href="https://maps.google.com/?q={{ (l.street_address ~ ', ' ~ l.city ~ ', ' ~ l.state ~ ' ' ~ l.zip_code)|urlencode }}"
+                                           target="_blank"
+                                           onclick="event.stopPropagation()"
+                                           class="text-[#14b8a6] hover:underline font-bold text-[11px] bg-[#14b8a6]/10 px-2 py-0.5 rounded">
+                                            🗺️ Navigate in Maps ↗
+                                        </a>
+                                    </div>
+                                    <p class="text-xs text-amber-300 font-semibold pt-0.5">
+                                        🛠️ {{ l.service_requested }}
+                                        {% if l.appointment_slot %}• 🗓️ {{ l.appointment_slot }}{% endif %}
+                                    </p>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-2" onclick="event.stopPropagation()">
+                                    <a href="tel:{{ l.phone }}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow transition">
+                                        <span>📞 Call {{ l.phone }}</span>
+                                    </a>
+                                    <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-1.5 text-right">
+                                        <span class="text-[9px] text-slate-400 block uppercase font-bold">Est. Job Value</span>
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-emerald-400 font-black text-xs">$</span>
+                                            <input type="number" value="{{ l.estimated_value|int }}" onchange="tapStatus('{{ l.id }}', '{{ l.status }}', this.value)" class="w-20 bg-transparent text-emerald-400 font-mono font-black text-sm outline-none">
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="openLeadInspector('{{ l.id }}')" class="bg-[#0a0a0c] hover:bg-[#1f222a] border border-[#1f222a] text-[#14b8a6] font-extrabold text-xs px-3 py-2 rounded-xl transition">
+                                        Dossier ◨
+                                    </button>
+                                </div>
+                            </div>
+
+                            {% if l.notes or l.call_recording_url %}
+                            <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-3 text-xs text-slate-300 flex flex-wrap justify-between items-center gap-2" onclick="event.stopPropagation()">
+                                <span class="line-clamp-2">📝 {{ l.notes or 'Dispatched for 21-point drone inspection.' }}</span>
+                                {% if l.call_recording_url %}
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="openLeadInspector('{{ l.id }}')" class="text-[#14b8a6] font-bold hover:underline">🎧 Open Audio Player ({{ l.call_duration_sec or 60 }}s)</button>
+                                    <a href="{{ l.call_recording_url }}" target="_blank" class="text-sky-400 font-bold hover:underline">↗</a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <!-- 1-Tap Status Pipeline Buttons -->
+                            <div class="pt-1" onclick="event.stopPropagation()">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="text-[10px] font-extrabold uppercase text-slate-400">1-Tap Pipeline Update:</span>
+                                    <span class="text-[10px] text-slate-500">Syncs live to Cloud CRM & Reputation Agent</span>
+                                </div>
+                                <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                                    {% for step in ['New', 'Contacted', 'Scheduled', 'Inspected', 'Completed', 'Lost'] %}
+                                    <button
+                                        type="button"
+                                        onclick="tapStatus('{{ l.id }}', '{{ step }}')"
+                                        class="py-2 px-2.5 rounded-lg font-extrabold text-[11px] border transition flex items-center justify-center gap-1
+                                        {% if l.status == step or (step == 'Scheduled' and l.status == 'Booked') or (step == 'New' and l.status == 'New Lead') %}
+                                            bg-[#14b8a6] border-[#14b8a6] text-slate-950 shadow
+                                        {% elif step == 'Completed' %}
+                                            bg-[#0a0a0c] hover:bg-emerald-600 border-emerald-500/40 text-emerald-300 hover:text-white
+                                        {% elif step == 'Lost' %}
+                                            bg-[#0a0a0c] hover:bg-rose-950 border-[#1f222a] text-slate-400 hover:text-rose-300
+                                        {% else %}
+                                            bg-[#0a0a0c] hover:bg-[#1f222a] border-[#1f222a] text-slate-300
+                                        {% endif %}"
+                                    >
+                                        {% if step == 'Completed' %}⭐{% elif step == 'Lost' %}✕{% else %}✓{% endif %} {{ step }}
+                                    </button>
+                                    {% endfor %}
+                                </div>
+                                <div id="reviewNotice-{{ l.id }}" class="text-[11px] text-emerald-400 font-bold mt-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-1.5 {% if not l.review_request_sent %}hidden{% endif %}">
+                                    ✅ Compliant Review Request SMS sent to homeowner (`/feedback/{{ l.id }}`)!
                                 </div>
                             </div>
                         </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <!-- ========================================================= -->
+                <!-- TAB 2: COMPLETED JOBS & REVENUE                           -->
+                <!-- ========================================================= -->
+                <section id="portalTab-revenue" class="hidden space-y-5">
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <span class="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">Revenue & Reputation Tracker</span>
+                                <h2 class="text-base sm:text-lg font-black text-white mt-1">💰 Completed Jobs, Pipeline Value & Review Automation</h2>
+                                <p class="text-xs text-slate-400">Track closed roofing contracts, estimated pipeline value, and automated Google Review SMS status for every completed homeowner job.</p>
+                            </div>
+                            <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-4 py-2.5 text-right">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Retainer ROI Multiple</span>
+                                <span id="revTabRoiBadge" class="text-xl font-black text-amber-400 font-mono">{{ kpis.roi_multiple }}x Return</span>
+                            </div>
+                        </div>
+
+                        <!-- Completed / Active Revenue Table -->
+                        <div class="overflow-x-auto border border-[#1f222a] rounded-xl">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-[#0f1014] border-b border-[#1f222a] text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">Lead ID</th>
+                                        <th class="py-3 px-3">Homeowner & Town</th>
+                                        <th class="py-3 px-3">Roofing System / Service</th>
+                                        <th class="py-3 px-3">Stage</th>
+                                        <th class="py-3 px-3">Job Value ($)</th>
+                                        <th class="py-3 px-4">Google Review SMS Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="revenueTableBody" class="divide-y divide-[#1f222a] text-xs bg-[#14161c]">
+                                    {% for l in leads %}
+                                    <tr class="hover:bg-[#1a1d26] transition cursor-pointer" onclick="openLeadInspector('{{ l.id }}')">
+                                        <td class="py-3 px-4 font-mono font-bold text-[#14b8a6]">{{ l.id }}</td>
+                                        <td class="py-3 px-3">
+                                            <div class="font-bold text-white">{{ l.first_name }} {{ l.last_name }}</div>
+                                            <div class="text-[11px] text-slate-400">{{ l.city }}, {{ l.state }}</div>
+                                        </td>
+                                        <td class="py-3 px-3 text-slate-200">{{ l.service_requested }}</td>
+                                        <td class="py-3 px-3">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold
+                                                {% if l.status in ['Completed', 'Job Won'] %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30
+                                                {% else %}bg-slate-800 text-slate-300{% endif %}">
+                                                {{ l.status }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 px-3 font-mono font-bold text-emerald-400">${{ "{:,.0f}".format(l.estimated_value or 12500) }}</td>
+                                        <td class="py-3 px-4" onclick="event.stopPropagation()">
+                                            {% if l.review_request_sent or l.status == 'Completed' %}
+                                            <a href="/feedback/{{ l.id }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-bold hover:underline">
+                                                ✅ Review Link Dispatched (`/feedback/{{ l.id }}`) ↗
+                                            </a>
+                                            {% else %}
+                                            <button type="button" onclick="tapStatus('{{ l.id }}', 'Completed')" class="bg-[#0a0a0c] hover:bg-emerald-600 border border-emerald-500/40 text-emerald-300 hover:text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition">
+                                                ⭐ Mark Completed & Text Review Link
+                                            </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ========================================================= -->
+                <!-- TAB 3: UPLOAD JOB PHOTO (GPS Geo-Tag + WebP + Gallery)    -->
+                <!-- ========================================================= -->
+                <section id="portalTab-photos" class="hidden space-y-5">
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 sm:p-6 space-y-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <span class="bg-[#14b8a6]/15 text-[#14b8a6] border border-[#14b8a6]/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">Field Crew Dropzone</span>
+                                <h2 class="text-base sm:text-lg font-black text-white mt-1">📸 Snap & Upload Job-Site Roof Photo</h2>
+                                <p class="text-xs text-slate-400">Select the Ocean County town and snap a roof photo from your truck. Our AI agent automatically stamps EXIF GPS coordinates, optimizes to WebP, and publishes to the town page (24h hybrid queue).</p>
+                            </div>
+                        </div>
+
+                        <form id="partnerPhotoForm" onsubmit="submitPartnerPhoto(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                            <input type="hidden" name="uploaded_by" value="contractor">
+                            <input type="hidden" id="photoFormTenantId" name="tenant_id" value="{{ tenant.tenant_id }}">
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">1. Ocean County Town *</label>
+                                <select name="town" required class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-sm font-bold text-white outline-none">
+                                    {% for t in towns %}
+                                    <option value="{{ t.slug }}">{{ t.town_name }}, NJ</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">2. Shingle System Installed</label>
+                                <select name="shingle_system" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-sm font-bold text-white outline-none">
+                                    <option value="CertainTeed Landmark PRO">CertainTeed Landmark PRO (50-Yr)</option>
+                                    <option value="CertainTeed Landmark">CertainTeed Landmark Architectural</option>
+                                    <option value="Coastal 160-MPH Storm System">Coastal 160-MPH Storm System</option>
+                                    <option value="Emergency Leak & Flashing Repair">Emergency Leak & Flashing Repair</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">3. Neighborhood / Street Note</label>
+                                <input type="text" name="caption" required placeholder="e.g. Landmark Pro Pewter install on Kettle Creek Rd" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-sm text-white outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">4. Snap or Select Roof Photo</label>
+                                <input type="file" name="file" accept="image/*" capture="environment" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-xs text-slate-200">
+                            </div>
+
+                            <div class="sm:col-span-2 pt-1">
+                                <button type="submit" id="partnerUploadBtn" class="w-full bg-[#14b8a6] hover:bg-teal-400 text-slate-950 font-black text-sm py-3 rounded-xl shadow-lg transition">
+                                    📤 Upload Job Photo (Auto GPS Geo-Tag + 24h Hybrid Queue)
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
-                    {% if l.notes or l.call_recording_url %}
-                    <div class="bg-slate-950 border border-slate-800/80 rounded-2xl p-3 text-xs text-slate-300 flex flex-wrap justify-between items-center gap-2">
-                        <span>📝 {{ l.notes or 'Dispatched for 21-point drone inspection.' }}</span>
-                        {% if l.call_recording_url %}
-                        <a href="{{ l.call_recording_url }}" target="_blank" class="text-sky-400 font-bold hover:underline">🎧 Play AI Dispatch Call ({{ l.call_duration_sec }}s) ↗</a>
-                        {% endif %}
-                    </div>
-                    {% endif %}
+                    <!-- Uploaded Contractor Project Photos Gallery -->
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-black text-white">🖼️ Uploaded Job-Site Photos & Geo-Tag Queue (<span id="partnerProjectsCount">{{ projects|length }}</span>)</h3>
+                                <p class="text-[11px] text-slate-400">Every photo is automatically stamped with Ocean County GPS EXIF coordinates and converted to high-speed WebP.</p>
+                            </div>
+                        </div>
 
-                    <!-- 1-Tap Status Pipeline Buttons -->
-                    <div class="pt-1">
-                        <div class="text-[10px] font-extrabold uppercase text-slate-400 mb-2">1-Tap Pipeline Update:</div>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {% for step in ['Booked', 'Inspected', 'Job Won', 'Completed'] %}
-                            <button
-                                type="button"
-                                onclick="tapStatus('{{ l.id }}', '{{ step }}')"
-                                class="py-2.5 px-3 rounded-xl font-black text-xs border transition flex items-center justify-center gap-1.5
-                                {% if l.status == step %}
-                                    bg-teal-600 border-teal-400 text-white shadow-lg
-                                {% elif step == 'Completed' %}
-                                    bg-slate-950 hover:bg-emerald-600 border-emerald-500/40 text-emerald-300 hover:text-white
-                                {% else %}
-                                    bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300
-                                {% endif %}"
-                            >
-                                {% if step == 'Completed' %}⭐{% else %}✓{% endif %} {{ step }}
-                            </button>
+                        <div id="partnerProjectsGallery" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                            {% for p in projects %}
+                            <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl overflow-hidden flex flex-col justify-between">
+                                <div class="p-3.5 space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-[10px] font-bold bg-[#14b8a6]/15 text-[#14b8a6] px-2 py-0.5 rounded">{{ p.town_name or 'Ocean County' }}</span>
+                                        <span class="text-[10px] font-mono px-2 py-0.5 rounded {% if p.approval_status == 'approved' %}bg-emerald-500/20 text-emerald-300{% else %}bg-amber-500/20 text-amber-300{% endif %}">
+                                            {{ p.approval_status }}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs font-bold text-white">{{ p.shingle_system or p.service_type }}</div>
+                                    <p class="text-[11px] text-slate-400 line-clamp-2">{{ p.caption }}</p>
+                                </div>
+                                <div class="px-3.5 py-2 bg-[#0f1014] border-t border-[#1f222a] flex items-center justify-between text-[10px] font-mono text-slate-400">
+                                    <span>📍 {{ p.gps_lat or '39.9537' }}, {{ p.gps_lng or '-74.1979' }}</span>
+                                    <span class="text-[#14b8a6]">WebP ✓</span>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="sm:col-span-3 text-center py-8 text-xs text-slate-500">
+                                No project photos uploaded yet for this partner. Use the form above to snap a roof photo from the job site!
+                            </div>
                             {% endfor %}
                         </div>
-                        <div id="reviewNotice-{{ l.id }}" class="text-[11px] text-emerald-400 font-bold mt-2 {% if not l.review_request_sent %}hidden{% endif %}">
-                            ✅ Compliant Review Request SMS sent to homeowner (`/feedback/{{ l.id }}`)!
+                    </div>
+                </section>
+
+                <!-- ========================================================= -->
+                <!-- TAB 4: BOOKING & CALENDAR SETTINGS                        -->
+                <!-- ========================================================= -->
+                <section id="portalTab-settings" class="hidden space-y-5">
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 sm:p-6 space-y-5">
+                        <div>
+                            <span class="bg-[#14b8a6]/15 text-[#14b8a6] border border-[#14b8a6]/30 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">Dispatch & Scheduling Configuration</span>
+                            <h2 class="text-base sm:text-lg font-black text-white mt-1">🗓️ Booking Mode, Dispatch Line & Assigned Territories</h2>
+                            <p class="text-xs text-slate-400">Configure how Riley (AI Voice & Email Dispatcher) books inspections onto your calendar and where urgent SMS lead alerts are routed.</p>
+                        </div>
+
+                        <form id="partnerCalendarForm" onsubmit="savePartnerCalendarSettings(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <input type="hidden" id="settingsTenantId" value="{{ tenant.tenant_id }}">
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Contractor Company Name</label>
+                                <input type="text" id="settingsCompanyName" value="{{ tenant.company_name }}" required class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs font-bold text-white outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Assigned Field Estimator Name</label>
+                                <input type="text" id="settingsEstimatorName" value="{{ tenant.estimator_name }}" required class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs font-bold text-white outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Scheduling Mode</label>
+                                <select id="settingsSchedulingType" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs font-bold text-white outline-none">
+                                    <option value="google_calendar" {% if tenant.scheduling_type == 'google_calendar' %}selected{% endif %}>Google Calendar Direct Slot Booking (google_calendar)</option>
+                                    <option value="external_link" {% if tenant.scheduling_type == 'external_link' %}selected{% endif %}>External Booking Link — Calendly / JobNimbus / Housecall Pro (external_link)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">External Booking URL (if external_link)</label>
+                                <input type="url" id="settingsBookingUrl" value="{{ tenant.booking_url or '' }}" placeholder="https://calendly.com/your-roofing-team/inspection" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs text-white font-mono outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">24/7 SMS & Voice Dispatch Phone</label>
+                                <input type="text" id="settingsDispatchPhone" value="{{ tenant.dispatch_phone }}" required class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs text-[#14b8a6] font-mono font-bold outline-none">
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Dispatch Notification Email</label>
+                                <input type="email" id="settingsEmail" value="{{ tenant.email or '' }}" placeholder="dispatch@contractor.com" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+                            </div>
+
+                            <div class="sm:col-span-2 pt-1">
+                                <button type="submit" id="savePartnerSettingsBtn" class="bg-[#14b8a6] hover:bg-teal-400 text-slate-950 font-black text-xs px-5 py-3 rounded-xl shadow transition">
+                                    💾 Save Booking & Dispatch Configuration
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Assigned Service Territories Card -->
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-black text-white">🗺️ Active Ocean & Monmouth County Dispatch Territories</h3>
+                                <p class="text-[11px] text-slate-400">Town silos currently routing inbound AI Voice, Email, and Web Form leads to <strong id="territoryPartnerName" class="text-white">{{ tenant.company_name }}</strong>:</p>
+                            </div>
+                        </div>
+                        <div id="partnerTerritoriesBadges" class="flex flex-wrap gap-2 pt-1">
+                            {% for t in towns %}
+                            <span class="bg-[#0a0a0c] border border-[#1f222a] text-slate-200 text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-[#14b8a6]"></span>
+                                {{ t.town_name }}, NJ ({{ t.zip_codes[0] if t.zip_codes else '08753' }})
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- PANE 3: RIGHT COLLAPSIBLE SPLIT-PANE (#portalRightPane)           -->
+        <!-- Lead Dossier & Call Recording Inspector                           -->
+        <!-- ================================================================= -->
+        <aside id="portalRightPane" class="w-full sm:w-[400px] lg:w-[430px] bg-[#0f1014] border-l border-[#1f222a] flex flex-col justify-between shrink-0 z-30 transition-all duration-200">
+            <!-- Inspector Top Bar -->
+            <div class="h-14 px-4 border-b border-[#1f222a] flex items-center justify-between gap-2 shrink-0">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-2 h-2 rounded-full bg-[#14b8a6]"></span>
+                    <span class="text-xs font-black uppercase tracking-wider text-white truncate">Lead Dossier & Call Inspector</span>
+                    <span id="inspectorLeadIdBadge" class="font-mono text-[10px] bg-[#14161c] border border-[#1f222a] text-[#14b8a6] px-2 py-0.5 rounded font-bold">
+                        {% if leads %}{{ leads[0].id }}{% else %}READY{% endif %}
+                    </span>
+                </div>
+                <button type="button" onclick="toggleRightPane(false)" title="Close Inspector" class="text-slate-400 hover:text-white bg-[#14161c] hover:bg-[#1f222a] border border-[#1f222a] rounded-lg px-2 py-1 text-xs font-bold">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Inspector Scrollable Body -->
+            <div id="portalInspectorBody" class="flex-1 overflow-y-auto p-4 space-y-4">
+                {% set first_lead = leads[0] if leads else None %}
+                <!-- Homeowner Identity & 1-Tap Comms / Maps -->
+                <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4 space-y-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <span id="inspectorSourceBadge" class="text-[10px] font-bold uppercase text-slate-400 bg-[#0a0a0c] border border-[#1f222a] px-2 py-0.5 rounded">
+                                {{ first_lead.lead_source if first_lead else 'AI Voice / Web' }}
+                            </span>
+                            <h3 id="inspectorHomeownerName" class="text-base font-black text-white mt-1.5">
+                                {{ (first_lead.first_name ~ ' ' ~ first_lead.last_name) if first_lead else 'Select a Lead to Inspect' }}
+                            </h3>
+                        </div>
+                        <span id="inspectorStatusBadge" class="bg-[#14b8a6]/20 border border-[#14b8a6]/40 text-[#14b8a6] text-xs font-black px-2.5 py-0.5 rounded-md">
+                            {{ first_lead.status if first_lead else 'Active' }}
+                        </span>
+                    </div>
+
+                    <div class="text-xs text-slate-300 space-y-1">
+                        <div id="inspectorAddressLine">📍 {{ (first_lead.street_address ~ ', ' ~ first_lead.city ~ ', ' ~ first_lead.state ~ ' ' ~ first_lead.zip_code) if first_lead else 'Ocean County, NJ' }}</div>
+                        <div id="inspectorEmailLine" class="text-slate-400 font-mono text-[11px]">✉️ {{ first_lead.email if (first_lead and first_lead.email) else 'No email on file' }}</div>
+                    </div>
+
+                    <!-- 1-Tap Call & 1-Tap Google Maps Navigation Buttons -->
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <a id="inspectorCallBtn"
+                           href="tel:{{ first_lead.phone if first_lead else '+17326609121' }}"
+                           class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow transition">
+                            <span>📞 Call Homeowner</span>
+                        </a>
+                        <a id="inspectorMapsBtn"
+                           href="https://maps.google.com/?q={{ ((first_lead.street_address ~ ', ' ~ first_lead.city ~ ', ' ~ first_lead.state ~ ' ' ~ first_lead.zip_code) if first_lead else 'Toms River, NJ')|urlencode }}"
+                           target="_blank"
+                           class="bg-[#0a0a0c] hover:bg-[#1f222a] border border-[#14b8a6]/40 text-[#14b8a6] font-extrabold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition">
+                            <span>🗺️ Google Maps ↗</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Service, Urgency, Slot & Job Value -->
+                <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4 space-y-3">
+                    <div class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Inspection Scope & Valuation</div>
+                    <div class="grid grid-cols-2 gap-2.5 text-xs">
+                        <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-lg p-2.5">
+                            <span class="text-[10px] text-slate-400 block">Service Requested</span>
+                            <strong id="inspectorService" class="text-amber-300 font-bold block mt-0.5">{{ first_lead.service_requested if first_lead else 'Full Roof Replacement' }}</strong>
+                        </div>
+                        <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-lg p-2.5">
+                            <span class="text-[10px] text-slate-400 block">Urgency Level</span>
+                            <strong id="inspectorUrgency" class="text-white font-bold block mt-0.5">{{ first_lead.urgency if first_lead else 'Standard' }}</strong>
+                        </div>
+                        <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-lg p-2.5">
+                            <span class="text-[10px] text-slate-400 block">Appointment Slot</span>
+                            <strong id="inspectorSlot" class="text-sky-300 font-bold block mt-0.5">{{ (first_lead.appointment_slot or 'Flexible / TBD') if first_lead else 'Flexible' }}</strong>
+                        </div>
+                        <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-lg p-2.5">
+                            <span class="text-[10px] text-slate-400 block">Est. Job Value ($)</span>
+                            <div class="flex items-center gap-1 mt-0.5">
+                                <span class="text-emerald-400 font-bold">$</span>
+                                <input type="number" id="inspectorValueInput" value="{{ (first_lead.estimated_value|int) if first_lead else 12500 }}" onchange="updateInspectorLeadValue(this.value)" class="w-full bg-transparent text-emerald-400 font-mono font-black text-xs outline-none">
+                            </div>
                         </div>
                     </div>
                 </div>
-                {% endfor %}
+
+                <!-- Embedded Vapi Call Recording Audio Player -->
+                <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#14b8a6]">🎧 Vapi AI Dispatch Call Recording</span>
+                        <span id="inspectorCallDuration" class="font-mono text-[10px] text-slate-400">
+                            {% if first_lead and first_lead.call_duration_sec %}{{ first_lead.call_duration_sec }}s{% else %}Voice AI{% endif %}
+                        </span>
+                    </div>
+                    <div id="inspectorAudioWrapper" class="{% if not (first_lead and first_lead.call_recording_url) %}hidden{% endif %} space-y-2">
+                        <audio id="inspectorAudioPlayer" controls class="w-full h-9 rounded-lg" src="{{ first_lead.call_recording_url if (first_lead and first_lead.call_recording_url) else '' }}"></audio>
+                        <a id="inspectorAudioExternalLink" href="{{ first_lead.call_recording_url if (first_lead and first_lead.call_recording_url) else '#' }}" target="_blank" class="inline-block text-[11px] text-sky-400 font-bold hover:underline">
+                            ↗ Open Raw Call Recording in New Tab
+                        </a>
+                    </div>
+                    <div id="inspectorNoAudioNotice" class="{% if first_lead and first_lead.call_recording_url %}hidden{% endif %} text-[11px] text-slate-400 bg-[#0a0a0c] border border-[#1f222a] rounded-lg p-2.5">
+                        No voice recording URL attached to this lead yet (or lead arrived via Web Form / SMS).
+                    </div>
+                </div>
+
+                <!-- AI Triage Notes & Field Notes -->
+                <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">📝 AI Triage & Field Estimator Notes</span>
+                        <button type="button" onclick="saveInspectorNotes()" class="text-[10px] font-extrabold text-[#14b8a6] hover:underline">Save Notes</button>
+                    </div>
+                    <textarea id="inspectorNotesInput" rows="3" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-lg p-2.5 text-xs text-slate-200 outline-none">{{ (first_lead.notes or 'Dispatched for 21-point drone roof inspection.') if first_lead else '' }}</textarea>
+                </div>
+
+                <!-- 1-Tap Status Updater inside Right Inspector -->
+                <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">⚡ 1-Tap Status Updater</span>
+                        <span class="text-[10px] font-mono text-[#14b8a6]">POST /api/portal/leads/{id}/status</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        {% for st in ['New', 'Contacted', 'Scheduled', 'Inspected', 'Completed', 'Lost'] %}
+                        <button type="button"
+                                onclick="tapStatusFromInspector('{{ st }}')"
+                                class="py-2 px-3 rounded-lg font-extrabold text-xs border transition flex items-center justify-center gap-1.5
+                                {% if st == 'Completed' %}
+                                    bg-emerald-500/15 hover:bg-emerald-600 border-emerald-500/40 text-emerald-300 hover:text-white col-span-2 py-2.5
+                                {% elif st == 'Lost' %}
+                                    bg-[#0a0a0c] hover:bg-rose-950 border-[#1f222a] text-slate-400 hover:text-rose-300
+                                {% else %}
+                                    bg-[#0a0a0c] hover:bg-[#1f222a] border-[#1f222a] text-slate-200
+                                {% endif %}">
+                            {% if st == 'Completed' %}⭐ Mark Completed (Trigger Google Review SMS){% else %}✓ {{ st }}{% endif %}
+                        </button>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Reputation Agent Review SMS Confirmation Banner -->
+                    <div id="inspectorReviewConfirmation" class="{% if not (first_lead and first_lead.review_request_sent) %}hidden{% endif %} bg-emerald-500/15 border border-emerald-500/40 rounded-xl p-3 text-xs text-emerald-300 font-bold space-y-1">
+                        <div>✅ Reputation Agent Active!</div>
+                        <p class="text-[11px] text-emerald-200 font-normal">
+                            The Reputation Agent automatically texted the homeowner their compliant Google Review link (<code id="inspectorFeedbackPath" class="font-mono text-white">/feedback/{{ first_lead.id if first_lead else '' }}</code>)!
+                        </p>
+                    </div>
+                </div>
             </div>
-        </section>
+        </aside>
 
-    </main>
+    </div>
 
+    <!-- ===================================================================== -->
+    <!-- CLIENT-SIDE CONTROLLER: 3-PANE PORTAL + LIVE CLOUD HYDRATION          -->
+    <!-- ===================================================================== -->
     <script>
+        // Initial server-rendered state fallback
+        window.PORTAL_STATE = {
+            tenantId: "{{ tenant.tenant_id }}",
+            tenant: {{ tenant | tojson | safe }},
+            leads: {{ leads | tojson | safe }},
+            projects: {{ projects | tojson | safe }},
+            selectedLeadId: "{{ leads[0].id if leads else '' }}",
+            viewMode: "cards"
+        };
+
         function showPortalToast(msg) {
             const el = document.getElementById('portalToast');
-            el.innerText = msg;
-            el.classList.remove('hidden');
-            setTimeout(() => el.classList.add('hidden'), 4000);
+            const txt = document.getElementById('portalToastText');
+            if (txt) txt.innerText = msg;
+            else if (el) el.innerText = msg;
+            if (el) {
+                el.classList.remove('hidden');
+                setTimeout(() => el.classList.add('hidden'), 4500);
+            }
         }
 
+        // ---------------------------------------------------------------------
+        // Left Sidebar Collapse / Expand
+        // ---------------------------------------------------------------------
+        function toggleLeftSidebar() {
+            const sb = document.getElementById('portalLeftSidebar');
+            if (!sb) return;
+            const isCollapsed = sb.classList.contains('w-16');
+            if (isCollapsed) {
+                sb.classList.remove('w-16', 'sidebar-collapsed');
+                sb.classList.add('w-60');
+                localStorage.setItem('ocrp_portal_left_collapsed', '0');
+            } else {
+                sb.classList.remove('w-60');
+                sb.classList.add('w-16', 'sidebar-collapsed');
+                localStorage.setItem('ocrp_portal_left_collapsed', '1');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Right Inspector Split-Pane Collapse / Expand
+        // ---------------------------------------------------------------------
+        function toggleRightPane(forceOpen) {
+            const rp = document.getElementById('portalRightPane');
+            if (!rp) return;
+            const isHidden = rp.classList.contains('hidden');
+            const shouldOpen = forceOpen !== undefined ? forceOpen : isHidden;
+            if (shouldOpen) {
+                rp.classList.remove('hidden');
+            } else {
+                rp.classList.add('hidden');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 4-Tab Navigation Switcher (leads, revenue, photos, settings)
+        // ---------------------------------------------------------------------
+        function switchPortalTab(tabId) {
+            const tabs = ['leads', 'revenue', 'photos', 'settings'];
+            tabs.forEach(t => {
+                const sec = document.getElementById(`portalTab-${t}`);
+                const btn = document.getElementById(`navBtn-${t}`);
+                if (sec) {
+                    if (t === tabId) sec.classList.remove('hidden');
+                    else sec.classList.add('hidden');
+                }
+                if (btn) {
+                    if (t === tabId) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                }
+            });
+
+            // Keep top 4 KPI cards visible on leads & revenue views
+            const kpiSec = document.getElementById('portalKpiSection');
+            if (kpiSec) {
+                if (tabId === 'leads' || tabId === 'revenue') kpiSec.classList.remove('hidden');
+                else kpiSec.classList.add('hidden');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Toggle Leads View Mode (Cards vs Table)
+        // ---------------------------------------------------------------------
+        function setLeadsViewMode(mode) {
+            window.PORTAL_STATE.viewMode = mode;
+            const cardsEl = document.getElementById('portalLeadsCardsContainer');
+            const tableEl = document.getElementById('portalLeadsTableWrapper');
+            const btnCards = document.getElementById('viewBtnCards');
+            const btnTable = document.getElementById('viewBtnTable');
+
+            if (mode === 'table') {
+                cardsEl.classList.add('hidden');
+                tableEl.classList.remove('hidden');
+                btnTable.classList.add('bg-[#14b8a6]', 'text-slate-950');
+                btnTable.classList.remove('text-slate-400');
+                btnCards.classList.remove('bg-[#14b8a6]', 'text-slate-950');
+                btnCards.classList.add('text-slate-400');
+            } else {
+                tableEl.classList.add('hidden');
+                cardsEl.classList.remove('hidden');
+                btnCards.classList.add('bg-[#14b8a6]', 'text-slate-950');
+                btnCards.classList.remove('text-slate-400');
+                btnTable.classList.remove('bg-[#14b8a6]', 'text-slate-950');
+                btnTable.classList.add('text-slate-400');
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Filter Leads by Search & Status
+        // ---------------------------------------------------------------------
+        function filterPortalLeads() {
+            const q = (document.getElementById('portalLeadSearch')?.value || '').trim().toLowerCase();
+            const st = document.getElementById('portalStatusFilter')?.value || 'ALL';
+
+            const cards = document.querySelectorAll('.lead-card-item');
+            cards.forEach(card => {
+                const hay = (card.getAttribute('data-search') || '').toLowerCase();
+                const cardStatus = card.getAttribute('data-status') || '';
+                const matchSearch = !q || hay.includes(q);
+                let matchStatus = st === 'ALL' || cardStatus === st;
+                if (st === 'Scheduled' && (cardStatus === 'Booked' || cardStatus === 'Inspection Booked')) matchStatus = true;
+                if (st === 'New' && cardStatus === 'New Lead') matchStatus = true;
+
+                if (matchSearch && matchStatus) card.classList.remove('hidden');
+                else card.classList.add('hidden');
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // Open Lead Dossier in Right Split-Pane Inspector
+        // ---------------------------------------------------------------------
+        function openLeadInspector(leadId) {
+            const lead = (window.PORTAL_STATE.leads || []).find(l => String(l.id) === String(leadId));
+            if (!lead) return;
+
+            window.PORTAL_STATE.selectedLeadId = lead.id;
+            toggleRightPane(true);
+
+            const fullName = `${lead.first_name || 'Homeowner'} ${lead.last_name || ''}`.trim();
+            const fullAddr = `${lead.street_address || ''}, ${lead.city || 'Toms River'}, ${lead.state || 'NJ'} ${lead.zip_code || ''}`.replace(/^,\s*/, '');
+
+            const setTxt = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
+
+            setTxt('inspectorLeadIdBadge', lead.id);
+            setTxt('inspectorSourceBadge', lead.lead_source || 'AI Dispatch');
+            setTxt('inspectorHomeownerName', fullName);
+            setTxt('inspectorStatusBadge', lead.status || 'New');
+            setTxt('inspectorAddressLine', `📍 ${fullAddr}`);
+            setTxt('inspectorEmailLine', `✉️ ${lead.email || 'No email on file'}`);
+            setTxt('inspectorService', lead.service_requested || 'Full Roof Replacement');
+            setTxt('inspectorUrgency', lead.urgency || 'Standard');
+            setTxt('inspectorSlot', lead.appointment_slot || 'Flexible / TBD');
+            setTxt('inspectorCallDuration', lead.call_duration_sec ? `${lead.call_duration_sec}s` : 'Voice AI');
+            setTxt('inspectorFeedbackPath', `/feedback/${lead.id}`);
+
+            const callBtn = document.getElementById('inspectorCallBtn');
+            if (callBtn) {
+                callBtn.href = `tel:${lead.phone || '+17326609121'}`;
+                callBtn.innerHTML = `<span>📞 Call ${lead.phone || 'Homeowner'}</span>`;
+            }
+
+            const mapsBtn = document.getElementById('inspectorMapsBtn');
+            if (mapsBtn) {
+                mapsBtn.href = `https://maps.google.com/?q=${encodeURIComponent(fullAddr)}`;
+            }
+
+            const valInput = document.getElementById('inspectorValueInput');
+            if (valInput) valInput.value = Math.round(parseFloat(lead.estimated_value) || 12500);
+
+            const notesInput = document.getElementById('inspectorNotesInput');
+            if (notesInput) notesInput.value = lead.notes || 'Dispatched for 21-point drone roof inspection.';
+
+            const audioWrapper = document.getElementById('inspectorAudioWrapper');
+            const noAudio = document.getElementById('inspectorNoAudioNotice');
+            const audioPlayer = document.getElementById('inspectorAudioPlayer');
+            const audioLink = document.getElementById('inspectorAudioExternalLink');
+
+            if (lead.call_recording_url) {
+                if (audioWrapper) audioWrapper.classList.remove('hidden');
+                if (noAudio) noAudio.classList.add('hidden');
+                if (audioPlayer) audioPlayer.src = lead.call_recording_url;
+                if (audioLink) audioLink.href = lead.call_recording_url;
+            } else {
+                if (audioWrapper) audioWrapper.classList.add('hidden');
+                if (noAudio) noAudio.classList.remove('hidden');
+                if (audioPlayer) audioPlayer.removeAttribute('src');
+            }
+
+            const revConf = document.getElementById('inspectorReviewConfirmation');
+            if (revConf) {
+                if (lead.review_request_sent || lead.status === 'Completed') {
+                    revConf.classList.remove('hidden');
+                } else {
+                    revConf.classList.add('hidden');
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Partner PIN Authentication & Tenant Switching
+        // ---------------------------------------------------------------------
         async function handlePartnerLogin(e) {
             e.preventDefault();
-            const identifier = document.getElementById('partnerIdentifier').value;
-            const pin = document.getElementById('partnerPin').value;
-            const res = await fetch('/api/portal/login', {
+            const identifier = document.getElementById('partnerIdentifier')?.value || '';
+            const pin = document.getElementById('partnerPin')?.value || '';
+
+            let res = await fetch('/api/portal/login', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({identifier, pin})
             });
+
+            if (res.status === 404) {
+                res = await fetch('/api/portal/auth', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({identifier, pin})
+                });
+            }
+
             if (res.ok) {
                 const data = await res.json();
-                showPortalToast(`Logged in as ${data.tenant.company_name}!`);
-                setTimeout(() => {
-                    window.location.href = `/portal?tenant_id=${data.tenant.tenant_id}`;
-                }, 500);
+                const tid = data.tenant?.tenant_id || 'client_joe_the_roofer';
+                showPortalToast(`Unlocked workspace for ${data.tenant?.company_name || tid}!`);
+                await loadPortalCloudData(tid);
             } else {
                 showPortalToast('Invalid Partner PIN. Default Joe The Roofer PIN is 732100.');
             }
         }
 
-        async function tapStatus(leadId, newStatus, estValue) {
-            const payload = { status: newStatus };
-            if (estValue !== undefined) payload.estimated_value = estValue;
+        async function switchPortalTenant(tenantId) {
+            if (!tenantId) return;
+            window.PORTAL_STATE.tenantId = tenantId;
+            await loadPortalCloudData(tenantId);
+        }
 
-            const res = await fetch(`/api/portal/leads/${leadId}/status`, {
+        // ---------------------------------------------------------------------
+        // Hydrate Live Cloud Data from GET /api/portal/data?tenant_id=...
+        // ---------------------------------------------------------------------
+        async function loadPortalCloudData(overrideTenantId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tid = overrideTenantId || urlParams.get('tenant_id') || window.PORTAL_STATE.tenantId || 'client_joe_the_roofer';
+            window.PORTAL_STATE.tenantId = tid;
+
+            try {
+                const res = await fetch(`/api/portal/data?tenant_id=${encodeURIComponent(tid)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.status !== 'success') return;
+
+                if (data.tenant && data.tenant.company_name) {
+                    window.PORTAL_STATE.tenant = data.tenant;
+                    const t = data.tenant;
+                    const setTxt = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.innerText = v; };
+                    setTxt('headerCompanyName', t.company_name);
+                    setTxt('sidebarCompanyName', t.company_name);
+                    setTxt('sidebarEstimator', t.estimator_name || 'Riley');
+                    setTxt('sidebarDispatchPhone', t.dispatch_phone || '+17326609121');
+                    setTxt('kpiEstimatorName', t.estimator_name || 'Riley');
+                    setTxt('kpiDispatchPhone', t.dispatch_phone || '+17326609121');
+                    setTxt('territoryPartnerName', t.company_name);
+
+                    const photoTid = document.getElementById('photoFormTenantId');
+                    if (photoTid) photoTid.value = t.tenant_id;
+                    const setTid = document.getElementById('settingsTenantId');
+                    if (setTid) setTid.value = t.tenant_id;
+                    const setComp = document.getElementById('settingsCompanyName');
+                    if (setComp) setComp.value = t.company_name || '';
+                    const setEst = document.getElementById('settingsEstimatorName');
+                    if (setEst) setEst.value = t.estimator_name || '';
+                    const setPhone = document.getElementById('settingsDispatchPhone');
+                    if (setPhone) setPhone.value = t.dispatch_phone || '';
+                    const setEmail = document.getElementById('settingsEmail');
+                    if (setEmail) setEmail.value = t.email || '';
+                    const setUrl = document.getElementById('settingsBookingUrl');
+                    if (setUrl) setUrl.value = t.booking_url || '';
+                    const setSched = document.getElementById('settingsSchedulingType');
+                    if (setSched && t.scheduling_type) setSched.value = t.scheduling_type;
+                }
+
+                if (data.kpis) {
+                    const k = data.kpis;
+                    const fmtMoney = (n) => '$' + Math.round(parseFloat(n) || 0).toLocaleString();
+                    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+                    setTxt('kpiTotalLeads', k.total_leads ?? 0);
+                    setTxt('kpiBookedSub', k.booked_count ?? 0);
+                    setTxt('kpiBookedCount', k.booked_count ?? 0);
+                    setTxt('kpiWonVal', fmtMoney(k.won_revenue_value));
+                    setTxt('kpiJobsWonCount', k.jobs_won_count ?? 0);
+                    setTxt('kpiPipelineVal', fmtMoney(k.active_pipeline_value));
+                    setTxt('kpiRoiMult', `${k.roi_multiple ?? 0}x ROI`);
+                    setTxt('navBadgeRoi', `${k.roi_multiple ?? 0}x`);
+                    setTxt('revTabRoiBadge', `${k.roi_multiple ?? 0}x Return`);
+                    setTxt('kpiRetainerVal', Math.round(parseFloat(k.monthly_retainer) || 1500).toLocaleString());
+                }
+
+                if (Array.isArray(data.leads) && data.leads.length > 0) {
+                    window.PORTAL_STATE.leads = data.leads;
+                    renderHydratedLeads(data.leads);
+                    const currentId = window.PORTAL_STATE.selectedLeadId || data.leads[0].id;
+                    openLeadInspector(currentId);
+                }
+
+                if (Array.isArray(data.projects) && data.projects.length > 0) {
+                    window.PORTAL_STATE.projects = data.projects;
+                    renderHydratedProjects(data.projects);
+                }
+            } catch (err) {
+                console.warn('Portal live hydration fallback to SSR:', err);
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderHydratedLeads(leads) {
+            const navBadge = document.getElementById('navBadgeLeads');
+            if (navBadge) navBadge.innerText = leads.length;
+            const hdrCount = document.getElementById('leadsHeaderCount');
+            if (hdrCount) hdrCount.innerText = `(${leads.length})`;
+
+            const cardsContainer = document.getElementById('portalLeadsCardsContainer');
+            const tableBody = document.getElementById('portalLeadsTableBody');
+            const revBody = document.getElementById('revenueTableBody');
+
+            if (cardsContainer) {
+                const steps = ['New', 'Contacted', 'Scheduled', 'Inspected', 'Completed', 'Lost'];
+                cardsContainer.innerHTML = leads.map(l => {
+                    const addr = `${l.street_address || ''}, ${l.city || 'Toms River'}, ${l.state || 'NJ'} ${l.zip_code || ''}`;
+                    const searchStr = `${l.id} ${l.first_name} ${l.last_name} ${l.city} ${l.street_address} ${l.phone} ${l.service_requested}`.toLowerCase();
+                    const estVal = Math.round(parseFloat(l.estimated_value) || 12500);
+                    const stepBtns = steps.map(step => {
+                        const isActive = l.status === step || (step === 'Scheduled' && l.status === 'Booked') || (step === 'New' && l.status === 'New Lead');
+                        let cls = 'bg-[#0a0a0c] hover:bg-[#1f222a] border-[#1f222a] text-slate-300';
+                        if (isActive) cls = 'bg-[#14b8a6] border-[#14b8a6] text-slate-950 shadow';
+                        else if (step === 'Completed') cls = 'bg-[#0a0a0c] hover:bg-emerald-600 border-emerald-500/40 text-emerald-300 hover:text-white';
+                        else if (step === 'Lost') cls = 'bg-[#0a0a0c] hover:bg-rose-950 border-[#1f222a] text-slate-400 hover:text-rose-300';
+                        const icon = step === 'Completed' ? '⭐' : step === 'Lost' ? '✕' : '✓';
+                        return `<button type="button" onclick="tapStatus('${escapeHtml(l.id)}', '${step}')" class="py-2 px-2.5 rounded-lg font-extrabold text-[11px] border transition flex items-center justify-center gap-1 ${cls}">${icon} ${step}</button>`;
+                    }).join('');
+
+                    return `
+                    <div class="lead-card-item bg-[#14161c] hover:bg-[#181b22] border border-[#1f222a] rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-md transition cursor-pointer"
+                         id="leadCard-${escapeHtml(l.id)}"
+                         data-lead-id="${escapeHtml(l.id)}"
+                         data-status="${escapeHtml(l.status)}"
+                         data-search="${escapeHtml(searchStr)}"
+                         onclick="openLeadInspector('${escapeHtml(l.id)}')">
+                        <div class="flex flex-wrap justify-between items-start gap-3">
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-mono text-xs font-bold text-[#14b8a6]">${escapeHtml(l.id)}</span>
+                                    <span class="bg-[#0a0a0c] border border-[#1f222a] text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-md">${escapeHtml(l.lead_source || 'AI Dispatch')}</span>
+                                    <span id="statusBadge-${escapeHtml(l.id)}" class="bg-[#14b8a6]/20 border border-[#14b8a6]/40 text-[#14b8a6] text-xs font-black px-2.5 py-0.5 rounded-md">${escapeHtml(l.status)}</span>
+                                </div>
+                                <h3 class="text-base sm:text-lg font-black text-white">${escapeHtml(l.first_name)} ${escapeHtml(l.last_name)}</h3>
+                                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-300">
+                                    <span>📍 ${escapeHtml(addr)}</span>
+                                    <a href="https://maps.google.com/?q=${encodeURIComponent(addr)}" target="_blank" onclick="event.stopPropagation()" class="text-[#14b8a6] hover:underline font-bold text-[11px] bg-[#14b8a6]/10 px-2 py-0.5 rounded">🗺️ Navigate in Maps ↗</a>
+                                </div>
+                                <p class="text-xs text-amber-300 font-semibold pt-0.5">🛠️ ${escapeHtml(l.service_requested || 'Roof Inspection')} ${l.appointment_slot ? '• 🗓️ ' + escapeHtml(l.appointment_slot) : ''}</p>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2" onclick="event.stopPropagation()">
+                                <a href="tel:${escapeHtml(l.phone)}" class="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow transition">
+                                    <span>📞 Call ${escapeHtml(l.phone)}</span>
+                                </a>
+                                <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-1.5 text-right">
+                                    <span class="text-[9px] text-slate-400 block uppercase font-bold">Est. Job Value</span>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-emerald-400 font-black text-xs">$</span>
+                                        <input type="number" value="${estVal}" onchange="tapStatus('${escapeHtml(l.id)}', '${escapeHtml(l.status)}', this.value)" class="w-20 bg-transparent text-emerald-400 font-mono font-black text-sm outline-none">
+                                    </div>
+                                </div>
+                                <button type="button" onclick="openLeadInspector('${escapeHtml(l.id)}')" class="bg-[#0a0a0c] hover:bg-[#1f222a] border border-[#1f222a] text-[#14b8a6] font-extrabold text-xs px-3 py-2 rounded-xl transition">Dossier ◨</button>
+                            </div>
+                        </div>
+                        <div class="pt-1" onclick="event.stopPropagation()">
+                            <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5">${stepBtns}</div>
+                            <div id="reviewNotice-${escapeHtml(l.id)}" class="text-[11px] text-emerald-400 font-bold mt-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-1.5 ${l.review_request_sent || l.status === 'Completed' ? '' : 'hidden'}">
+                                ✅ Compliant Review Request SMS sent to homeowner (\`/feedback/${escapeHtml(l.id)}\`)!
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
+            if (revBody) {
+                revBody.innerHTML = leads.map(l => {
+                    const estVal = Math.round(parseFloat(l.estimated_value) || 12500).toLocaleString();
+                    const isDone = l.review_request_sent || l.status === 'Completed';
+                    return `
+                    <tr class="hover:bg-[#1a1d26] transition cursor-pointer" onclick="openLeadInspector('${escapeHtml(l.id)}')">
+                        <td class="py-3 px-4 font-mono font-bold text-[#14b8a6]">${escapeHtml(l.id)}</td>
+                        <td class="py-3 px-3">
+                            <div class="font-bold text-white">${escapeHtml(l.first_name)} ${escapeHtml(l.last_name)}</div>
+                            <div class="text-[11px] text-slate-400">${escapeHtml(l.city || 'Ocean County')}, ${escapeHtml(l.state || 'NJ')}</div>
+                        </td>
+                        <td class="py-3 px-3 text-slate-200">${escapeHtml(l.service_requested || 'Full Roof Replacement')}</td>
+                        <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-200">${escapeHtml(l.status)}</span></td>
+                        <td class="py-3 px-3 font-mono font-bold text-emerald-400">$${estVal}</td>
+                        <td class="py-3 px-4" onclick="event.stopPropagation()">
+                            ${isDone
+                                ? `<a href="/feedback/${escapeHtml(l.id)}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-bold hover:underline">✅ Review Link Dispatched (\`/feedback/${escapeHtml(l.id)}\`) ↗</a>`
+                                : `<button type="button" onclick="tapStatus('${escapeHtml(l.id)}', 'Completed')" class="bg-[#0a0a0c] hover:bg-emerald-600 border border-emerald-500/40 text-emerald-300 hover:text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition">⭐ Mark Completed & Text Review Link</button>`
+                            }
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+        }
+
+        function renderHydratedProjects(projects) {
+            const countEl = document.getElementById('partnerProjectsCount');
+            if (countEl) countEl.innerText = projects.length;
+            const gal = document.getElementById('partnerProjectsGallery');
+            if (!gal || projects.length === 0) return;
+
+            gal.innerHTML = projects.map(p => `
+                <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl overflow-hidden flex flex-col justify-between">
+                    <div class="p-3.5 space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-bold bg-[#14b8a6]/15 text-[#14b8a6] px-2 py-0.5 rounded">${escapeHtml(p.town_name || 'Ocean County')}</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 rounded ${p.approval_status === 'approved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${escapeHtml(p.approval_status || 'pending_auto_24h')}</span>
+                        </div>
+                        <div class="text-xs font-bold text-white">${escapeHtml(p.shingle_system || p.service_type || 'Roof System')}</div>
+                        <p class="text-[11px] text-slate-400 line-clamp-2">${escapeHtml(p.caption || '')}</p>
+                    </div>
+                    <div class="px-3.5 py-2 bg-[#0f1014] border-t border-[#1f222a] flex items-center justify-between text-[10px] font-mono text-slate-400">
+                        <span>📍 ${escapeHtml(p.gps_lat || '39.9537')}, ${escapeHtml(p.gps_lng || '-74.1979')}</span>
+                        <span class="text-[#14b8a6]">WebP ✓</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ---------------------------------------------------------------------
+        // 1-Tap Status Pipeline Update (POST /api/portal/leads/{leadId}/status)
+        // ---------------------------------------------------------------------
+        async function tapStatus(leadId, newStatus, estValue, notesOverride) {
+            const payload = { status: newStatus };
+            if (estValue !== undefined) payload.estimated_value = parseFloat(estValue) || 0;
+            if (notesOverride !== undefined) payload.notes = notesOverride;
+
+            const res = await fetch(`/api/portal/leads/${encodeURIComponent(leadId)}/status`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
@@ -265,32 +1330,142 @@
                 const badge = document.getElementById(`statusBadge-${leadId}`);
                 if (badge) badge.innerText = newStatus;
 
-                if (data.review_sms_result && data.review_sms_result.sent) {
+                // Update local state
+                const idx = (window.PORTAL_STATE.leads || []).findIndex(l => String(l.id) === String(leadId));
+                if (idx >= 0) {
+                    window.PORTAL_STATE.leads[idx] = {
+                        ...window.PORTAL_STATE.leads[idx],
+                        ...(data.lead || {}),
+                        status: newStatus
+                    };
+                    if (newStatus === 'Completed') {
+                        window.PORTAL_STATE.leads[idx].review_request_sent = true;
+                    }
+                }
+
+                if (newStatus === 'Completed' || (data.review_sms_result && data.review_sms_result.sent)) {
                     const notice = document.getElementById(`reviewNotice-${leadId}`);
                     if (notice) notice.classList.remove('hidden');
+                    const inspConf = document.getElementById('inspectorReviewConfirmation');
+                    if (inspConf) inspConf.classList.remove('hidden');
                     showPortalToast(`Job marked Completed! Reputation Agent automatically texted homeowner their Google Review link!`);
                 } else {
                     showPortalToast(`Updated ${leadId} → ${newStatus}`);
                 }
-                setTimeout(() => location.reload(), 900);
+
+                if (String(window.PORTAL_STATE.selectedLeadId) === String(leadId)) {
+                    openLeadInspector(leadId);
+                }
+                await loadPortalCloudData(window.PORTAL_STATE.tenantId);
+            } else {
+                showPortalToast(`Could not update ${leadId}. Please verify connection.`);
             }
         }
 
+        function tapStatusFromInspector(newStatus) {
+            const leadId = window.PORTAL_STATE.selectedLeadId;
+            if (!leadId) return;
+            const estVal = document.getElementById('inspectorValueInput')?.value;
+            tapStatus(leadId, newStatus, estVal);
+        }
+
+        function updateInspectorLeadValue(newVal) {
+            const leadId = window.PORTAL_STATE.selectedLeadId;
+            if (!leadId) return;
+            const lead = (window.PORTAL_STATE.leads || []).find(l => String(l.id) === String(leadId));
+            const curStatus = lead?.status || 'Scheduled';
+            tapStatus(leadId, curStatus, newVal);
+        }
+
+        function saveInspectorNotes() {
+            const leadId = window.PORTAL_STATE.selectedLeadId;
+            if (!leadId) return;
+            const lead = (window.PORTAL_STATE.leads || []).find(l => String(l.id) === String(leadId));
+            const curStatus = lead?.status || 'Scheduled';
+            const notesVal = document.getElementById('inspectorNotesInput')?.value || '';
+            tapStatus(leadId, curStatus, lead?.estimated_value, notesVal);
+        }
+
+        // ---------------------------------------------------------------------
+        // Job-Site Photo Upload (POST /api/media/upload)
+        // ---------------------------------------------------------------------
         async function submitPartnerPhoto(e) {
             e.preventDefault();
             const btn = document.getElementById('partnerUploadBtn');
             btn.disabled = true;
-            btn.innerText = '⏳ Stamping GPS Coordinates & Optimizing WebP...';
+            btn.innerText = '⏳ Stamping EXIF GPS Coordinates & Optimizing WebP...';
             const fd = new FormData(e.target);
-            const res = await fetch('/api/media/upload', { method: 'POST', body: fd });
-            const data = await res.json();
-            btn.disabled = false;
-            btn.innerText = '📤 Upload Job Photo (Auto GPS Geo-Tag + 24h Hybrid Queue)';
-            if (res.ok) {
-                showPortalToast(data.message);
-                e.target.reset();
+            try {
+                const res = await fetch('/api/media/upload', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (res.ok) {
+                    showPortalToast(data.message || 'Photo GPS-tagged & queued for 24h auto-publish!');
+                    e.target.reset();
+                    if (data.project) {
+                        window.PORTAL_STATE.projects = [data.project, ...(window.PORTAL_STATE.projects || [])];
+                        renderHydratedProjects(window.PORTAL_STATE.projects);
+                    }
+                    await loadPortalCloudData(window.PORTAL_STATE.tenantId);
+                } else {
+                    showPortalToast(data.detail || 'Upload failed.');
+                }
+            } catch (err) {
+                showPortalToast('Network error uploading photo.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '📤 Upload Job Photo (Auto GPS Geo-Tag + 24h Hybrid Queue)';
             }
         }
+
+        // ---------------------------------------------------------------------
+        // Booking & Calendar Settings Save (POST /api/admin/tenants)
+        // ---------------------------------------------------------------------
+        async function savePartnerCalendarSettings(e) {
+            e.preventDefault();
+            const btn = document.getElementById('savePartnerSettingsBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = '⏳ Saving Configuration...';
+            }
+            const payload = {
+                tenant_id: document.getElementById('settingsTenantId')?.value || window.PORTAL_STATE.tenantId,
+                company_name: document.getElementById('settingsCompanyName')?.value || '',
+                estimator_name: document.getElementById('settingsEstimatorName')?.value || '',
+                scheduling_type: document.getElementById('settingsSchedulingType')?.value || 'google_calendar',
+                booking_url: document.getElementById('settingsBookingUrl')?.value || '',
+                dispatch_phone: document.getElementById('settingsDispatchPhone')?.value || '',
+                email: document.getElementById('settingsEmail')?.value || ''
+            };
+
+            try {
+                const res = await fetch('/api/admin/tenants', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showPortalToast('Booking & Calendar settings saved to Cloud!');
+                    await loadPortalCloudData(payload.tenant_id);
+                } else {
+                    showPortalToast('Could not save settings.');
+                }
+            } catch (err) {
+                showPortalToast('Error saving settings.');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = '💾 Save Booking & Dispatch Configuration';
+                }
+            }
+        }
+
+        // Restore sidebar state & hydrate live cloud data on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('ocrp_portal_left_collapsed') === '1') {
+                toggleLeftSidebar();
+            }
+            loadPortalCloudData();
+        });
     </script>
 </body>
 </html>

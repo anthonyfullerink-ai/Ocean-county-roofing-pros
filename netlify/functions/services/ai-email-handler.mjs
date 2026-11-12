@@ -3,6 +3,27 @@
 // ==============================================================================
 import { EmailService } from "./email-service.mjs";
 
+const OCEAN_COUNTY_TOWNS = [
+  "Toms River",
+  "Brick",
+  "Lakewood",
+  "Jackson",
+  "Point Pleasant",
+  "Manchester",
+  "Lacey",
+  "Forked River",
+  "Barnegat",
+  "Manahawkin",
+  "Stafford",
+  "Little Egg Harbor",
+  "Beach Haven",
+  "Seaside Heights",
+  "Lavallette",
+  "Howell",
+  "Wall",
+  "Freehold"
+];
+
 export class AIEmailAgent {
   /**
    * Main entry point for inbound emails via Resend webhook
@@ -13,23 +34,29 @@ export class AIEmailAgent {
     const senderEmail = this.extractEmailAddress(from);
     const headerName = this.extractName(from);
 
-    // 1. Resolve Active Rank-and-Rent Contractor (Tenant) from Supabase
-    const tenant = await this.loadActiveTenant();
+    // 1. Load custom rules & territory routing from Supabase system_settings
+    const sysSettings = await this.loadSystemSettings();
+    const customRules = sysSettings.email_agent_custom_rules || "";
 
     // 2. Match Existing Lead by Email (or prior thread)
     const existingLead = await this.lookupLeadByEmail(senderEmail);
 
-    // 3. Analyze Email Content, Extract Entities, Classify Intent & Formulate Non-Canned Reply
+    // 3. Resolve Contractor Partner (Hybrid Territory Routing -> Active Default Partner)
+    const combinedText = `${subject || ""} ${textBody || ""} ${existingLead?.street_address || ""} ${existingLead?.city || ""}`;
+    const tenant = await this.resolveTenantForText(combinedText, sysSettings.territory_routing_json);
+
+    // 4. Analyze Email Content, Extract Entities, Classify Intent & Formulate Non-Canned Reply
     const analysis = await this.analyzeEmailWithAI({
       senderEmail,
       headerName,
       subject,
       textBody,
       tenant,
-      existingLead
+      existingLead,
+      customRules
     });
 
-    console.log(`[AIEmailAgent] Intent: ${analysis.intent} | Name: ${analysis.entities.name} | Phone: ${analysis.entities.phone}`);
+    console.log(`[AIEmailAgent] Intent: ${analysis.intent} | Name: ${analysis.entities.name} | Phone: ${analysis.entities.phone} | Partner: ${tenant.company_name}`);
 
     // If Vendor / B2B Spam: log silently and abort outbound reply/alerts
     if (analysis.intent === "VENDOR_SPAM") {
@@ -41,19 +68,29 @@ export class AIEmailAgent {
       };
     }
 
-    // 4. Upsert Lead Record into Supabase (Tied to Active Contractor)
+    // Re-check territory routing if AI extracted a specific street_address with a town name
+    let finalTenant = tenant;
+    if (analysis.entities?.street_address) {
+      finalTenant = await this.resolveTenantForText(
+        `${analysis.entities.street_address} ${combinedText}`,
+        sysSettings.territory_routing_json,
+        tenant
+      );
+    }
+
+    // 5. Upsert Lead Record into Supabase (Tied to Assigned Contractor)
     const leadRecord = await this.upsertLeadRecord({
       existingLead,
       senderEmail,
       subject,
       textBody,
       analysis,
-      tenant
+      tenant: finalTenant
     });
 
-    // 5. If Appointment Booked or Rescheduled with Date/Address -> Trigger Calendar Sync & Branded Confirmation
+    // 6. If Appointment Booked or Rescheduled with Date/Address -> Trigger Calendar Sync & Branded Confirmation
     if (analysis.should_book_immediately && leadRecord) {
-      await this.triggerCalendarWebhook(leadRecord, tenant);
+      await this.triggerCalendarWebhook(leadRecord, finalTenant);
       await EmailService.sendBookingConfirmation({
         lead_id: leadRecord.id,
         name: analysis.entities.name,
@@ -68,7 +105,7 @@ export class AIEmailAgent {
       });
     }
 
-    // 6. Dispatch High-Converting Threaded Reply from Riley Davis
+    // 7. Dispatch High-Converting Threaded Reply from Riley Davis
     let sendResult = null;
     if (analysis.reply_body) {
       sendResult = await EmailService.sendAgentReply(
@@ -76,11 +113,11 @@ export class AIEmailAgent {
         subject,
         analysis.reply_body,
         messageId,
-        tenant
+        finalTenant
       );
     }
 
-    // 7. Dual Alerting: Notify Platform Operator (Anthony) & Assigned Contractor (Tenant)
+    // 8. Dual Alerting: Notify Platform Operator (Anthony) & Assigned Contractor (Tenant)
     if (analysis.should_alert_owner || analysis.should_alert_contractor) {
       await this.notifyOperatorAndContractor({
         leadId: leadRecord?.id || `EMAIL-${Date.now() % 1000000}`,
@@ -93,7 +130,7 @@ export class AIEmailAgent {
         intent: analysis.intent,
         escalationReason: analysis.escalation_reason,
         replyText: analysis.reply_body,
-        tenant,
+        tenant: finalTenant,
         alertOwner: analysis.should_alert_owner,
         alertContractor: analysis.should_alert_contractor
       });
@@ -103,9 +140,110 @@ export class AIEmailAgent {
       status: "success",
       intent: analysis.intent,
       lead_id: leadRecord?.id,
-      assigned_tenant: tenant.company_name,
+      assigned_tenant: finalTenant.company_name,
+      assigned_tenant_id: finalTenant.tenant_id,
       replySentTo: senderEmail,
       sendResult
+    };
+  }
+
+  /**
+   * Load system_settings key-values from Supabase
+   */
+  static async loadSystemSettings() {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_KEY;
+    if (!supabaseUrl || !supabaseKey) return {};
+    try {
+      const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/system_settings?select=key,value`, {
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`
+        }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        const map = {};
+        for (const r of rows) {
+          map[r.key] = r.value;
+        }
+        return map;
+      }
+    } catch (e) {
+      console.error("[AIEmailAgent] Error loading system_settings:", e);
+    }
+    return {};
+  }
+
+  /**
+   * Resolve Contractor Tenant using Hybrid Territory Routing (Town Override -> Primary Active Partner)
+   */
+  static async resolveTenantForText(textToScan, territoryRoutingRaw = "", fallbackTenant = null) {
+    const defaultActive = fallbackTenant || (await this.loadActiveTenant());
+    if (!territoryRoutingRaw || !textToScan) return defaultActive;
+
+    let routingMap = {};
+    try {
+      routingMap = typeof territoryRoutingRaw === "string" ? JSON.parse(territoryRoutingRaw) : territoryRoutingRaw;
+    } catch (e) {
+      return defaultActive;
+    }
+
+    if (!routingMap || Object.keys(routingMap).length === 0) return defaultActive;
+
+    const lowerScan = textToScan.toLowerCase();
+    let matchedTenantId = null;
+
+    for (const [townKey, assignedTenantId] of Object.entries(routingMap)) {
+      if (!assignedTenantId || assignedTenantId === "default") continue;
+      const cleanTown = townKey
+        .replace(/^roofing-/, "")
+        .replace(/-nj$/, "")
+        .replace(/-/g, " ")
+        .toLowerCase()
+        .trim();
+      if (cleanTown && lowerScan.includes(cleanTown)) {
+        matchedTenantId = assignedTenantId;
+        break;
+      }
+    }
+
+    if (!matchedTenantId || matchedTenantId === defaultActive.tenant_id) {
+      return defaultActive;
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_KEY;
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const res = await fetch(
+          `${supabaseUrl.replace(/\/$/, "")}/rest/v1/tenants?tenant_id=eq.${encodeURIComponent(matchedTenantId)}&limit=1`,
+          {
+            headers: {
+              "apikey": supabaseKey,
+              "Authorization": `Bearer ${supabaseKey}`
+            }
+          }
+        );
+        if (res.ok) {
+          const rows = await res.json();
+          if (rows.length > 0) {
+            return { ...defaultActive, ...rows[0] };
+          }
+        }
+      } catch (e) {
+        console.error("[AIEmailAgent] Error resolving territory tenant:", e);
+      }
+    }
+
+    return {
+      ...defaultActive,
+      tenant_id: matchedTenantId,
+      company_name: matchedTenantId
+        .replace(/^client_/, "")
+        .split("_")
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
     };
   }
 
@@ -150,7 +288,7 @@ export class AIEmailAgent {
   /**
    * Intelligent AI Analysis (Uses Netlify AI Gateway / OpenAI / Gemini if active, with deep Entity Fallback)
    */
-  static async analyzeEmailWithAI({ senderEmail, headerName, subject, textBody, tenant, existingLead }) {
+  static async analyzeEmailWithAI({ senderEmail, headerName, subject, textBody, tenant, existingLead, customRules = "" }) {
     const openaiKey = process.env.OPENAI_API_KEY;
     const openaiBaseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
 
@@ -171,12 +309,16 @@ Appointment Slot: ${existingLead.appointment_slot}
 Prior Notes: ${existingLead.notes}`
           : `NEW COLD LEAD: No prior lead found for this email.`;
 
+        const customBlock = customRules
+          ? `\nCUSTOM OPERATOR INSTRUCTIONS FROM COMMAND CENTER:\n${customRules}\n`
+          : "";
+
         const systemPrompt = `You are ${tenant.estimator_name || "Riley Davis"}, Lead Scheduling Coordinator for Ocean County Roofing Pros (operated by Offgrid Media, LLC, serving Ocean & Monmouth County, NJ).
 Active Contractor Partner: ${tenant.company_name}. Direct Dispatch Phone: ${tenant.dispatch_phone}.
 ${bookingLinkNote}
 
 ${existingLeadContext}
-
+${customBlock}
 TASK: Analyze the incoming email and return ONLY valid JSON matching the exact schema below.
 
 RULES:
@@ -249,7 +391,7 @@ ${textBody || "(Empty body)"}`;
     }
 
     // High-Intelligence Deterministic Entity & Intent Fallback
-    return this.deterministicAnalysis({ senderEmail, headerName, subject, textBody, tenant, existingLead });
+    return this.deterministicAnalysis({ senderEmail, headerName, subject, textBody, tenant, existingLead, customRules });
   }
 
   /**
@@ -267,11 +409,9 @@ ${textBody || "(Empty body)"}`;
     // 2. Extract Real Name (Prefer signature / body lines over generic header names)
     let extractedName = existingLead ? `${existingLead.first_name} ${existingLead.last_name}`.trim() : "";
     if (!extractedName) {
-      // Look for name line right above phone number or company in signature, or after "Thanks," / "Best,"
       const lines = (textBody || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        // Match lines with 2 capitalized words (e.g., "Anthony Fuller") that don't have numbers or keywords
         if (/^[A-Z][a-z]+\s+[A-Z][a-z]+$/.test(line) && !line.toLowerCase().includes("roof") && !line.toLowerCase().includes("media")) {
           extractedName = line;
           break;
@@ -432,6 +572,20 @@ ${textBody || "(Empty body)"}`;
   }
 
   /**
+   * Detect Ocean County town name from address or body text
+   */
+  static detectCityFromText(text) {
+    if (!text) return "Ocean County";
+    const lower = text.toLowerCase();
+    for (const town of OCEAN_COUNTY_TOWNS) {
+      if (lower.includes(town.toLowerCase())) {
+        return town;
+      }
+    }
+    return "Ocean County";
+  }
+
+  /**
    * Upsert Lead in Supabase CRM tied to Active Tenant
    */
   static async upsertLeadRecord({ existingLead, senderEmail, subject, textBody, analysis, tenant }) {
@@ -455,10 +609,11 @@ ${textBody || "(Empty body)"}`;
     else if (analysis.intent === "RESCHEDULE") newStatus = "Inspection Rescheduled";
     else if (analysis.intent === "EMERGENCY_LEAK") newStatus = "Emergency Priority";
 
+    const detectedCity = this.detectCityFromText(`${entities.street_address || ""} ${textBody || ""}`);
     const noteEntry = `[${nowIso.split("T")[0]} Email Inbound - ${analysis.intent}]: Subject: "${subject}" | Snippet: "${(textBody || "").slice(0, 140).replace(/\n/g, " ")}"`;
 
     if (!supabaseUrl || !supabaseKey) {
-      return { id: leadId, first_name: firstName, last_name: lastName, street_address: entities.street_address, status: newStatus };
+      return { id: leadId, first_name: firstName, last_name: lastName, street_address: entities.street_address, city: detectedCity, status: newStatus };
     }
 
     try {
@@ -467,7 +622,9 @@ ${textBody || "(Empty body)"}`;
           updated_at: nowIso,
           phone: entities.phone || existingLead.phone,
           street_address: entities.street_address || existingLead.street_address,
+          city: detectedCity !== "Ocean County" ? detectedCity : (existingLead.city || "Ocean County"),
           appointment_slot: appointmentSlot,
+          assigned_tenant_id: tenant.tenant_id || existingLead.assigned_tenant_id,
           status: newStatus,
           notes: `${existingLead.notes ? existingLead.notes + "\n" : ""}${noteEntry}`
         };
@@ -492,7 +649,7 @@ ${textBody || "(Empty body)"}`;
           phone: entities.phone || "",
           email: senderEmail,
           street_address: entities.street_address || "",
-          city: "Ocean County",
+          city: detectedCity,
           state: "NJ",
           service_requested: entities.service_requested || "Roof Inspection & Estimate",
           urgency: entities.urgency || "Standard",

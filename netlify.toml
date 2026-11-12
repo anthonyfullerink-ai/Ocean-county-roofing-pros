@@ -42,6 +42,12 @@
   to = "/.netlify/functions/api-admin"
   status = 200
 
+# Contractor Partner Portal API
+[[redirects]]
+  from = "/api/portal/*"
+  to = "/.netlify/functions/api-admin"
+  status = 200
+
 # Resend Inbound Email Webhook & AI Agent
 [[redirects]]
   from = "/api/email/*"

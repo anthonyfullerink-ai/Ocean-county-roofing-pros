@@ -3,6 +3,7 @@
  * Routes: POST /api/vapi/tools
  */
 import { EmailService } from "./services/email-service.mjs";
+import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 
 export default async (req, context) => {
   if (req.method !== "POST") {
@@ -24,7 +25,7 @@ export default async (req, context) => {
     const supabaseUrl = process.env.SUPABASE_URL || "";
     const supabaseKey = process.env.SUPABASE_KEY || "";
 
-    // Load active tenant from Supabase Cloud
+    // Load active tenant + system settings from Supabase Cloud
     let tenant = {
       tenant_id: "client_joe_the_roofer",
       company_name: "Joe The Roofer LLC",
@@ -33,20 +34,14 @@ export default async (req, context) => {
       booking_url: "",
       dispatch_phone: "+17326609121"
     };
+    let sysSettings = {};
 
     if (supabaseUrl && supabaseKey) {
       try {
-        const tenantRes = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/tenants?is_active=eq.true&limit=1`, {
-          headers: {
-            "apikey": supabaseKey,
-            "Authorization": `Bearer ${supabaseKey}`
-          }
-        });
-        if (tenantRes.ok) {
-          const tenants = await tenantRes.json();
-          if (tenants.length > 0) {
-            tenant = { ...tenant, ...tenants[0] };
-          }
+        sysSettings = await AIEmailAgent.loadSystemSettings();
+        const active = await AIEmailAgent.loadActiveTenant();
+        if (active) {
+          tenant = { ...tenant, ...active };
         }
       } catch (err) {
         console.error("Error loading tenant for Vapi tools:", err);
@@ -104,6 +99,20 @@ export default async (req, context) => {
         const timeStr = (args.time || "1:00 PM").trim();
         const leadId = `CALL-${Date.now() % 100000000}`;
 
+        // Resolve territory routing by address if configured
+        let targetTenant = tenant;
+        if (supabaseUrl && supabaseKey && sysSettings.territory_routing_json) {
+          try {
+            targetTenant = await AIEmailAgent.resolveTenantForText(
+              address,
+              sysSettings.territory_routing_json,
+              tenant
+            );
+          } catch (e) {
+            console.error("Vapi territory routing fallback:", e);
+          }
+        }
+
         const isHomeowner = args.is_homeowner || "Yes";
         const roofAge = args.roof_age || "Standard inspection";
         const atticAccess = args.attic_access || "Yes";
@@ -121,7 +130,7 @@ export default async (req, context) => {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                calendar_id: tenant.google_calendar_id || secondaryCalId,
+                calendar_id: targetTenant.google_calendar_id || targetTenant.calendar_id || secondaryCalId,
                 customer_name: name,
                 phone: phone,
                 customer_email: email,
@@ -143,6 +152,7 @@ export default async (req, context) => {
         // Save to Supabase Cloud
         if (supabaseUrl && supabaseKey) {
           try {
+            const detectedCity = AIEmailAgent.detectCityFromText(address);
             await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/leads`, {
               method: "POST",
               headers: {
@@ -161,13 +171,13 @@ export default async (req, context) => {
                 phone: phone,
                 email: email,
                 street_address: address,
-                city: "Toms River",
+                city: detectedCity !== "Ocean County" ? detectedCity : "Toms River",
                 service_requested: service,
                 urgency: "Standard",
                 status: "Inspection Booked",
                 appointment_slot: `${dateStr} ${timeStr}`,
-                assigned_tenant_id: tenant.tenant_id,
-                notes: `Booked via Voice AI dispatch for ${tenant.company_name}. ${qualificationNotes}`
+                assigned_tenant_id: targetTenant.tenant_id,
+                notes: `Booked via Voice AI dispatch for ${targetTenant.company_name}. ${qualificationNotes}`
               })
             });
           } catch (err) {
@@ -188,7 +198,7 @@ export default async (req, context) => {
           attic_access: atticAccess,
           ladder_needed: ladderNeeded,
           decision_makers_present: decisionMakers,
-          source: `Voice AI (${tenant.assigned_estimator || "Riley"})`
+          source: `Voice AI (${targetTenant.assigned_estimator || targetTenant.estimator_name || "Riley"})`
         };
 
         try {
@@ -198,10 +208,10 @@ export default async (req, context) => {
           console.error("Email dispatch trigger error:", emailErr);
         }
 
-        if (tenant.scheduling_type === "external_link" && tenant.booking_url) {
+        if (targetTenant.scheduling_type === "external_link" && targetTenant.booking_url) {
           results.push({
             toolCallId: callId,
-            result: `Appointment request registered for ${name} with ${tenant.company_name}! I have sent an SMS to ${phone} with a direct booking link to finalize your 15-minute arrival window: ${tenant.booking_url}. One of our certified roofing specialists will meet you at ${address} for the free 21-point inspection.`
+            result: `Appointment request registered for ${name} with ${targetTenant.company_name}! I have sent an SMS to ${phone} with a direct booking link to finalize your 15-minute arrival window: ${targetTenant.booking_url}. One of our certified roofing specialists will meet you at ${address} for the free 21-point inspection.`
           });
         } else {
           const inviteNote = email ? ` A calendar invite has been sent to ${email}.` : "";

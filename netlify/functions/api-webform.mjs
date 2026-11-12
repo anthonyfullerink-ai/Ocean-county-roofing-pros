@@ -3,6 +3,7 @@
  * Routes: POST /api/leads/webform
  */
 import { EmailService } from "./services/email-service.mjs";
+import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 
 export default async (req, context) => {
   if (req.method !== "POST") {
@@ -36,26 +37,21 @@ export default async (req, context) => {
     let bookingUrl = "";
     let activeTenantId = "client_joe_the_roofer";
 
-    // 1. Fetch active tenant from Supabase Cloud
+    // 1. Resolve Tenant via Hybrid Territory Routing -> Active Default Partner
     if (supabaseUrl && supabaseKey) {
       try {
-        const tenantRes = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/tenants?is_active=eq.true&limit=1`, {
-          headers: {
-            "apikey": supabaseKey,
-            "Authorization": `Bearer ${supabaseKey}`
-          }
-        });
-        if (tenantRes.ok) {
-          const tenants = await tenantRes.json();
-          if (tenants.length > 0) {
-            const t = tenants[0];
-            activeTenantId = t.tenant_id;
-            schedulingType = t.scheduling_type || "google_calendar";
-            bookingUrl = t.booking_url || "";
-          }
+        const sysSettings = await AIEmailAgent.loadSystemSettings();
+        const resolvedTenant = await AIEmailAgent.resolveTenantForText(
+          `${address} ${city}`,
+          sysSettings.territory_routing_json
+        );
+        if (resolvedTenant) {
+          activeTenantId = resolvedTenant.tenant_id || activeTenantId;
+          schedulingType = resolvedTenant.scheduling_type || "google_calendar";
+          bookingUrl = resolvedTenant.booking_url || "";
         }
       } catch (err) {
-        console.error("Error fetching active tenant:", err);
+        console.error("Error resolving tenant:", err);
       }
     }
 
@@ -159,6 +155,7 @@ export default async (req, context) => {
       status: "success",
       message: "Lead received successfully. Estimator dispatch initiated.",
       lead_id: leadId,
+      assigned_tenant_id: activeTenantId,
       scheduling_type: schedulingType,
       booking_url: schedulingType === "external_link" && bookingUrl ? bookingUrl : null,
       outbound_callback_queued: false
