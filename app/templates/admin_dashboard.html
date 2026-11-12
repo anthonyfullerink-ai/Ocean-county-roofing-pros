@@ -508,6 +508,16 @@
                         <div><span class="text-slate-500 block">Notification Email:</span><strong class="text-white">{{ t.email }}</strong></div>
                         <div><span class="text-slate-500 block">Monthly Retainer:</span><strong class="text-emerald-400">${{ "{:,.2f}".format(t.monthly_retainer) }}/mo</strong></div>
                         <div><span class="text-slate-500 block">Partner Portal PIN:</span><strong class="font-mono text-amber-300">{{ t.portal_pin }}</strong></div>
+                        <div class="col-span-2 pt-1 border-t border-slate-900">
+                            <span class="text-slate-500 block">Scheduling Pipeline:</span>
+                            {% if t.scheduling_type == 'external_link' %}
+                            <span class="text-amber-400 font-bold">🔗 Third-Party Link (Calendly)</span>:
+                            <a href="{{ t.booking_url }}" target="_blank" class="text-teal-400 hover:underline break-all">{{ t.booking_url }}</a>
+                            {% else %}
+                            <span class="text-blue-400 font-bold">📅 Autonomous Google Calendar Dispatch</span>
+                            <span class="text-[10px] text-slate-500 block truncate">Cal ID: {{ t.calendar_id }}</span>
+                            {% endif %}
+                        </div>
                     </div>
 
                     <div class="flex justify-between items-center pt-1">
@@ -522,12 +532,17 @@
             <!-- Add / Update Roofing Partner Form -->
             <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
                 <h3 class="text-base font-black text-white mb-4">+ Add or Update Roofing Partner Tenant</h3>
-                <form onsubmit="saveTenantPartner(event)" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <form onsubmit="saveTenantPartner(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <input type="text" id="tp_name" placeholder="Company Name *" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
                     <input type="text" id="tp_estimator" placeholder="Estimator Name (e.g. Hannah)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
                     <input type="text" id="tp_phone" placeholder="Dispatch Phone (+1732...)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
                     <input type="email" id="tp_email" placeholder="Partner Email" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
                     <input type="text" id="tp_pin" placeholder="6-Digit Portal PIN (e.g. 732300)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <select id="tp_sched_type" onchange="toggleBookingUrlField(this.value)" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                        <option value="google_calendar">📅 Google Calendar (Dispatch)</option>
+                        <option value="external_link">🔗 Third-Party Calendar (Calendly, etc.)</option>
+                    </select>
+                    <input type="url" id="tp_booking_url" placeholder="Booking URL (e.g. https://calendly.com/...)" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300">
                     <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl px-4 py-2">Save Partner</button>
                 </form>
             </div>
@@ -774,6 +789,16 @@
             }
         }
 
+        function toggleBookingUrlField(val) {
+            const field = document.getElementById('tp_booking_url');
+            if (val === 'external_link') {
+                field.required = true;
+                field.focus();
+            } else {
+                field.required = false;
+            }
+        }
+
         async function saveTenantPartner(e) {
             e.preventDefault();
             const payload = {
@@ -782,6 +807,8 @@
                 dispatch_phone: document.getElementById('tp_phone').value,
                 email: document.getElementById('tp_email').value,
                 portal_pin: document.getElementById('tp_pin').value,
+                scheduling_type: document.getElementById('tp_sched_type').value,
+                booking_url: document.getElementById('tp_booking_url').value,
                 monthly_retainer: 1500
             };
             const res = await fetch('/api/admin/tenants', {

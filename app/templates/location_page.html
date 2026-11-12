@@ -298,6 +298,11 @@
                                 <li>Full 21-point photo scan delivered directly to your phone.</li>
                             </ul>
                         </div>
+                        <div id="externalBookingContainer" class="hidden pt-2">
+                            <a id="externalBookingLink" href="#" target="_blank" class="w-full inline-flex items-center justify-center gap-2 bg-amber-400 text-slate-950 px-5 py-3 rounded-2xl font-black text-sm shadow hover:bg-amber-300 transition">
+                                📅 Pick Your Inspection Time on Live Calendar →
+                            </a>
+                        </div>
                     </div>
 
                 </div>
@@ -864,9 +869,18 @@
                 });
 
                 if (response.ok) {
+                    const data = await response.json();
                     quizForm.classList.add('hidden');
                     document.getElementById('quizStep3').classList.add('hidden');
                     formSuccess.classList.remove('hidden');
+                    if (data && data.booking_url) {
+                        const bookingContainer = document.getElementById('externalBookingContainer');
+                        const bookingLink = document.getElementById('externalBookingLink');
+                        if (bookingContainer && bookingLink) {
+                            bookingLink.href = data.booking_url;
+                            bookingContainer.classList.remove('hidden');
+                        }
+                    }
                 } else {
                     alert('There was a slight error submitting your request. Please call us directly at {{ brand.primary_phone }}');
                     submitBtn.disabled = false;

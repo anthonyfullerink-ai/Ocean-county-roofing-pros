@@ -205,14 +205,24 @@ async def handle_vapi_tool_calls(request: Request):
                 }
 
             alert_business_owner(lead_dict)
-            if phone:
-                send_customer_sms(phone, first_name, service)
+            is_external_cal = booking.get("scheduling_type") == "external_link"
+            booking_url = booking.get("booking_url")
 
-            invite_note = f" A calendar invite has been sent to {email}." if email else ""
-            confirmation_msg = (
-                f"Appointment successfully confirmed for {name} on {clean_date} at {clean_time}. "
-                f"Our estimator Hannah from our certified crew will arrive at {address} for the free 21-point roof inspection.{invite_note}"
-            )
+            if phone:
+                send_customer_sms(phone, first_name, service, booking_url=booking_url if is_external_cal else None)
+
+            if is_external_cal and booking_url:
+                confirmation_msg = (
+                    f"Appointment request registered for {name} with {active_tenant.company_name}! "
+                    f"I have sent an SMS to {phone} with a direct booking link to finalize your 15-minute arrival window: {booking_url}. "
+                    f"Our certified estimator {active_tenant.assigned_estimator} looks forward to completing your free 21-point roof inspection at {address}."
+                )
+            else:
+                invite_note = f" A calendar invite has been sent to {email}." if email else ""
+                confirmation_msg = (
+                    f"Appointment successfully confirmed for {name} on {clean_date} at {clean_time}. "
+                    f"Our estimator {active_tenant.assigned_estimator} from our certified crew will arrive at {address} for the free 21-point roof inspection.{invite_note}"
+                )
             results.append({"toolCallId": call_id, "result": confirmation_msg})
 
         # ----------------------------------------------------------------------

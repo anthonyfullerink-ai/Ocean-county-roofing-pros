@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS public.tenants (
     dispatch_phone TEXT DEFAULT '',
     email TEXT DEFAULT '',
     portal_pin TEXT DEFAULT '732100',
+    scheduling_type TEXT DEFAULT 'google_calendar',
+    booking_url TEXT DEFAULT '',
     calendar_id TEXT DEFAULT 'primary',
     service_license TEXT DEFAULT 'Fully Licensed & Insured NJ HIC',
     monthly_retainer NUMERIC(12, 2) DEFAULT 1500.00,

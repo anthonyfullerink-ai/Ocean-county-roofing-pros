@@ -134,6 +134,8 @@ def init_db() -> None:
             dispatch_phone TEXT DEFAULT '',
             email TEXT DEFAULT '',
             portal_pin TEXT DEFAULT '732100',
+            scheduling_type TEXT DEFAULT 'google_calendar',
+            booking_url TEXT DEFAULT '',
             calendar_id TEXT DEFAULT 'primary',
             service_license TEXT DEFAULT 'Fully Licensed & Insured NJ HIC',
             monthly_retainer REAL DEFAULT 1500.00,
@@ -253,6 +255,23 @@ def init_db() -> None:
         """
     )
 
+    # Automatic migration: ensure newer columns exist on existing databases
+    existing_tenant_cols = [c[1] for c in cur.execute("PRAGMA table_info(tenants)").fetchall()]
+    if "scheduling_type" not in existing_tenant_cols:
+        cur.execute("ALTER TABLE tenants ADD COLUMN scheduling_type TEXT DEFAULT 'google_calendar'")
+    if "booking_url" not in existing_tenant_cols:
+        cur.execute("ALTER TABLE tenants ADD COLUMN booking_url TEXT DEFAULT ''")
+
+    # Sync tenant YAML presets to DB for any existing seeded rows
+    cur.execute(
+        """
+        UPDATE tenants SET
+            scheduling_type = 'external_link',
+            booking_url = 'https://calendly.com/apex-shore-roofing/21-point-drone-inspection'
+        WHERE tenant_id = 'client_apex_roofing' AND (booking_url IS NULL OR booking_url = '')
+        """
+    )
+
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     tomorrow_iso = (datetime.now() + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -294,6 +313,8 @@ def init_db() -> None:
                 "+17326609121",
                 "powurnj@gmail.com",
                 "732100",
+                "google_calendar",
+                "",
                 "7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com",
                 "Fully Licensed & Insured NJ HIC",
                 1500.00,
@@ -309,6 +330,8 @@ def init_db() -> None:
                 "+17325550199",
                 "dispatch@apexshoreroofing.com",
                 "732200",
+                "external_link",
+                "https://calendly.com/apex-shore-roofing/21-point-drone-inspection",
                 "apex_shore_calendar@group.calendar.google.com",
                 "Fully Licensed & Insured NJ HIC",
                 2000.00,
@@ -321,9 +344,9 @@ def init_db() -> None:
             """
             INSERT INTO tenants (
                 tenant_id, company_name, contact_name, estimator_name, dispatch_phone,
-                email, portal_pin, calendar_id, service_license, monthly_retainer,
+                email, portal_pin, scheduling_type, booking_url, calendar_id, service_license, monthly_retainer,
                 is_active, notes, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             tenants_seed,
         )
@@ -833,6 +856,8 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
         "dispatch_phone": data.get("dispatch_phone", existing.get("dispatch_phone", "+17326609121")),
         "email": data.get("email", data.get("notification_email", existing.get("email", ""))),
         "portal_pin": str(data.get("portal_pin", existing.get("portal_pin", "732100"))).strip(),
+        "scheduling_type": data.get("scheduling_type", existing.get("scheduling_type", "google_calendar")),
+        "booking_url": data.get("booking_url", existing.get("booking_url", "")),
         "calendar_id": data.get("calendar_id", data.get("google_calendar_id", existing.get("calendar_id", "primary"))),
         "service_license": data.get("service_license", existing.get("service_license", "Fully Licensed & Insured NJ HIC")),
         "monthly_retainer": float(data.get("monthly_retainer", data.get("monthly_rate", existing.get("monthly_retainer", 1500.0)))),
@@ -845,11 +870,11 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         INSERT INTO tenants (
             tenant_id, company_name, contact_name, estimator_name, dispatch_phone,
-            email, portal_pin, calendar_id, service_license, monthly_retainer,
+            email, portal_pin, scheduling_type, booking_url, calendar_id, service_license, monthly_retainer,
             is_active, notes, created_at
         ) VALUES (
             :tenant_id, :company_name, :contact_name, :estimator_name, :dispatch_phone,
-            :email, :portal_pin, :calendar_id, :service_license, :monthly_retainer,
+            :email, :portal_pin, :scheduling_type, :booking_url, :calendar_id, :service_license, :monthly_retainer,
             :is_active, :notes, :created_at
         )
         ON CONFLICT(tenant_id) DO UPDATE SET
@@ -859,6 +884,8 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
             dispatch_phone = excluded.dispatch_phone,
             email = excluded.email,
             portal_pin = excluded.portal_pin,
+            scheduling_type = excluded.scheduling_type,
+            booking_url = excluded.booking_url,
             calendar_id = excluded.calendar_id,
             service_license = excluded.service_license,
             monthly_retainer = excluded.monthly_retainer,

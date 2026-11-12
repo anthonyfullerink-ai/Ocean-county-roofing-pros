@@ -47,20 +47,29 @@ def _dispatch_sms(to_phone: str, message_body: str, category: str = "general") -
         return True
 
 
-def send_customer_sms(to_phone: str, customer_name: str, service: str) -> bool:
+def send_customer_sms(to_phone: str, customer_name: str, service: str, booking_url: Optional[str] = None) -> bool:
     """
     Sends an automated, A2P 10DLC compliant confirmation SMS to the lead.
+    Supports direct appointment confirmation and third-party calendar booking links (Calendly, etc.).
     """
     if not settings.ENABLE_SMS_CONFIRMATION:
         logger.info("SMS confirmation is disabled in settings.")
         return False
 
-    message_body = (
-        f"Hi {customer_name}, thanks for contacting {settings.BUSINESS_NAME}! "
-        f"We received your request for {service} in {settings.PRIMARY_CITY}. "
-        f"Our local estimator will arrive at the scheduled time for your free 21-point inspection. "
-        f"Reply STOP to opt out, HELP for help. Msg & data rates may apply."
-    )
+    if booking_url and booking_url.strip():
+        message_body = (
+            f"Hi {customer_name}, thanks for contacting {settings.BUSINESS_NAME}! "
+            f"We received your request for {service} in {settings.PRIMARY_CITY}. "
+            f"Please finalize your preferred 15-minute arrival window on our live dispatch calendar: {booking_url.strip()} "
+            f"Reply STOP to opt out, HELP for help. Msg & data rates may apply."
+        )
+    else:
+        message_body = (
+            f"Hi {customer_name}, thanks for contacting {settings.BUSINESS_NAME}! "
+            f"We received your request for {service} in {settings.PRIMARY_CITY}. "
+            f"Our local estimator will arrive at the scheduled time for your free 21-point inspection. "
+            f"Reply STOP to opt out, HELP for help. Msg & data rates may apply."
+        )
     return _dispatch_sms(to_phone, message_body, category="lead_confirmation")
 
 

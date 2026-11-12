@@ -7,6 +7,7 @@ from typing import Optional
 from app.config import settings
 from app.services.db import create_lead, get_bool_setting
 from app.services.comms import send_customer_sms, alert_business_owner
+from app.services.tenant_manager import TenantManager
 from app.services.vapi_service import trigger_outbound_speed_to_lead_call
 
 router = APIRouter(prefix="/api/leads", tags=["Leads"])
@@ -69,8 +70,11 @@ async def submit_webform(lead: WebFormLead, background_tasks: BackgroundTasks):
     # 1. Write synchronously to Unified Supabase + Local SQLite Mirror so lead is immediately visible
     saved_lead = create_lead(lead_dict)
 
-    # 2. Background task: Send instant SMS confirmation to customer
-    background_tasks.add_task(send_customer_sms, lead.phone, first_name, lead.service)
+    active_tenant = TenantManager.get_active_tenant()
+    booking_url = active_tenant.booking_url if (active_tenant.scheduling_type == "external_link" and active_tenant.booking_url) else None
+
+    # 2. Background task: Send instant SMS confirmation to customer (with booking_url if third-party calendar)
+    background_tasks.add_task(send_customer_sms, lead.phone, first_name, lead.service, booking_url=booking_url)
 
     # 3. Background task: Send alert to business owner / active contractor
     background_tasks.add_task(alert_business_owner, saved_lead)
@@ -90,5 +94,7 @@ async def submit_webform(lead: WebFormLead, background_tasks: BackgroundTasks):
         "status": "success",
         "message": "Lead received successfully. Estimator dispatch initiated.",
         "lead_id": saved_lead["id"],
+        "scheduling_type": active_tenant.scheduling_type,
+        "booking_url": booking_url,
         "outbound_callback_queued": vapi_callback_enabled,
     }
