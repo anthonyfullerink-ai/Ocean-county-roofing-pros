@@ -24,8 +24,8 @@ export default async (req, context) => {
       }
 
       if (supabaseUrl && supabaseKey) {
-        // Set all to false, then target to true
-        await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/tenants`, {
+        // Set all other tenants to false, then target to true
+        await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/tenants?tenant_id=neq.${tenantId}`, {
           method: "PATCH",
           headers,
           body: JSON.stringify({ is_active: false })
