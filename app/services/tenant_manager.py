@@ -24,7 +24,7 @@ class TenantConfig(BaseModel):
     tenant_id: str
     company_name: str
     contact_person: str = "Dispatcher"
-    assigned_estimator: str = "Hannah"
+    assigned_estimator: str = "Riley"
     dispatch_phone: str = "+17326609121"
     notification_email: str = "dispatch@example.com"
     portal_pin: str = "732100"
@@ -44,7 +44,7 @@ def _record_to_tenant_config(rec: Dict[str, Any]) -> TenantConfig:
         tenant_id=rec.get("tenant_id", "client_joe_the_roofer"),
         company_name=rec.get("company_name", "Joe The Roofer LLC"),
         contact_person=rec.get("contact_name") or rec.get("contact_person") or "Joe",
-        assigned_estimator=rec.get("estimator_name") or rec.get("assigned_estimator") or "Hannah",
+        assigned_estimator=rec.get("estimator_name") or rec.get("assigned_estimator") or "Riley",
         dispatch_phone=rec.get("dispatch_phone") or "+17326609121",
         notification_email=rec.get("email") or rec.get("notification_email") or "powurnj@gmail.com",
         portal_pin=str(rec.get("portal_pin") or "732100"),
@@ -95,7 +95,7 @@ class TenantManager:
             tenant_id="client_joe_the_roofer",
             company_name="Joe The Roofer LLC",
             contact_person="Joe",
-            assigned_estimator="Hannah",
+            assigned_estimator="Riley",
             dispatch_phone="+17326609121",
             notification_email="powurnj@gmail.com",
             google_calendar_id="7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com",

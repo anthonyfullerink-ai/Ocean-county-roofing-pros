@@ -534,7 +534,7 @@
                 <h3 class="text-base font-black text-white mb-4">+ Add or Update Roofing Partner Tenant</h3>
                 <form onsubmit="saveTenantPartner(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <input type="text" id="tp_name" placeholder="Company Name *" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
-                    <input type="text" id="tp_estimator" placeholder="Estimator Name (e.g. Hannah)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
+                    <input type="text" id="tp_estimator" placeholder="Estimator Name (e.g. Riley)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
                     <input type="text" id="tp_phone" placeholder="Dispatch Phone (+1732...)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
                     <input type="email" id="tp_email" placeholder="Partner Email" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
                     <input type="text" id="tp_pin" placeholder="6-Digit Portal PIN (e.g. 732300)" required class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs">
@@ -545,6 +545,25 @@
                     <input type="url" id="tp_booking_url" placeholder="Booking URL (e.g. https://calendly.com/...)" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300">
                     <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl px-4 py-2">Save Partner</button>
                 </form>
+            </div>
+
+            <!-- Vapi Voice AI 2-Way Sync -->
+            <div class="bg-slate-900 border border-purple-900/40 rounded-3xl p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <span class="text-[10px] font-black uppercase bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-full">Voice AI Bi-Directional Sync</span>
+                        <h3 class="text-base font-black text-white mt-1">Vapi Voice Assistants (Sarah & Riley)</h3>
+                        <p class="text-xs text-slate-400">Keep Vapi cloud voice agents and local CRM / contractor records 100% in sync.</p>
+                    </div>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button type="button" onclick="syncVapi('pull')" class="flex-1 sm:flex-none bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-bold px-3 py-2 rounded-xl border border-slate-700 transition">
+                            ⬇️ Pull from Vapi
+                        </button>
+                        <button type="button" onclick="syncVapi('push')" class="flex-1 sm:flex-none bg-purple-600 hover:bg-purple-500 text-white text-xs font-black px-4 py-2 rounded-xl shadow transition">
+                            🚀 Push to Vapi
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -819,6 +838,22 @@
             if (res.ok) {
                 showToast('Partner saved!');
                 setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        async function syncVapi(action) {
+            showToast(`Synchronizing with Vapi (${action})...`);
+            const endpoint = action === 'push' ? '/api/vapi/sync/push' : '/api/vapi/sync/pull';
+            try {
+                const res = await fetch(endpoint, { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || `Successfully synced with Vapi!`);
+                } else {
+                    showToast(`Sync failed: ${data.detail || data.error || data.message || 'Check logs'}`);
+                }
+            } catch (err) {
+                showToast(`Sync error: ${err.message}`);
             }
         }
 

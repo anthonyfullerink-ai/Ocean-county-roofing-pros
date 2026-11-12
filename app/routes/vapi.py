@@ -99,7 +99,7 @@ async def handle_vapi_tool_calls(request: Request):
                 msg = (
                     f"Address verified successfully as: '{formatted}'. "
                     f"CRITICAL TURN-TAKING RULE: Read this exact verified address back to the caller and ask: "
-                    f"'Just to make sure our estimator Hannah arrives at the right home, I have your address verified as {formatted}. Is that correct?' "
+                    f"'Just to make sure our estimator Riley arrives at the right home, I have your address verified as {formatted}. Is that correct?' "
                     f"DO NOT ASK FOR THE EMAIL YET. STOP TALKING AND WAIT FOR THE CALLER TO SAY YES OR NO."
                 )
             else:
@@ -160,7 +160,7 @@ async def handle_vapi_tool_calls(request: Request):
                 "phone_number": phone,
                 "customer_email": email,
                 "service_type": service,
-                "assigned_estimator": "Hannah / Joe The Roofer",
+                "assigned_estimator": f"{active_tenant.assigned_estimator} / {active_tenant.company_name}",
                 "date": clean_date,
                 "start_time": clean_time,
                 "end_time": clean_end_time,

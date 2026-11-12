@@ -12,6 +12,12 @@
   to = "/.netlify/functions/api-webform"
   status = 200
 
+# Vapi 2-Way Sync
+[[redirects]]
+  from = "/api/vapi/sync/*"
+  to = "/.netlify/functions/api-admin"
+  status = 200
+
 # Vapi Voice AI Tool Calling
 [[redirects]]
   from = "/api/vapi/tools"

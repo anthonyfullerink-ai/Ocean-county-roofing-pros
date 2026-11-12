@@ -1,7 +1,7 @@
 tenant_id: "client_joe_the_roofer"
 company_name: "Joe The Roofer LLC"
 contact_person: "Joe"
-assigned_estimator: "Hannah"
+assigned_estimator: "Riley"
 dispatch_phone: "+17326609121"
 notification_email: "powurnj@gmail.com"
 scheduling_type: "google_calendar"

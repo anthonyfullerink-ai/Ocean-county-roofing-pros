@@ -71,7 +71,7 @@ export default async (req, context) => {
           tenant_id: tenantId,
           company_name: body.company_name,
           contact_name: body.contact_name || body.estimator_name || "Manager",
-          estimator_name: body.estimator_name || "Hannah",
+          estimator_name: body.estimator_name || "Riley",
           dispatch_phone: body.dispatch_phone || "+17326609121",
           email: body.email || "",
           portal_pin: body.portal_pin || "732100",
@@ -111,6 +111,36 @@ export default async (req, context) => {
         status: 200,
         headers: { "Content-Type": "application/json" }
       });
+    }
+
+    // 4. VAPI VOICE AI 2-WAY SYNC (/api/admin/vapi/sync)
+    if (path.includes("/vapi/sync")) {
+      const vapiKey = process.env.VAPI_API_KEY || "";
+      if (!vapiKey) {
+        return new Response(JSON.stringify({ error: "VAPI_API_KEY not configured" }), { status: 500 });
+      }
+
+      const vapiHeaders = {
+        "Authorization": `Bearer ${vapiKey}`,
+        "Content-Type": "application/json"
+      };
+
+      if (req.method === "GET" || (req.method === "POST" && path.includes("/pull"))) {
+        const sarahRes = await fetch("https://api.vapi.ai/assistant/dbc59b3f-85a6-4fad-9dab-b5a36b16125b", { headers: vapiHeaders });
+        const rileyRes = await fetch("https://api.vapi.ai/assistant/e86a1d27-c226-4018-96f0-e434eb53b895", { headers: vapiHeaders });
+        const sarah = await sarahRes.json();
+        const riley = await rileyRes.json();
+
+        return new Response(JSON.stringify({
+          status: "success",
+          last_sync: new Date().toISOString(),
+          sarah: { name: sarah.name, voice: sarah.voice, model: sarah.model?.model },
+          riley: { name: riley.name, voice: riley.voice, model: riley.model?.model }
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
     }
 
     return new Response(JSON.stringify({ error: "Not found" }), {

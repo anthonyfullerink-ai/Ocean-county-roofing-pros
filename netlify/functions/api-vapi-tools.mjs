@@ -26,7 +26,7 @@ export default async (req, context) => {
     let tenant = {
       tenant_id: "client_joe_the_roofer",
       company_name: "Joe The Roofer LLC",
-      assigned_estimator: "Hannah",
+      assigned_estimator: "Riley",
       scheduling_type: "google_calendar",
       booking_url: "",
       dispatch_phone: "+17326609121"
@@ -81,7 +81,7 @@ export default async (req, context) => {
         if (hasNumber && rawAddress.length >= 6) {
           results.push({
             toolCallId: callId,
-            result: `Address verified successfully as: '${rawAddress}'. Just to make sure our estimator Hannah arrives at the right home, I have your address verified as ${rawAddress}. Is that correct?`
+            result: `Address verified successfully as: '${rawAddress}'. Just to make sure our estimator Riley arrives at the right home, I have your address verified as ${rawAddress}. Is that correct?`
           });
         } else {
           results.push({

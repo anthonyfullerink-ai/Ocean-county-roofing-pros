@@ -536,6 +536,35 @@ async def api_upsert_tenant_admin(request: Request):
     return {"status": "success", "tenant": saved, "tenants": list_tenants()}
 
 
+# ------------------------------------------------------------------------------
+# VAPI VOICE AGENT 2-WAY SYNC ENDPOINTS
+# ------------------------------------------------------------------------------
+
+@router.get("/api/vapi/sync")
+async def api_get_vapi_sync_status():
+    from app.services.vapi_sync import pull_vapi_state_to_db
+    try:
+        snapshot = pull_vapi_state_to_db()
+        return {"status": "success", "data": snapshot}
+    except Exception as e:
+        logger.error(f"Vapi sync check error: {e}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/api/vapi/sync/pull")
+async def api_pull_vapi():
+    from app.services.vapi_sync import pull_vapi_state_to_db
+    snapshot = pull_vapi_state_to_db()
+    return {"status": "success", "message": "Pulled latest assistant configuration from Vapi.", "data": snapshot}
+
+
+@router.post("/api/vapi/sync/push")
+async def api_push_vapi():
+    from app.services.vapi_sync import push_prompts_and_settings_to_vapi
+    result = push_prompts_and_settings_to_vapi()
+    return {"status": "success", "message": "Pushed updated active tenant & persona to Vapi.", "data": result}
+
+
 # ==============================================================================
 # 6. COMPLIANT REVIEW & DIRECT MANAGEMENT RESOLUTION ENDPOINTS
 # ==============================================================================
