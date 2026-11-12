@@ -52,7 +52,7 @@
             {% if storm_alert_active %}
                 {{ storm_alert_headline }}
             {% else %}
-                🟢 Active in {{ current_town.town_name if current_town else brand.base_city }} Today — 21-Point Drone Roof Inspections Dispatched Daily
+                🟢 Active in {{ current_town.town_name if current_town else brand.base_city }} Today — 21-Point Roof & Attic Inspections Dispatched Daily
             {% endif %}
         </span>
     </div>
@@ -148,10 +148,10 @@
             const currentTown = "{{ current_town.town_name if current_town else 'Ocean County' }}";
             const dbTicker = {{ (dispatch_ticker_messages or []) | tojson }};
             let messages = dbTicker.length > 0 ? dbTicker : [
-                `🟢 Dispatched 14m ago: Free 21-Point Drone Inspection in Silverton, Toms River`,
+                `🟢 Dispatched 14m ago: Free 21-Point Roof & Attic Inspection in Silverton, Toms River`,
                 `🟢 Dispatched 28m ago: Emergency Leak & Flashing Triage in Brick Township`,
                 `🟢 Dispatched 41m ago: CertainTeed Landmark Roof Replacement in Point Pleasant`,
-                `🟢 Active Estimator on-duty in ${currentTown} — Booking Same-Day Drone Inspections`
+                `🟢 Active Estimator on-duty in ${currentTown} — Booking Same-Day Inspections`
             ];
             let stormActive = {{ 'true' if storm_alert_active else 'false' }};
             let stormHeadline = {{ (storm_alert_headline or '') | tojson }};

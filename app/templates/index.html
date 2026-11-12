@@ -50,15 +50,15 @@
           "name": "How much does a new roof replacement cost in {{ town.town_name }}, NJ?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Most architectural roof replacements in {{ town.town_name }} and Ocean County range from $8,500 to $16,500 depending on square footage, pitch, and materials like CertainTeed Landmark Integrity systems. Every estimate includes a free 21-point drone scan and 12-month guaranteed written price lock."
+            "text": "Most architectural roof replacements in {{ town.town_name }} and Ocean County range from $8,500 to $16,500 depending on square footage, pitch, and materials like CertainTeed Landmark Integrity systems. Every estimate includes a free 21-point roof & attic inspection and 12-month guaranteed written price lock."
           }
         },
         {
           "@type": "Question",
-          "name": "How does the free 21-point drone roof inspection work?",
+          "name": "How does the free 21-point roof & attic inspection work?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Our certified drone pilot launches an aerial unit that captures high-resolution 4K optical and thermal images of your shingles, flashing, skylights, and ridge vents without anyone walking on delicate shingles. You receive a digital photo report within 2 hours."
+            "text": "Our certified roofing specialist performs a thorough 21-point exterior roof, flashing, skylight, and interior attic moisture inspection (with aerial drone diagnostics available upon request for steep or complex roofs). You receive a clear photo report and written estimate."
           }
         },
         {
@@ -66,7 +66,7 @@
           "name": "Can homeowner insurance cover my roof replacement after a storm or nor'easter?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Yes. If your roof suffered wind-lifted shingles, hail impacts, or fallen limb damage during an Ocean County nor'easter or severe weather event, our certified roofing specialists provide complete insurance claim documentation including drone photo evidence."
+            "text": "Yes. If your roof suffered wind-lifted shingles, hail impacts, or fallen limb damage during an Ocean County nor'easter or severe weather event, our certified roofing specialists provide complete insurance claim documentation including timestamped inspection photo evidence."
           }
         },
         {
@@ -125,7 +125,7 @@
                 <div class="grid grid-cols-2 gap-3 pt-2 text-sm text-slate-100 font-medium">
                     <div class="flex items-center gap-2.5">
                         <span class="w-5 h-5 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">✓</span>
-                        <span>Free 21-Point Drone Inspection</span>
+                        <span>Free 21-Point Roof & Attic Inspection</span>
                     </div>
                     <div class="flex items-center gap-2.5">
                         <span class="w-5 h-5 rounded-full bg-emerald-500/30 text-emerald-300 flex items-center justify-center text-xs font-bold shrink-0">✓</span>
@@ -154,7 +154,7 @@
                     </a>
                     <div class="text-xs text-slate-300">
                         ⚡ <strong class="text-white">Active in {{ town.town_name }}</strong><br>
-                        Estimators booking same-day drone scans
+                        Estimators booking same-day inspections
                     </div>
                 </div>
             </div>
@@ -178,7 +178,7 @@
                     <div id="quizStep1" class="space-y-4">
                         <div class="text-center">
                             <span class="inline-block bg-teal-100 text-teal-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
-                                Free 21-Point Drone Scan
+                                Free 21-Point Roof Inspection
                             </span>
                             <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">What is your roofing situation?</h3>
                             <p class="text-xs text-slate-500 mt-1">Select an option to calibrate the right inspection unit:</p>
@@ -272,7 +272,7 @@
                             <span class="inline-block bg-emerald-100 text-emerald-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
                                 Almost Done!
                             </span>
-                            <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Where should we dispatch the drone scan?</h3>
+                            <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Where should we schedule your inspection?</h3>
                             <p class="text-xs text-slate-500 mt-1">Our on-call estimator will confirm your inspection time:</p>
                         </div>
 
@@ -303,7 +303,7 @@
                             </div>
 
                             <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-base py-4 rounded-xl shadow-lg transition-all hover:scale-[1.01] flex items-center justify-center gap-2">
-                                <span>⚡ Lock In Free 21-Point Drone Inspection</span>
+                                <span>⚡ Lock In Free 21-Point Roof & Attic Inspection</span>
                                 <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
                             </button>
 
@@ -316,7 +316,7 @@
                     <!-- SUCCESS STATE -->
                     <div id="formSuccess" class="hidden text-center py-6 space-y-3">
                         <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-black animate-bounce">✓</div>
-                        <h3 class="text-2xl font-black text-slate-900">Drone Inspection Scheduled!</h3>
+                        <h3 class="text-2xl font-black text-slate-900">21-Point Inspection Scheduled!</h3>
                         <p class="text-sm text-slate-600">Our on-call estimator for <strong>{{ town.town_name }}</strong> has received your diagnostic file. You will receive an instant confirmation text shortly to coordinate your inspection window.</p>
                         <div class="p-3.5 bg-slate-50 rounded-2xl text-xs text-slate-600 text-left border border-slate-200">
                             <strong>What to expect next:</strong>
@@ -412,7 +412,7 @@
         <!-- Action Banner -->
         <div class="text-center mt-8">
             <a href="#quizSection" class="inline-flex items-center gap-2 bg-brand-blue hover:bg-blue-700 text-white font-extrabold px-6 py-3.5 rounded-xl text-sm shadow-md transition">
-                <span>See What Your Roof Would Look Like With Our 21-Point Drone Scan</span>
+                <span>See Our 21-Point Roof & Attic Inspection Process</span>
                 <span>→</span>
             </a>
         </div>
@@ -435,10 +435,10 @@
                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
                     <div class="absolute bottom-6 left-6 right-6 text-white">
                         <span class="bg-amber-400 text-slate-950 text-xs font-black uppercase px-2.5 py-1 rounded-md mb-2 inline-block">
-                            Commercial Drone Technology
+                            Aerial & Thermal Diagnostics (Available Upon Request)
                         </span>
                         <h4 class="text-xl font-black">Zero Foot Traffic. 100% Precision.</h4>
-                        <p class="text-xs text-slate-200 mt-1">High-resolution 4K optical and thermal sensors inspect flashing, valleys, and shingle granules without crushing delicate tiles.</p>
+                        <p class="text-xs text-slate-200 mt-1">High-resolution aerial drone & thermal imaging is available upon request for steep-pitch, multi-story, or hard-to-access roofs.</p>
                     </div>
                 </div>
 
@@ -457,7 +457,7 @@
             <div class="lg:col-span-6 space-y-6 lg:pl-6">
                 <div>
                     <span class="text-xs font-black uppercase tracking-widest text-brand-blue block mb-2">Diagnostic Excellence</span>
-                    <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">The 21-Point Drone Thermal Roof Scan</h3>
+                    <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">The 21-Point Roof & Attic Inspection</h3>
                     <p class="text-slate-600 text-base mt-3 leading-relaxed">
                         Most roof leaks start 12 to 18 months before water ever drips from your ceiling. Our proprietary aerial scan audits every square foot of your roof:
                     </p>
@@ -475,8 +475,8 @@
                     <div class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <span class="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-black text-lg shrink-0">2</span>
                         <div>
-                            <h4 class="font-extrabold text-slate-900 text-sm">FLIR Thermal Attic Moisture Scan</h4>
-                            <p class="text-xs text-slate-500 mt-0.5">Thermal sensors map temperature gradients to locate trapped condensation and hidden decking rot.</p>
+                            <h4 class="font-extrabold text-slate-900 text-sm">Attic Decking & Moisture Evaluation</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">Thorough interior attic & decking check to locate trapped condensation, ventilation gaps, and hidden water intrusion (thermal imaging available upon request).</p>
                         </div>
                     </div>
 
@@ -499,7 +499,7 @@
 
                 <div class="pt-2">
                     <a href="#quizSection" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-6 py-3.5 rounded-xl text-sm shadow-md transition">
-                        <span>Book Your Free Drone Inspection in {{ town.town_name }}</span>
+                        <span>Book Your Free 21-Point Inspection in {{ town.town_name }}</span>
                         <span>→</span>
                     </a>
                 </div>
@@ -622,7 +622,7 @@
         <div class="mt-12 bg-gradient-to-r from-slate-900 via-brand-dark to-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
             <div class="space-y-2">
                 <span class="bg-amber-400 text-slate-950 text-xs font-black uppercase px-3 py-1 rounded-full inline-block">The Zero-Pressure Guarantee</span>
-                <h4 class="text-2xl font-black">12-Month Written Price Lock & 100% Free Drone Scan</h4>
+                <h4 class="text-2xl font-black">12-Month Written Price Lock & 100% Free 21-Point Inspection</h4>
                 <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
                     No pushy in-home salespeople. You receive a digital photo scan and a guaranteed written estimate good for 365 full days. Take your time, compare quotes, and decide when you are ready.
                 </p>
@@ -663,11 +663,11 @@
             <!-- FAQ 2 -->
             <details class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm group">
                 <summary class="font-extrabold text-base text-slate-900 cursor-pointer list-none flex justify-between items-center">
-                    <span>How does the free 21-point drone inspection work?</span>
+                    <span>How does the free 21-point roof & attic inspection work?</span>
                     <span class="text-brand-blue group-open:rotate-180 transition-transform">▼</span>
                 </summary>
                 <div class="pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                    Our certified pilot launches a specialized drone equipped with 4K optical and FLIR thermal sensors. It inspects all roof facets, flashing, chimneys, and ridge vents without anyone walking on your roof. You receive a digital photo report delivered straight to your phone.
+                    Our certified roofing specialist inspects all roof facets, flashing, chimneys, ridge vents, and attic decking for hidden moisture or wind damage (with aerial drone diagnostics available upon request for steep or complex roofs). You receive a clear digital photo report and written estimate.
                 </div>
             </details>
 
@@ -678,7 +678,7 @@
                     <span class="text-brand-blue group-open:rotate-180 transition-transform">▼</span>
                 </summary>
                 <div class="pt-3 text-sm text-slate-600 leading-relaxed border-t border-slate-100 mt-3">
-                    Yes. If your roof suffered wind-lifted shingles, hail damage, or tree impact, our certified roofing specialists document the damage with timestamped drone photos and meet directly with your insurance adjuster to ensure your claim is fairly represented.
+                    Yes. If your roof suffered wind-lifted shingles, hail damage, or tree impact, our certified roofing specialists document the damage with timestamped inspection photos and meet directly with your insurance adjuster to ensure your claim is fairly represented.
                 </div>
             </details>
 
@@ -704,7 +704,7 @@
 <section id="service-areas" class="bg-slate-900 text-white py-16">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h3 class="text-2xl md:text-3xl font-extrabold mb-4">Serving All Neighborhoods in {{ town.town_name }} & Ocean County</h3>
-        <p class="text-slate-400 text-sm max-w-2xl mx-auto mb-8">Our certified drone inspection units are dispatched daily throughout {{ town.county }} and neighboring Jersey Shore communities:</p>
+        <p class="text-slate-400 text-sm max-w-2xl mx-auto mb-8">Our certified roofing inspection teams are dispatched daily throughout {{ town.county }} and neighboring Jersey Shore communities:</p>
         
         <div class="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto text-sm">
             {% for t in all_towns %}
@@ -893,7 +893,7 @@
                 } else {
                     alert('There was a slight error submitting your request. Please call us directly at {{ brand.primary_phone }}');
                     submitBtn.disabled = false;
-                    submitBtn.innerText = 'Lock In Free 21-Point Drone Inspection';
+                    submitBtn.innerText = 'Lock In Free 21-Point Roof & Attic Inspection';
                 }
             } catch (err) {
                 console.error(err);

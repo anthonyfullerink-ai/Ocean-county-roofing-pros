@@ -63,7 +63,8 @@ def test_cold_lead_anthony_fuller_entity_extraction_and_reply():
     reply = res["reply_body"]
     assert "Hi Anthony," in reply
     assert "(732) 503-9880" in reply
-    assert "Free 21-Point Drone & Thermal Roof Inspection" in reply
+    assert "Free 21-Point Roof & Attic Inspection" in reply
+    assert "available upon request" in reply.lower()
     assert "street address" in reply.lower()
     assert "Morning (9:00 AM - 12:00 PM)" in reply
     assert "Our team is reviewing your inquiry" not in reply  # Old canned response removed

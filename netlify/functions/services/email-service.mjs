@@ -69,7 +69,7 @@ export class EmailService {
     const address = lead.address || lead.street_address || "Ocean County, NJ";
     const date = lead.date || lead.appointment_date || "Tomorrow";
     const time = lead.time || lead.appointment_time || "1:00 PM";
-    const service = lead.service || "Free 21-Point Drone & Thermal Roof Inspection";
+    const service = lead.service || "Free 21-Point Roof & Attic Inspection";
     const atticNote = lead.attic_access || "Attic inspection included";
     const ladderNote = lead.ladder_needed || "Standard ladder gear";
 
@@ -105,7 +105,7 @@ export class EmailService {
     <div class="content">
       <h2 style="font-size: 20px; color: #0f172a; margin-top: 0;">Hi ${name},</h2>
       <p style="font-size: 15px; color: #475569; line-height: 1.6;">
-        Your <strong>${service}</strong> has been confirmed on our dispatch calendar. Our certified roofing specialist will arrive during your scheduled window with high-definition 4K optical and FLIR thermal drone equipment.
+        Your <strong>${service}</strong> has been confirmed on our dispatch calendar. Our certified roofing specialist will arrive during your scheduled window to perform a complete 21-point exterior roof, flashing, and attic moisture evaluation and provide a transparent written estimate.
       </p>
 
       <div class="highlight-card">
@@ -130,9 +130,9 @@ export class EmailService {
 
       <div class="prep-box">
         <div style="font-weight: 800; color: #0f172a; font-size: 14px; margin-bottom: 12px;">Inspection Day Checklist:</div>
-        <div class="prep-item">✓ <strong>Drone Perimeter:</strong> Please keep driveways and front yards clear of parked vehicles for safe drone launch.</div>
-        <div class="prep-item">✓ <strong>Attic Access:</strong> Please ensure hallways or closets leading to the attic hatch are accessible for thermal scans.</div>
-        <div class="prep-item">✓ <strong>All Decision-Makers:</strong> Please ensure all homeowners are present so our specialist can walk through the high-resolution photo scan with you on an iPad.</div>
+        <div class="prep-item">✓ <strong>Exterior Perimeter Access:</strong> Please ensure walkways and exterior access around the home are clear for ladder setup and roof photo documentation. (Aerial drone diagnostics available upon request for steep or complex roofs.)</div>
+        <div class="prep-item">✓ <strong>Attic Access:</strong> Please ensure hallways or closets leading to the attic hatch are accessible for interior decking &amp; moisture checks.</div>
+        <div class="prep-item">✓ <strong>All Decision-Makers:</strong> Please ensure all homeowners are present so our specialist can walk through the photo report and exact written estimate with you.</div>
       </div>
 
       <p style="font-size: 13px; color: #64748b; margin-top: 24px;">

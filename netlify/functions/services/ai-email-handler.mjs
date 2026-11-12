@@ -99,7 +99,7 @@ export class AIEmailAgent {
         address: leadRecord.street_address || analysis.entities.street_address,
         date: analysis.entities.preferred_date || "Scheduled",
         time: analysis.entities.preferred_time || "Confirmed Window",
-        service: leadRecord.service_requested || "Free 21-Point Drone & Thermal Roof Inspection",
+        service: leadRecord.service_requested || "Free 21-Point Roof & Attic Inspection",
         attic_access: "Attic access confirmed",
         ladder_needed: "Standard"
       });
@@ -323,7 +323,7 @@ TASK: Analyze the incoming email and return ONLY valid JSON matching the exact s
 
 RULES:
 1. Extract real customer name (prioritize name in email signature/body over corporate display headers like "Offgrid Media"), phone number, street address, and requested service.
-2. NEVER provide blind dollar estimates over email. Explain that we offer a 100% Free 21-Point Drone & Thermal Roof Inspection (4K optical aerial scan + FLIR attic thermal imaging) to measure roof geometry and decking before giving an exact written proposal.
+2. NEVER provide blind dollar estimates over email. Explain that we offer a 100% Free 21-Point Roof & Attic Inspection (full exterior shingles/flashing evaluation + interior attic moisture check, with aerial drone diagnostics available upon request for steep or complex roofs) before giving an exact written proposal.
 3. NEVER write a generic "we received your message and someone will follow up" boilerplate! Every reply must be personalized, address the sender by first name, reference any phone number or details they provided, and drive toward booking the free inspection.
 4. For COLD_LEAD_ESTIMATE: Ask for their Ocean County street address (if not given), offer two specific arrival windows (Tomorrow morning 9AM-12PM or afternoon 1PM-4PM), acknowledge their phone number if provided so we can call them if easier, and include the booking link if available.
 5. For THREADED_FOLLOWUP (when an existing lead replies with their address or confirms a time): Set "should_book_immediately": true, confirm the exact slot and address, and tell them what to expect on inspection day.
@@ -501,7 +501,7 @@ ${textBody || "(Empty body)"}`;
           name: extractedName,
           phone: extractedPhone,
           street_address: extractedAddress,
-          service_requested: existingLead?.service_requested || "Free 21-Point Drone Roof Inspection",
+          service_requested: existingLead?.service_requested || "Free 21-Point Roof & Attic Inspection",
           preferred_date: targetDate,
           preferred_time: targetTime,
           urgency: "Standard"
@@ -510,7 +510,7 @@ ${textBody || "(Empty body)"}`;
         should_alert_owner: true,
         should_alert_contractor: true,
         escalation_reason: `Reschedule requested by ${extractedName} to ${targetDate} ${targetTime}`,
-        reply_body: `Hi ${firstName},\n\nNo problem at all! I have updated our dispatch calendar to move your Free 21-Point Drone Roof Inspection to ${targetDate} (${targetTime}).${extractedAddress ? ` Our specialist will meet you at ${extractedAddress}.` : ""}\n\nPlease make sure the driveway is clear for safe drone takeoff and that attic access is available if needed. Call us at (732) 660-9121 if anything else changes!`
+        reply_body: `Hi ${firstName},\n\nNo problem at all! I have updated our dispatch calendar to move your Free 21-Point Roof & Attic Inspection to ${targetDate} (${targetTime}).${extractedAddress ? ` Our specialist will meet you at ${extractedAddress}.` : ""}\n\nPlease make sure exterior walkways are clear for ladder access and that attic access is available if needed. Call us at (732) 660-9121 if anything else changes!`
       };
     }
 
@@ -524,7 +524,7 @@ ${textBody || "(Empty body)"}`;
           name: extractedName,
           phone: extractedPhone,
           street_address: extractedAddress,
-          service_requested: existingLead.service_requested || "Free 21-Point Drone Roof Inspection",
+          service_requested: existingLead.service_requested || "Free 21-Point Roof & Attic Inspection",
           preferred_date: extractedDate || "Pending",
           preferred_time: extractedTime || "Pending",
           urgency: "Standard"
@@ -534,7 +534,7 @@ ${textBody || "(Empty body)"}`;
         should_alert_contractor: true,
         escalation_reason: `Follow-up from ${extractedName}: ${extractedAddress || ""} ${slotStr}`.trim(),
         reply_body: canBook
-          ? `Hi ${firstName},\n\nPerfect — thank you for confirming! I have officially locked in your Free 21-Point Drone & Thermal Roof Inspection for ${slotStr} at ${extractedAddress}.\n\nOur certified roofing specialist will arrive with 4K optical and FLIR thermal drone equipment to evaluate your shingles, valleys, flashing, and attic decking, then walk you through the complete photo report on an iPad with an exact written estimate.\n\nI've also sent a formal appointment confirmation packet to your inbox. If you need anything before then, call us at (732) 660-9121!`
+          ? `Hi ${firstName},\n\nPerfect — thank you for confirming! I have officially locked in your Free 21-Point Roof & Attic Inspection for ${slotStr} at ${extractedAddress}.\n\nOur certified roofing specialist will evaluate your shingles, valleys, flashing, and attic decking (with aerial drone diagnostics available upon request for steep or complex roofs), then walk you through the complete photo report with an exact written estimate.\n\nI've also sent a formal appointment confirmation packet to your inbox. If you need anything before then, call us at (732) 660-9121!`
           : `Hi ${firstName},\n\nThanks for getting back to me! I've updated your file${extractedAddress ? ` with your property address (${extractedAddress})` : ""}.${!extractedAddress ? " Could you please reply with your Ocean County street address?" : ""}${!(extractedDate || extractedTime) ? " Would you prefer a morning window (9:00 AM - 12:00 PM) or an afternoon window (1:00 PM - 4:00 PM) tomorrow or Friday?" : ""}\n\nLet me know what works best and I will lock it right into our dispatch schedule!`
       };
     }
@@ -550,7 +550,7 @@ ${textBody || "(Empty body)"}`;
       ? `\n\nYou can lock in your preferred 15-minute arrival window directly on our live calendar here:\n👉 ${tenant.booking_url}\n\nOr reply directly to this email with:`
       : `\n\nTo get your inspection on the schedule, just hit reply with:`;
 
-    const conversionReply = `Hi ${firstName},\n\nThanks for reaching out to Ocean County Roofing Pros about ${isEstimateOrQuote ? "getting an estimate on your roof" : "your roofing needs"}! We'd be glad to help.\n\nBecause every coastal home has different roof geometry, shingle wear, flashing integrity, and decking conditions, we start every estimate with our 100% Free 21-Point Drone & Thermal Roof Inspection. Our certified specialist uses 4K aerial cameras and FLIR thermal imaging to scan your entire roof and attic, then reviews the photos with you and gives you an exact, line-item written proposal with zero obligation.${bookingAction}\n1. Your Ocean County property street address${extractedAddress ? ` (I see ${extractedAddress} — let me know if that's correct)` : ""}\n2. Whether you prefer a Morning (9:00 AM - 12:00 PM) or Afternoon (1:00 PM - 4:00 PM) arrival window tomorrow or the next day${phoneAck}`;
+    const conversionReply = `Hi ${firstName},\n\nThanks for reaching out to Ocean County Roofing Pros about ${isEstimateOrQuote ? "getting an estimate on your roof" : "your roofing needs"}! We'd be glad to help.\n\nBecause every coastal home has different roof geometry, shingle wear, flashing integrity, and decking conditions, we start every estimate with our 100% Free 21-Point Roof & Attic Inspection (with aerial drone diagnostics available upon request for steep or complex roofs). Our certified specialist evaluates your entire roof and attic, reviews the photo findings with you, and gives you an exact, line-item written proposal with zero obligation.${bookingAction}\n1. Your Ocean County property street address${extractedAddress ? ` (I see ${extractedAddress} — let me know if that's correct)` : ""}\n2. Whether you prefer a Morning (9:00 AM - 12:00 PM) or Afternoon (1:00 PM - 4:00 PM) arrival window tomorrow or the next day${phoneAck}`;
 
     return {
       intent: "COLD_LEAD_ESTIMATE",

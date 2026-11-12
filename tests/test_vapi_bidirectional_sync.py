@@ -34,7 +34,7 @@ def test_vapi_assistant_state_and_empathy_prompts():
     # 2. Verify active leak empathy protocol
     assert "Active Leak, Storm Damage & Emergency Protocol" in sarah_prompt
     assert "Having water coming inside the house is so stressful" in sarah_prompt
-    assert "drone and thermal inspection" in riley_prompt
+    assert "21-point roof and attic inspection" in riley_prompt
     assert "roofing specialist" in sarah_prompt
     assert "roofing specialist" in riley_prompt
     assert "CertainTeed" in sarah_prompt
