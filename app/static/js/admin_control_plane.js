@@ -923,7 +923,7 @@ function hydrateSettingsInputs() {
     setChk('set_alert_brief', s.alert_daily_brief ?? 'true');
     setChk('cro_emergency_banner_enabled', s.emergency_banner_enabled ?? 'false');
     setVal('cro_emergency_banner_text', s.emergency_banner_text || '⚡ OCEAN COUNTY STORM DISPATCH ACTIVE: Same-Day Roof Leak Triage & Tarping');
-    setVal('cro_dispatch_phone_display', s.dispatch_phone_display || '(866) 900-1221');
+    setVal('cro_dispatch_phone_display', s.dispatch_phone_display || '(732) 660-9121');
     setVal('cro_ticker_messages_json', s.ticker_messages_json || '["Riley booked a roof inspection in Toms River (Silverton)", "Completed CertainTeed Landmark PRO install in Brick"]');
 }
 

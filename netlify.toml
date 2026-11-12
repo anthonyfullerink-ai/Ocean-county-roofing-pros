@@ -54,6 +54,12 @@
   to = "/.netlify/functions/api-email-inbound"
   status = 200
 
+# Twilio 800/866 Voice Forwarding to Local Vapi AI Number
+[[redirects]]
+  from = "/api/twilio/*"
+  to = "/.netlify/functions/api-twilio-voice"
+  status = 200
+
 # Direct Static CDN Assets
 [[redirects]]
   from = "/static/*"
