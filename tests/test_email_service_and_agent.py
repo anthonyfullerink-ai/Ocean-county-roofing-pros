@@ -165,3 +165,58 @@ def test_vendor_spam_is_silenced():
     assert res["should_alert_owner"] is False
     assert res["should_alert_contractor"] is False
     assert res["reply_body"] == ""
+
+
+def test_admin_portal_auth_gating_and_footer_link():
+    """Verify owner admin portal is gated by credentials and accessible from footer."""
+    # 1. Verify footer link in generated dist HTML
+    index_html_path = os.path.join(PROJECT_ROOT, "dist", "index.html")
+    with open(index_html_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    assert '<a href="/admin"' in content
+    assert 'All rights reserved.</a>' in content
+
+    # 2. Verify backend auth endpoint gating
+    api_admin_path = os.path.join(PROJECT_ROOT, "netlify", "functions", "api-admin.mjs").replace("\\", "/")
+    js_auth_test = f"""
+    import adminHandler from "file://{api_admin_path}";
+    async function run() {{
+        process.env.ADMIN_USERNAME = "admin";
+        process.env.ADMIN_PASSWORD = "OCRP2026";
+        process.env.ADMIN_SESSION_SECRET = "test_secret_123";
+
+        // Bad password
+        const r1 = await adminHandler(new Request("http://localhost/api/admin/auth", {{
+            method: "POST",
+            headers: {{ "Content-Type": "application/json" }},
+            body: JSON.stringify({{ username: "admin", password: "wrong" }})
+        }}), {{}});
+        if (r1.status !== 401) throw new Error("Expected 401 on bad password");
+
+        // Good credentials
+        const r2 = await adminHandler(new Request("http://localhost/api/admin/auth", {{
+            method: "POST",
+            headers: {{ "Content-Type": "application/json" }},
+            body: JSON.stringify({{ username: "admin", password: "OCRP2026" }})
+        }}), {{}});
+        if (r2.status !== 200) throw new Error("Expected 200 on good credentials");
+        const data = await r2.json();
+        if (!data.token) throw new Error("Expected auth token");
+
+        // Verify session
+        const r3 = await adminHandler(new Request("http://localhost/api/admin/auth/verify", {{
+            headers: {{ "Authorization": "Bearer " + data.token }}
+        }}), {{}});
+        if (r3.status !== 200) throw new Error("Expected 200 on verify");
+        console.log("AUTH_OK");
+    }}
+    run();
+    """
+    proc = subprocess.run(
+        ["node", "--input-type=module", "-e", js_auth_test],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    assert "AUTH_OK" in proc.stdout
+

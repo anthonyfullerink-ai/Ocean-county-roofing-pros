@@ -2,6 +2,34 @@
  * Netlify Serverless Function: Admin & Tenant Operations
  * Routes: /api/admin/*
  */
+import crypto from "crypto";
+
+const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || "ocrp_admin_secret_key_2026_offgrid_media";
+
+function createSessionToken(username) {
+  const payload = {
+    u: username,
+    exp: Date.now() + 24 * 60 * 60 * 1000 // 24-hour expiration
+  };
+  const str = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(str).digest("hex");
+  return `${str}.${sig}`;
+}
+
+function verifySessionToken(token) {
+  if (!token || !token.includes(".")) return null;
+  const [str, sig] = token.split(".");
+  const expectedSig = crypto.createHmac("sha256", SESSION_SECRET).update(str).digest("hex");
+  if (sig !== expectedSig) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(str, "base64url").toString());
+    if (Date.now() > payload.exp) return null;
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
 export default async (req, context) => {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -15,6 +43,58 @@ export default async (req, context) => {
   };
 
   try {
+    // 0. OWNER ADMIN AUTHENTICATION (/api/admin/auth)
+    if (path.endsWith("/auth") && req.method === "POST") {
+      const body = await req.json();
+      const inputUser = (body.username || "").trim();
+      const inputPass = (body.password || "").trim();
+
+      const expectedUser = (process.env.ADMIN_USERNAME || "").trim();
+      const expectedPass = (process.env.ADMIN_PASSWORD || "").trim();
+
+      if (!expectedPass) {
+        return new Response(JSON.stringify({ error: "ADMIN_PASSWORD not set in environment" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      if (inputUser === expectedUser && inputPass === expectedPass) {
+        const token = createSessionToken(inputUser);
+        return new Response(JSON.stringify({
+          status: "success",
+          token,
+          user: inputUser,
+          message: "Owner authenticated"
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      } else {
+        return new Response(JSON.stringify({ error: "Invalid admin username or password" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
+
+    // 0b. VERIFY SESSION (/api/admin/auth/verify)
+    if (path.includes("/auth/verify")) {
+      const authHeader = req.headers.get("authorization") || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      const session = verifySessionToken(token);
+      if (session) {
+        return new Response(JSON.stringify({ authenticated: true, user: session.u }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      return new Response(JSON.stringify({ authenticated: false }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
     // 1. SWITCH ACTIVE TENANT (/api/admin/tenants/switch)
     if (path.includes("/switch") && req.method === "POST") {
       const body = await req.json();
