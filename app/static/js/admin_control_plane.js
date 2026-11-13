@@ -450,7 +450,33 @@ function inspectLead(leadId, ev) {
                 <textarea id="inspQuickSms" rows="2" placeholder="Hi ${escapeHtml(lead.first_name)}, this is Riley from Ocean County Roofing Pros..." class="w-full bg-[#14161c] border border-[#1f222a] rounded-lg p-2 text-xs text-white"></textarea>
                 <button onclick="sendQuickLeadSms('${escapeHtml(lead.id)}', '${escapeHtml(lead.phone)}')" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs py-1.5 rounded-lg">📲 Dispatch Twilio SMS</button>
             </div>
+
+            <div class="bg-[#0a0a0c] p-3 rounded-xl border border-[#1f222a] space-y-2">
+                <div class="text-[10px] font-bold uppercase text-amber-400">⭐ Reputation &amp; Review Velocity</div>
+                <button onclick="sendReviewRequestForLead('${escapeHtml(lead.id)}')" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2 rounded-lg">⭐ Send Review Request (SMS + Email)</button>
+            </div>
         </div>`;
+}
+
+async function sendReviewRequestForLead(leadId) {
+    const lead = STATE.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    showToast(`Sending review request to ${lead.first_name}...`);
+    const res = await fetch('/api/admin/reviews/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            lead_id: lead.id,
+            first_name: lead.first_name || 'Homeowner',
+            phone: lead.phone || '',
+            email: lead.email || ''
+        })
+    });
+    if (res.ok) {
+        showToast(`Review request sent to ${lead.first_name}!`);
+    } else {
+        showToast('Could not send review request', true);
+    }
 }
 
 async function sendQuickLeadSms(leadId, phone) {
@@ -929,6 +955,73 @@ function hydrateSettingsInputs() {
     setVal('seo_gsc_code', s.gsc_verification_code || '-DJmIrcyAaYEbc2TxHEDn7QxxwKZU5sSHZ-5sVu70Zw');
     setVal('seo_build_hook', s.netlify_build_hook_url || '');
     setChk('seo_auto_rebuild', s.auto_seo_rebuild_enabled ?? 'true');
+    renderCitationsTracker();
+}
+
+const DEFAULT_CITATIONS = [
+    { key: 'gbp', name: 'Google Business Profile', signup: 'https://business.google.com', status: 'pending', url: '' },
+    { key: 'bing_places', name: 'Bing Places for Business', signup: 'https://www.bingplaces.com', status: 'not_started', url: '' },
+    { key: 'apple', name: 'Apple Business Connect', signup: 'https://businessconnect.apple.com', status: 'not_started', url: '' },
+    { key: 'yelp', name: 'Yelp for Business', signup: 'https://biz.yelp.com', status: 'not_started', url: '' },
+    { key: 'bbb', name: 'Better Business Bureau (BBB)', signup: 'https://www.bbb.org/get-listed', status: 'not_started', url: '' },
+    { key: 'angi', name: 'Angi (Angie\'s List)', signup: 'https://www.angi.com/pro', status: 'not_started', url: '' },
+    { key: 'facebook', name: 'Facebook Business Page', signup: 'https://www.facebook.com/pages/create', status: 'not_started', url: '' },
+    { key: 'nextdoor', name: 'Nextdoor Business', signup: 'https://business.nextdoor.com', status: 'not_started', url: '' },
+    { key: 'mapquest', name: 'MapQuest Business', signup: 'https://www.mapquest.com', status: 'not_started', url: '' },
+    { key: 'thumbtack', name: 'Thumbtack Pro', signup: 'https://www.thumbtack.com/pro', status: 'not_started', url: '' }
+];
+
+function copyNapVal(txt) {
+    navigator.clipboard.writeText(txt);
+    showToast(`Copied: ${txt}`);
+}
+
+function renderCitationsTracker() {
+    const container = document.getElementById('citationsTableBody');
+    if (!container) return;
+    let saved = [];
+    try {
+        const raw = STATE.sys_settings?.citations_json;
+        if (raw) saved = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {}
+    const byKey = {};
+    if (Array.isArray(saved)) saved.forEach(c => { if (c && c.key) byKey[c.key] = c; });
+
+    container.innerHTML = DEFAULT_CITATIONS.map(def => {
+        const cur = byKey[def.key] || def;
+        return `
+        <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-2.5 flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-2">
+                <a href="${def.signup}" target="_blank" class="font-bold text-white hover:text-teal-300">${escapeHtml(def.name)} ↗</a>
+                <select id="cit_status_${def.key}" class="bg-[#14161c] border border-[#1f222a] rounded-lg px-2 py-1 text-[11px] text-slate-200">
+                    <option value="not_started" ${cur.status === 'not_started' ? 'selected' : ''}>Not Started</option>
+                    <option value="pending" ${cur.status === 'pending' ? 'selected' : ''}>Pending</option>
+                    <option value="live" ${cur.status === 'live' ? 'selected' : ''}>Live (sameAs)</option>
+                </select>
+            </div>
+            <input type="url" id="cit_url_${def.key}" value="${escapeHtml(cur.url || '')}" placeholder="https://... (paste live profile URL)" class="w-full bg-[#14161c] border border-[#1f222a] rounded-lg px-2.5 py-1.5 text-[11px] text-sky-300 font-mono">
+        </div>`;
+    }).join('');
+}
+
+async function saveCitations() {
+    const citations = DEFAULT_CITATIONS.map(def => ({
+        key: def.key,
+        name: def.name,
+        status: document.getElementById(`cit_status_${def.key}`)?.value || 'not_started',
+        url: document.getElementById(`cit_url_${def.key}`)?.value?.trim() || ''
+    }));
+    const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ citations_json: JSON.stringify(citations) })
+    });
+    if (res.ok) {
+        STATE.sys_settings.citations_json = JSON.stringify(citations);
+        showToast('Citations & sameAs schema links saved!');
+    } else {
+        showToast('Failed to save citations', true);
+    }
 }
 
 async function saveWebsiteCroSettings(e) {

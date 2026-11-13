@@ -105,8 +105,9 @@ export default async (req, context) => {
       promotedCount++;
     }
 
-    // 5. Trigger Netlify Build Hook only when new proof/reviews published
+    // 5. Trigger Netlify Build Hook & IndexNow Ping only when new proof/reviews published
     let rebuildTriggered = false;
+    let indexNowPinged = false;
     const buildHook = (sys.netlify_build_hook_url || "").trim();
     if (promotedCount > 0 && sys.auto_seo_rebuild_enabled !== "false" && buildHook.startsWith("https://")) {
       try {
@@ -115,11 +116,40 @@ export default async (req, context) => {
       } catch (e) {}
     }
 
+    if (promotedCount > 0) {
+      try {
+        const idxRes = await fetch("https://api.indexnow.org/indexnow", {
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            host: "oceancountyroofingpros.com",
+            key: "ocrp2026indexnow84eb54d7",
+            keyLocation: "https://oceancountyroofingpros.com/ocrp2026indexnow84eb54d7.txt",
+            urlList: [
+              "https://oceancountyroofingpros.com/",
+              "https://oceancountyroofingpros.com/roofing-toms-river-nj",
+              "https://oceancountyroofingpros.com/roofing-brick-nj",
+              "https://oceancountyroofingpros.com/roofing-point-pleasant-nj",
+              "https://oceancountyroofingpros.com/roofing-jackson-nj",
+              "https://oceancountyroofingpros.com/roofing-lacey-nj",
+              "https://oceancountyroofingpros.com/roofing-lakewood-nj",
+              "https://oceancountyroofingpros.com/roofing-barnegat-nj",
+              "https://oceancountyroofingpros.com/roofing-manahawkin-nj",
+              "https://oceancountyroofingpros.com/roofing-howell-nj",
+              "https://oceancountyroofingpros.com/roofing-freehold-nj"
+            ]
+          })
+        });
+        indexNowPinged = idxRes.ok;
+      } catch (e) {}
+    }
+
     return new Response(
       JSON.stringify({
         status: "success",
         promoted_count: promotedCount,
         rebuild_triggered: rebuildTriggered,
+        indexnow_pinged: indexNowPinged,
         checked_at: new Date().toISOString()
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }

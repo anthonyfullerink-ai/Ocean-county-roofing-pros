@@ -168,38 +168,53 @@ def build_dynamic_town_json_ld(
             }
         )
 
+    same_as_urls: List[str] = []
+    try:
+        citations_raw = get_setting("citations_json") or "[]"
+        citations_list = json.loads(citations_raw) if isinstance(citations_raw, str) else citations_raw
+        if isinstance(citations_list, list):
+            for c in citations_list:
+                if isinstance(c, dict) and c.get("status") == "live" and str(c.get("url", "")).startswith("http"):
+                    same_as_urls.append(c["url"].strip())
+    except Exception:
+        pass
+
+    business_node: Dict[str, Any] = {
+        "@type": "RoofingContractor",
+        "@id": f"https://oceancountyroofingpros.com/{town_slug}#business",
+        "name": f"{brand.get('brand_name', 'Ocean County Roofing Pros')} - {town_name}",
+        "telephone": brand.get("primary_phone", "+17326609121"),
+        "url": f"https://oceancountyroofingpros.com/{town_slug}",
+        "logo": "https://oceancountyroofingpros.com/static/images/logo.png",
+        "image": "https://oceancountyroofingpros.com/static/images/hero-drone-poster.webp",
+        "priceRange": "$$",
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": town_name,
+            "addressRegion": town.get("state", "NJ"),
+            "postalCode": zip_code,
+            "addressCountry": "US",
+        },
+        "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": town.get("lat", 39.9537),
+            "longitude": town.get("lon", -74.1979),
+        },
+        "areaServed": town.get("neighborhoods", [town_name]),
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "reviewCount": str(max(250, 247 + len(reviews))),
+        },
+        "review": review_nodes,
+    }
+    if same_as_urls:
+        business_node["sameAs"] = same_as_urls
+
     schema_obj = {
         "@context": "https://schema.org",
         "@graph": [
-            {
-                "@type": "RoofingContractor",
-                "@id": f"https://oceancountyroofingpros.com/{town_slug}#business",
-                "name": f"{brand.get('brand_name', 'Ocean County Roofing Pros')} - {town_name}",
-                "telephone": brand.get("primary_phone", "+17326609121"),
-                "url": f"https://oceancountyroofingpros.com/{town_slug}",
-                "logo": "https://oceancountyroofingpros.com/static/images/logo.png",
-                "image": "https://oceancountyroofingpros.com/static/images/hero-drone-poster.webp",
-                "priceRange": "$$",
-                "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": town_name,
-                    "addressRegion": town.get("state", "NJ"),
-                    "postalCode": zip_code,
-                    "addressCountry": "US",
-                },
-                "geo": {
-                    "@type": "GeoCoordinates",
-                    "latitude": town.get("lat", 39.9537),
-                    "longitude": town.get("lon", -74.1979),
-                },
-                "areaServed": town.get("neighborhoods", [town_name]),
-                "aggregateRating": {
-                    "@type": "AggregateRating",
-                    "ratingValue": "4.9",
-                    "reviewCount": str(max(250, 247 + len(reviews))),
-                },
-                "review": review_nodes,
-            },
+            business_node,
             *project_nodes,
         ],
     }

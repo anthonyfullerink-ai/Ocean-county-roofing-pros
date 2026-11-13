@@ -231,6 +231,10 @@ def main():
     sitemap_xml = f"""<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.w3.org/schemas/sitemap/0.9">\n{chr(10).join(urls)}\n</urlset>"""
     (DIST_DIR / "sitemap.xml").write_text(sitemap_xml, encoding="utf-8")
 
+    # 8. IndexNow Instant Indexing Verification Key File
+    indexnow_key = "ocrp2026indexnow84eb54d7"
+    (DIST_DIR / f"{indexnow_key}.txt").write_text(indexnow_key, encoding="utf-8")
+
     print(f"Static site successfully built in {DIST_DIR}!")
 
 

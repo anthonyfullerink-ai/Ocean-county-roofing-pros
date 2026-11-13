@@ -482,3 +482,27 @@ def test_fastapi_control_plane_endpoints():
     )
     assert portal_auth_res.status_code == 200
     assert portal_auth_res.json()["status"] == "success"
+
+
+def test_sameas_citations_schema_and_indexnow():
+    """Verify live citations inject sameAs into RoofingContractor JSON-LD schema."""
+    from app.services.db import set_setting
+    from app.agents.gbp_seo_agent import build_dynamic_town_json_ld
+
+    citations = [
+        {"key": "bing_places", "name": "Bing Places", "status": "live", "url": "https://www.bing.com/maps?osid=123"},
+        {"key": "yelp", "name": "Yelp", "status": "pending", "url": "https://www.yelp.com/biz/pending"},
+    ]
+    set_setting("citations_json", json.dumps(citations))
+
+    schema_str = build_dynamic_town_json_ld(
+        brand={"brand_name": "Ocean County Roofing Pros", "primary_phone": "+17326609121"},
+        town={"town_name": "Toms River", "slug": "roofing-toms-river-nj", "zip_codes": ["08753"], "state": "NJ"},
+        projects=[],
+        reviews=[],
+    )
+    schema = json.loads(schema_str)
+    biz = schema["@graph"][0]
+    assert "sameAs" in biz
+    assert "https://www.bing.com/maps?osid=123" in biz["sameAs"]
+    assert "https://www.yelp.com/biz/pending" not in biz["sameAs"]

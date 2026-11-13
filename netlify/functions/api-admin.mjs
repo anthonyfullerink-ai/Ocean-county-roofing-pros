@@ -1043,6 +1043,39 @@ export default async (req, context) => {
       return jsonResponse({ status: "success", review: { id: revId, ...updates } });
     }
 
+    if (path.endsWith("/reviews/request") && req.method === "POST") {
+      const body = await req.json();
+      const leadId = (body.lead_id || "").trim();
+      const firstName = (body.first_name || "Homeowner").trim();
+      const phone = (body.phone || "").trim();
+      const email = (body.email || "").trim();
+      const feedbackUrl = `https://oceancountyroofingpros.com/feedback/${encodeURIComponent(leadId || "verified")}`;
+
+      let smsRes = { status: "skipped" };
+      if (phone) {
+        const smsText = `Hi ${firstName}, thanks for choosing Ocean County Roofing Pros! How did our team do? Takes 20 seconds: ${feedbackUrl} (Reply STOP to opt out)`;
+        smsRes = await sendTwilioSms(phone, smsText);
+      }
+
+      let emailRes = { status: "skipped" };
+      if (email && email.includes("@")) {
+        emailRes = await EmailService.sendEmail({
+          from: EmailService.getFromAddress("riley@oceancountyroofingpros.com"),
+          to: [email],
+          reply_to: EmailService.getReplyToAddress("riley@oceancountyroofingpros.com"),
+          subject: `Quick 20-second feedback on your Ocean County roof service`,
+          html: `<p>Hi ${firstName},</p><p>Thank you for trusting <strong>Ocean County Roofing Pros</strong> with your home! Your feedback helps local Ocean County homeowners find reliable roofing care.</p><p><a href="${feedbackUrl}" style="display:inline-block;background:#0A486D;color:#ffffff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold;">Share Your 20-Second Feedback →</a></p><p>Warm regards,<br>Riley Davis • Ocean County Roofing Pros</p>`
+        });
+      }
+
+      return jsonResponse({
+        status: "success",
+        feedback_url: feedbackUrl,
+        sms: smsRes,
+        email: emailRes
+      });
+    }
+
     // =========================================================================
     // 10. LIVE API HEALTH DIAGNOSTICS (/api/admin/diagnostics)
     // =========================================================================

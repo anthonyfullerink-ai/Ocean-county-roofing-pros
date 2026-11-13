@@ -562,6 +562,24 @@
                         <button type="submit" class="bg-teal-600 hover:bg-teal-500 text-white font-black px-4 py-2 rounded-xl">💾 Save Analytics &amp; SEO Config</button>
                     </form>
 
+                    <!-- Canonical NAP & Top 10 Local Citations Tracker (sameAs Schema) -->
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4 text-xs">
+                        <div class="flex flex-wrap justify-between items-center gap-2">
+                            <div>
+                                <h3 class="text-sm font-black text-white">📍 Canonical NAP Kit &amp; Local Citations (Auto <code class="text-teal-300">sameAs</code> Schema)</h3>
+                                <p class="text-[11px] text-[#8b92a5]">Keep exact NAP consistency across directories. Live URLs automatically inject into your site's <code class="text-sky-300">RoofingContractor</code> JSON-LD schema.</p>
+                            </div>
+                            <button onclick="saveCitations()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl">💾 Save Citations &amp; Sync Schema</button>
+                        </div>
+                        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-3">
+                            <button type="button" onclick="copyNapVal('Ocean County Roofing Pros')" class="text-left bg-[#14161c] hover:bg-[#1a1d26] border border-[#1f222a] rounded-lg px-2.5 py-2"><span class="text-[9px] uppercase text-[#8b92a5] block">Business Name (Click Copy)</span><span class="font-bold text-white">Ocean County Roofing Pros</span></button>
+                            <button type="button" onclick="copyNapVal('(732) 660-9121')" class="text-left bg-[#14161c] hover:bg-[#1a1d26] border border-[#1f222a] rounded-lg px-2.5 py-2"><span class="text-[9px] uppercase text-[#8b92a5] block">Local Phone (Click Copy)</span><span class="font-mono font-bold text-teal-300">(732) 660-9121</span></button>
+                            <button type="button" onclick="copyNapVal('Toms River, NJ 08753')" class="text-left bg-[#14161c] hover:bg-[#1a1d26] border border-[#1f222a] rounded-lg px-2.5 py-2"><span class="text-[9px] uppercase text-[#8b92a5] block">Service Area (Click Copy)</span><span class="font-bold text-white">Toms River, NJ 08753</span></button>
+                            <button type="button" onclick="copyNapVal('https://oceancountyroofingpros.com')" class="text-left bg-[#14161c] hover:bg-[#1a1d26] border border-[#1f222a] rounded-lg px-2.5 py-2"><span class="text-[9px] uppercase text-[#8b92a5] block">Website URL (Click Copy)</span><span class="font-mono text-sky-300 truncate block">oceancountyroofingpros.com</span></button>
+                        </div>
+                        <div id="citationsTableBody" class="grid md:grid-cols-2 gap-2.5"></div>
+                    </div>
+
                     <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5">
                         <h3 class="text-sm font-black text-white mb-3">📸 Upload Verified Job Photo (Auto Ocean County GPS EXIF)</h3>
                         <form id="ownerPhotoUploadForm" onsubmit="handlePhotoUpload(event, 'owner')" class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
