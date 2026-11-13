@@ -530,6 +530,38 @@
 
                 <!-- TAB 7: SEO, GBP & PHOTO QUEUE -->
                 <section id="tab-launchpad" class="tab-panel hidden space-y-6">
+                    <!-- Google Analytics 4, Search Console & Automated SEO Flywheel -->
+                    <form onsubmit="saveAnalyticsSeoSettings(event)" class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-3 text-xs">
+                        <div class="flex flex-wrap justify-between items-center gap-2">
+                            <div>
+                                <h3 class="text-sm font-black text-white">📈 Google Analytics 4, Search Console &amp; Automated SEO</h3>
+                                <p class="text-[11px] text-[#8b92a5]">Daily cloud SEO flywheel promotes 24h photos/reviews/GBP posts and triggers fresh sitemap rebuilds.</p>
+                            </div>
+                            <span class="text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-full">GA4 + GSC Active</span>
+                        </div>
+                        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#8b92a5]">GA4 Measurement ID</label>
+                                <input type="text" id="seo_ga4_id" value="G-3SNSN2L13M" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white font-mono mt-1">
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#8b92a5]">GSC Verification Code</label>
+                                <input type="text" id="seo_gsc_code" value="-DJmIrcyAaYEbc2TxHEDn7QxxwKZU5sSHZ-5sVu70Zw" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white font-mono mt-1">
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#8b92a5]">Netlify Build Hook URL</label>
+                                <input type="url" id="seo_build_hook" placeholder="https://api.netlify.com/build_hooks/..." class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white font-mono mt-1">
+                            </div>
+                            <div class="flex flex-col justify-end">
+                                <label class="flex items-center gap-2 bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 cursor-pointer">
+                                    <input type="checkbox" id="seo_auto_rebuild" class="accent-teal-500" checked>
+                                    <span class="font-bold text-white">Auto-Rebuild on New Proof</span>
+                                </label>
+                            </div>
+                        </div>
+                        <button type="submit" class="bg-teal-600 hover:bg-teal-500 text-white font-black px-4 py-2 rounded-xl">💾 Save Analytics &amp; SEO Config</button>
+                    </form>
+
                     <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5">
                         <h3 class="text-sm font-black text-white mb-3">📸 Upload Verified Job Photo (Auto Ocean County GPS EXIF)</h3>
                         <form id="ownerPhotoUploadForm" onsubmit="handlePhotoUpload(event, 'owner')" class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">

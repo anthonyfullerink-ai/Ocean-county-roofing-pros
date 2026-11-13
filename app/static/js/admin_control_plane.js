@@ -925,6 +925,10 @@ function hydrateSettingsInputs() {
     setVal('cro_emergency_banner_text', s.emergency_banner_text || '⚡ OCEAN COUNTY STORM DISPATCH ACTIVE: Same-Day Roof Leak Triage & Tarping');
     setVal('cro_dispatch_phone_display', s.dispatch_phone_display || '(732) 660-9121');
     setVal('cro_ticker_messages_json', s.ticker_messages_json || '["Riley booked a roof inspection in Toms River (Silverton)", "Completed CertainTeed Landmark PRO install in Brick"]');
+    setVal('seo_ga4_id', s.ga4_measurement_id || 'G-3SNSN2L13M');
+    setVal('seo_gsc_code', s.gsc_verification_code || '-DJmIrcyAaYEbc2TxHEDn7QxxwKZU5sSHZ-5sVu70Zw');
+    setVal('seo_build_hook', s.netlify_build_hook_url || '');
+    setChk('seo_auto_rebuild', s.auto_seo_rebuild_enabled ?? 'true');
 }
 
 async function saveWebsiteCroSettings(e) {
@@ -1019,6 +1023,22 @@ async function runSingleAgent(name) {
     showToast(`Running Agent: ${name}...`);
     const res = await fetch(`/api/agents/run/${name}`, { method: 'POST' });
     if (res.ok) { showToast(`Agent ${name} finished!`); hydrateAdminBootstrap(); }
+}
+
+async function saveAnalyticsSeoSettings(e) {
+    e.preventDefault();
+    const payload = {
+        ga4_measurement_id: document.getElementById('seo_ga4_id').value.trim(),
+        gsc_verification_code: document.getElementById('seo_gsc_code').value.trim(),
+        netlify_build_hook_url: document.getElementById('seo_build_hook').value.trim(),
+        auto_seo_rebuild_enabled: document.getElementById('seo_auto_rebuild').checked ? 'true' : 'false'
+    };
+    const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) showToast('Analytics & Automated SEO settings saved!');
 }
 
 async function saveKillSwitches(e) {

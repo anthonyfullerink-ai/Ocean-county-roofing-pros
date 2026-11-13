@@ -3,7 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-site-verification" content="-DJmIrcyAaYEbc2TxHEDn7QxxwKZU5sSHZ-5sVu70Zw" />
     <title>{% block title %}{{ brand.brand_name }} | Top-Rated Roof Replacement in {{ brand.base_city }}, {{ brand.state }}{% endblock %}</title>
+    <!-- Google Analytics 4 (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3SNSN2L13M"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-3SNSN2L13M');
+        window.ocrpTrackEvent = function(eventName, params) {
+            try {
+                if (typeof gtag === 'function') {
+                    gtag('event', eventName, Object.assign({
+                        town_name: "{{ current_town.town_name if current_town else 'Ocean County' }}",
+                        page_path: window.location.pathname
+                    }, params || {}));
+                }
+            } catch (e) {}
+        };
+    </script>
     <meta name="description" content="{% block meta_description %}CertainTeed ShingleMaster Certified Roof Replacement & Emergency Leak Repair in {{ brand.base_city }} & Ocean County, NJ. Free 21-point drone inspection.{% endblock %}">
     
     <!-- Favicon & Mobile Touch Icons -->
@@ -193,6 +212,13 @@
 
             applyBannerState();
 
+            document.addEventListener('click', function(ev) {
+                const telLink = ev.target && ev.target.closest ? ev.target.closest('a[href^="tel:"]') : null;
+                if (telLink && typeof window.ocrpTrackEvent === 'function') {
+                    window.ocrpTrackEvent('phone_call_click', { phone_href: telLink.getAttribute('href') });
+                }
+            });
+
             fetch(`/api/admin/settings?_t=${Date.now()}`, { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : null)
                 .then(data => {
@@ -216,6 +242,13 @@
                         applyPhoneDisplay(s.dispatch_phone_display);
                     }
                     applyBannerState();
+
+            document.addEventListener('click', function(ev) {
+                const telLink = ev.target && ev.target.closest ? ev.target.closest('a[href^="tel:"]') : null;
+                if (telLink && typeof window.ocrpTrackEvent === 'function') {
+                    window.ocrpTrackEvent('phone_call_click', { phone_href: telLink.getAttribute('href') });
+                }
+            });
                 })
                 .catch(() => {});
 
