@@ -63,7 +63,7 @@ export default async (req, context) => {
       promotedCount++;
 
       const town = p.town || "Ocean County, NJ";
-      const caption = p.caption || p.title || `Completed roofing project in ${town} by Ocean County Roofing Pros! Need a free 21-point drone & attic inspection? Call (732) 660-9121 or visit https://oceancountyroofingpros.com`;
+      const caption = p.caption || p.title || `Completed roofing project in ${town} by Ocean County Roofing Pros! Need a free 21-point roof & attic inspection (aerial drone diagnostics available upon request)? Call (732) 660-9121 or visit https://oceancountyroofingpros.com`;
       const imageUrl = p.image_url || p.photo_url || "";
       if (MetaSocialService.isPublicHttpsUrl(imageUrl)) {
         try {

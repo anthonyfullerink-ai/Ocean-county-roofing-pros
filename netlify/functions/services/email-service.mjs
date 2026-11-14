@@ -414,7 +414,7 @@ export class EmailService {
   </tr>
   <tr>
     <td style="padding-bottom:10px;">
-      <a href="https://oceancountyroofingpros.com/#book" style="display:inline-block;background-color:#0A486D;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;padding:9px 16px;border-radius:8px;">Schedule Free 21-Point Roof &amp; Drone Inspection &rarr;</a>
+      <a href="https://oceancountyroofingpros.com/#book" style="display:inline-block;background-color:#0A486D;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;padding:9px 16px;border-radius:8px;">Schedule Free 21-Point Roof &amp; Attic Inspection &rarr;</a>
     </td>
   </tr>
   <tr>

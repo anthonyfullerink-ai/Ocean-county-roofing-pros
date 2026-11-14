@@ -57,7 +57,7 @@ def check_nws_ocean_county_weather(lat: float = 39.9537, lon: float = -74.1979) 
 
                 if storm_alerts:
                     top_alert = storm_alerts[0]
-                    banner = f"⛈️ NWS WEATHER ALERT ({top_alert['event']}): 24/7 Emergency Roof Tarping & Drone Leak Triage Active in Ocean County"
+                    banner = f"⛈️ NWS WEATHER ALERT ({top_alert['event']}): 24/7 Emergency Roof Tarping & Leak Intake Active in Ocean County (Drone Upon Request)"
                     set_setting("storm_alert_active", "true")
                     set_setting("storm_alert_headline", banner)
                     return {
@@ -71,7 +71,7 @@ def check_nws_ocean_county_weather(lat: float = 39.9537, lon: float = -74.1979) 
                     return {
                         "checked": True,
                         "storm_active": False,
-                        "headline": "Clear coastal weather in Ocean County — Standard 21-Point Drone Inspections Active.",
+                        "headline": "Clear coastal weather in Ocean County — Standard 21-Point Roof & Attic Inspections Active (Drone Upon Request).",
                         "alerts": [],
                     }
     except Exception as e:
@@ -225,7 +225,7 @@ class LocalSeoGbpAgent:
     """
     Agent 2: GBP & Local SEO Specialist (`app/agents/gbp_seo_agent.py`)
     - Checks live NWS Ocean County weather advisories & toggles Storm Triage Banner
-    - Generates 3 weekly geo-targeted GBP Update Posts (Project Highlight, Seasonal Tip, Free Drone Scan Offer)
+    - Generates 3 weekly geo-targeted GBP Update Posts (Project Highlight, Seasonal Tip, Free 21-Point Inspection Offer)
     - Promotes queued 24h GBP drafts when auto-publish is active
     """
 
@@ -264,7 +264,7 @@ class LocalSeoGbpAgent:
                 "content": (
                     f"Another 1-day architectural roof transformation completed in {proj_town}, NJ! "
                     f"{latest_proj.get('ai_seo_summary', 'Installed 160 MPH wind-rated CertainTeed Landmark PRO shingles with full ice-and-water protection.')} "
-                    f"Schedule your free 21-point thermal drone roof scan at oceancountyroofingpros.com/{proj_slug}"
+                    f"Schedule your free 21-point roof & attic inspection (aerial drone diagnostics available upon request) at oceancountyroofingpros.com/{proj_slug}"
                 ),
                 "image_url": proj_img,
                 "cta_type": "BOOK",
@@ -277,8 +277,8 @@ class LocalSeoGbpAgent:
                 "title": "Coastal Wind & Salt-Air Roof Protection Tip for Ocean County Homeowners",
                 "content": (
                     "Did you know 82% of Jersey Shore roof leaks in Brick Township, Toms River, and Lacey start at chimney counter-flashing "
-                    "and plumbing vent boots 12 months before ceiling stains appear? Our 4K FLIR thermal drone scan detects hidden moisture "
-                    "in 15 minutes with zero foot traffic on your shingles!"
+                    "and plumbing vent boots 12 months before ceiling stains appear? Our 21-point roof & attic evaluation spots hidden moisture "
+                    "and compromised seals early—with aerial drone imaging available upon request for steep or hard-to-access roofs!"
                 ),
                 "image_url": "/static/images/drone-thermal-inspection.jpg",
                 "cta_type": "LEARN_MORE",
@@ -288,10 +288,10 @@ class LocalSeoGbpAgent:
                 "post_type": "Offer",
                 "town_name": "Point Pleasant",
                 "town_slug": "roofing-point-pleasant-nj",
-                "title": "Free 21-Point 4K Thermal Drone Roof Inspection + 12-Month Price Lock",
+                "title": "Free 21-Point Roof & Attic Inspection + 12-Month Price Lock",
                 "content": (
                     "Worried about salt-air wear, lifted shingles, or hidden flashing leaks in Point Pleasant, Brick, or Toms River? "
-                    "Claim your 100% Free 21-Point Aerial Drone Inspection today. Zero foot traffic on your roof, digital photo report in 2 hours, and a 365-day written price lock!"
+                    "Claim your 100% Free 21-Point Roof & Attic Inspection today (aerial drone diagnostics available upon request). Detailed photo report in 2 hours and a 365-day written price lock!"
                 ),
                 "image_url": "/static/images/drone-thermal-inspection.jpg",
                 "cta_type": "GET_OFFER",
@@ -308,7 +308,7 @@ class LocalSeoGbpAgent:
                     "title": "24/7 Emergency Storm Tarping & Wind Damage Triage in Ocean County",
                     "content": (
                         f"{weather_res.get('headline')} — Our Ocean County rapid-response crews are on standby in Toms River, Brick, and Lacey "
-                        "for emergency leak tarping and insurance-ready drone wind damage documentation."
+                        "for emergency leak tarping and insurance-ready photo wind damage documentation (aerial drone views available upon request)."
                     ),
                     "image_url": "/static/images/roofer-crew-action.jpg",
                     "cta_type": "CALL",

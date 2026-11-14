@@ -1287,14 +1287,14 @@ async function saveAdminBlogPost(e) {
                 ],
                 callout: {
                     title: 'Contractor-Agnostic Specification Note',
-                    body: `Homeowners across ${townsRaw} can compare factory-backed assemblies objectively with a free 21-point drone & attic evaluation.`
+                    body: `Homeowners across ${townsRaw} can compare factory-backed assemblies objectively with a free 21-point roof & attic evaluation (aerial drone diagnostics available upon request).`
                 }
             }
         ],
         faqs: [
             {
                 question: `Who should Ocean County homeowners consult for ${title.toLowerCase()}?`,
-                answer: `Request a 100% free drone & attic roof diagnostic with zero obligation to compare licensed, factory-certified local specialists in ${townsRaw}.`
+                answer: `Request a 100% free 21-point roof & attic diagnostic (aerial drone diagnostics available upon request) with zero obligation to compare licensed, factory-certified local specialists in ${townsRaw}.`
             }
         ]
     };

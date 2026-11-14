@@ -360,3 +360,21 @@ def test_mandatory_email_validation_and_static_required_attribute():
     )
     assert bad_book.status_code == 400
     assert "email" in bad_book.json().get("detail", "").lower()
+
+
+def test_drone_section_kept_with_upon_request_copy_only():
+    """Verify #inspection section & drone image stay intact while all copy states aerial drones are upon request only."""
+    from pathlib import Path
+    project_root = Path(__file__).resolve().parent.parent
+    for rel_path in ["dist/index.html", "dist/roofing-toms-river-nj/index.html"]:
+        html = (project_root / rel_path).read_text(encoding="utf-8")
+        assert 'id="inspection"' in html
+        assert "/static/images/drone-thermal-inspection.webp" in html
+        assert "Aerial & Thermal Diagnostics (Available Upon Request)" in html
+        assert "upon request" in html.lower()
+        assert "Zero Foot Traffic" not in html
+        assert "Free 21-point drone inspection" not in html
+        assert "4K Aerial Shingle" not in html
+        assert "proprietary aerial scan" not in html
+        assert "High-Resolution Drone &amp; Crease Evidence" not in html
+        assert "21-Point Drone &amp; Attic Audit" not in html

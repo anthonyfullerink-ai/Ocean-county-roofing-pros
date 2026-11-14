@@ -65,6 +65,12 @@ def test_vapi_assistant_state_and_empathy_prompts():
     assert "Human Representative Request Protocol" in riley_prompt
     assert "request_human_callback" in riley_prompt
 
+    # 7. Verify Drone Inspection Policy is strictly "upon request only" on BOTH Sarah and Riley
+    assert "upon request only" in sarah_prompt.lower()
+    assert "upon request only" in riley_prompt.lower()
+    assert "drone roof scan" not in sarah_prompt.lower()
+    assert "free 21-point roof & drone" not in sarah_prompt.lower()
+
     # 6. Verify wrap-up closing inquiry & dynamic date
     assert "anything else I can help you with today" in riley_prompt
     assert "Current Date Context" in riley_prompt

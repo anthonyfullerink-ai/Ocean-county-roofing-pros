@@ -56,7 +56,7 @@ def build_town_page_context(town, brand, services, all_towns):
     )
     storm_alert_headline = get_setting(
         "storm_alert_headline",
-        "🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily",
+        "🟢 Active in Ocean County Today — 21-Point Roof & Attic Inspections Dispatched Daily (Drone Upon Request)",
     )
     raw_ticker = get_setting("dispatch_ticker_json", "[]")
     try:
@@ -150,7 +150,7 @@ def main():
     )
     storm_alert_headline = get_setting(
         "storm_alert_headline",
-        "🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily",
+        "🟢 Active in Ocean County Today — 21-Point Roof & Attic Inspections Dispatched Daily (Drone Upon Request)",
     )
     raw_ticker = get_setting("dispatch_ticker_json", "[]")
     try:

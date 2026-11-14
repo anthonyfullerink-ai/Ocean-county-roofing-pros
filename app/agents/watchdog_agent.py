@@ -55,7 +55,7 @@ class CroWatchdogAgent:
         for idx, l in enumerate(leads[:3]):
             mins = (idx + 1) * 14
             city = l.get("city") or "Toms River"
-            svc = l.get("service_requested") or "21-Point Drone Inspection"
+            svc = l.get("service_requested") or "21-Point Roof & Attic Inspection"
             ticker_messages.append(f"🟢 Dispatched {mins}m ago: {svc} in {city}, NJ")
 
         for p in projects[:3]:
@@ -67,7 +67,7 @@ class CroWatchdogAgent:
 
         if not ticker_messages:
             ticker_messages = [
-                "🟢 Active in Toms River & Ocean County Today — 21-Point Drone Inspections Dispatched Daily"
+                "🟢 Active in Toms River & Ocean County Today — 21-Point Roof & Attic Inspections Dispatched Daily (Drone Upon Request)"
             ]
 
         set_setting("dispatch_ticker_json", json.dumps(ticker_messages))

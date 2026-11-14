@@ -30,7 +30,7 @@ def draft_seo_review_reply(review: Dict[str, Any]) -> str:
         return (
             f"Thank you so much for the {rating}-star review, {reviewer}! "
             f"Our certified crew loves serving homeowners in {town}, NJ, and we are thrilled "
-            f"that your {service.lower()} and 21-point thermal drone inspection exceeded expectations. "
+            f"that your {service.lower()} and 21-point inspection exceeded expectations. "
             f"Rest easy knowing your home is protected against Jersey Shore nor'easters with our 50-year CertainTeed warranty!"
         )
     return (

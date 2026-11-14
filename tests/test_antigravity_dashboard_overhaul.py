@@ -456,7 +456,8 @@ def test_fastapi_control_plane_endpoints():
     sb_data = sandbox_res.json()
     assert sb_data["status"] == "success"
     assert sb_data["analysis"]["intent"] == "COLD_LEAD_ESTIMATE"
-    assert "Free 21-Point Drone" in sb_data["analysis"]["reply_body"]
+    assert "Free 21-Point Roof & Attic Inspection" in sb_data["analysis"]["reply_body"]
+    assert "upon request" in sb_data["analysis"]["reply_body"]
 
     # 5. Diagnostics
     diag_res = client.get("/api/admin/diagnostics")

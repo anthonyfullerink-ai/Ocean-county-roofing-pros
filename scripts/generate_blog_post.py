@@ -424,7 +424,7 @@ def build_article_payload(
                 "title": f"Local {town_names[0]} & Ocean County Evaluation Note",
                 "body": (
                     f"Planning a project in {town_str}? Compare factory-certified options across manufacturers during a "
-                    "zero-pressure, 100% free drone & attic diagnostic before signing any contract."
+                    "zero-pressure, 100% free 21-point roof & attic diagnostic (aerial drone views available upon request) before signing any contract."
                 ),
             },
         },
@@ -436,7 +436,7 @@ def build_article_payload(
             ],
             "bullets": [
                 "Request itemized scope sheets separating base tear-off from per-sheet plywood decking replacement rates.",
-                "Save pre-storm drone imagery and attic photos to substantiate future wind or hail insurance claims.",
+                "Save pre-storm inspection photos and attic documentation (aerial drone views upon request) to substantiate future wind or hail insurance claims.",
                 "Confirm annual valley and gutter cleanouts if your property sits beneath Lakewood, Jackson, or Lacey pine canopies."
             ],
         },

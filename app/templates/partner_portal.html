@@ -436,7 +436,7 @@
 
                             {% if l.notes or l.call_recording_url %}
                             <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-3 text-xs text-slate-300 flex flex-wrap justify-between items-center gap-2" onclick="event.stopPropagation()">
-                                <span class="line-clamp-2">📝 {{ l.notes or 'Dispatched for 21-point drone inspection.' }}</span>
+                                <span class="line-clamp-2">📝 {{ l.notes or 'Dispatched for 21-point roof & attic inspection.' }}</span>
                                 {% if l.call_recording_url %}
                                 <div class="flex items-center gap-2">
                                     <button type="button" onclick="openLeadInspector('{{ l.id }}')" class="text-[#14b8a6] font-bold hover:underline">🎧 Open Audio Player ({{ l.call_duration_sec or 60 }}s)</button>
@@ -943,7 +943,7 @@
                         <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">📝 AI Triage & Field Estimator Notes</span>
                         <button type="button" onclick="saveInspectorNotes()" class="text-[10px] font-extrabold text-[#14b8a6] hover:underline">Save Notes</button>
                     </div>
-                    <textarea id="inspectorNotesInput" rows="3" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-lg p-2.5 text-xs text-slate-200 outline-none">{{ (first_lead.notes or 'Dispatched for 21-point drone roof inspection.') if first_lead else '' }}</textarea>
+                    <textarea id="inspectorNotesInput" rows="3" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-lg p-2.5 text-xs text-slate-200 outline-none">{{ (first_lead.notes or 'Dispatched for 21-point roof & attic inspection.') if first_lead else '' }}</textarea>
                 </div>
 
                 <!-- 1-Tap Status Updater inside Right Inspector -->
@@ -1159,7 +1159,7 @@
             if (valInput) valInput.value = Math.round(parseFloat(lead.estimated_value) || 12500);
 
             const notesInput = document.getElementById('inspectorNotesInput');
-            if (notesInput) notesInput.value = lead.notes || 'Dispatched for 21-point drone roof inspection.';
+            if (notesInput) notesInput.value = lead.notes || 'Dispatched for 21-point roof & attic inspection.';
 
             const audioWrapper = document.getElementById('inspectorAudioWrapper');
             const noAudio = document.getElementById('inspectorNoAudioNotice');

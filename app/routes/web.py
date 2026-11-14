@@ -68,7 +68,7 @@ def _build_town_page_context(town: Dict[str, Any]) -> Dict[str, Any]:
     )
     storm_alert_headline = get_setting(
         "storm_alert_headline",
-        "🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily",
+        "🟢 Active in Ocean County Today — 21-Point Roof & Attic Inspections Dispatched Daily (Drone Upon Request)",
     )
     raw_ticker = get_setting("dispatch_ticker_json", "[]")
     try:
@@ -276,7 +276,7 @@ def _build_blog_shared_context() -> Dict[str, Any]:
     )
     storm_alert_headline = get_setting(
         "storm_alert_headline",
-        "🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily",
+        "🟢 Active in Ocean County Today — 21-Point Roof & Attic Inspections Dispatched Daily (Drone Upon Request)",
     )
     raw_ticker = get_setting("dispatch_ticker_json", "[]")
     try:

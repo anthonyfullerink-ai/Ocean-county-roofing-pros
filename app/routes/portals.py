@@ -196,7 +196,7 @@ async def render_compliant_feedback_hub(request: Request, lead_id: Optional[str]
             "first_name": "Neighbor",
             "last_name": "",
             "city": settings.PRIMARY_CITY,
-            "service_requested": "21-Point Drone Inspection & Roof Replacement",
+            "service_requested": "21-Point Roof Inspection & Replacement",
             "phone": "",
         }
     gbp_review_url = get_setting("gbp_review_url", settings.GBP_REVIEW_URL)
@@ -1026,7 +1026,7 @@ async def api_admin_sandbox_or_draft_email(request: Request):
     reply_body = (
         ""
         if intent == "VENDOR_SPAM"
-        else f"Hi {first_name},\n\nThanks for contacting Ocean County Roofing Pros! Our local crew with {tenant.get('company_name', 'Joe The Roofer LLC')} would love to schedule your Free 21-Point Drone & Thermal Roof Inspection. Would tomorrow morning (9AM-12PM) or afternoon (1PM-4PM) work best?"
+        else f"Hi {first_name},\n\nThanks for contacting Ocean County Roofing Pros! Our local crew with {tenant.get('company_name', 'Joe The Roofer LLC')} would love to schedule your Free 21-Point Roof & Attic Inspection (with aerial drone diagnostics available upon request). Would tomorrow morning (9AM-12PM) or afternoon (1PM-4PM) work best?"
     )
 
     return {
@@ -1039,7 +1039,7 @@ async def api_admin_sandbox_or_draft_email(request: Request):
                 "name": header_name,
                 "phone": body.get("phone", ""),
                 "street_address": body.get("street_address", ""),
-                "service_requested": "Free 21-Point Drone & Thermal Roof Inspection",
+                "service_requested": "Free 21-Point Roof & Attic Inspection",
             },
             "should_alert_owner": intent != "VENDOR_SPAM",
             "should_alert_contractor": intent != "VENDOR_SPAM",
