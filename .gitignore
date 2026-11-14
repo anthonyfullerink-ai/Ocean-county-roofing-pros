@@ -44,3 +44,6 @@ outputs/
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+# Node dependencies (compiled CSS is committed to app/static/css/site.min.css)
+node_modules/

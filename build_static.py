@@ -161,6 +161,7 @@ def main():
     blog_shared_ctx = {
         "brand": brand,
         "all_towns": all_towns,
+        "is_blog_page": True,
         "storm_alert_active": storm_alert_active,
         "storm_alert_headline": storm_alert_headline,
         "dispatch_ticker_messages": ticker_list,

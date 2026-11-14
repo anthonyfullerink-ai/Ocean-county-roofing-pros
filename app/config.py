@@ -95,6 +95,9 @@ def load_brand_config() -> Dict[str, Any]:
             "state": settings.PRIMARY_STATE
         }
     data["formatted_phone"] = format_phone(data.get("primary_phone", settings.PRIMARY_PHONE))
+    sms_raw = data.get("sms_phone") or settings.TWILIO_PHONE_NUMBER or "+18669001221"
+    data["sms_phone"] = sms_raw
+    data["formatted_sms_phone"] = format_phone(sms_raw)
     return data
 
 def load_services_data() -> List[Dict[str, Any]]:

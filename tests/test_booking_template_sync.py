@@ -378,3 +378,49 @@ def test_drone_section_kept_with_upon_request_copy_only():
         assert "proprietary aerial scan" not in html
         assert "High-Resolution Drone &amp; Crease Evidence" not in html
         assert "21-Point Drone &amp; Attic Audit" not in html
+
+
+def test_mobile_first_nav_hamburger_dock_and_precompiled_css():
+    """Verify desktop nav dropdowns, mobile hamburger drawer, 3-action sticky dock, verified projects parity, and precompiled CSS."""
+    from pathlib import Path
+    project_root = Path(__file__).resolve().parent.parent
+
+    css_file = project_root / "dist" / "static" / "css" / "site.min.css"
+    assert css_file.exists(), "Precompiled site.min.css must exist in dist/static/css/"
+    css_text = css_file.read_text(encoding="utf-8")
+    assert ".pb-safe-dock" in css_text
+
+    public_pages = [
+        project_root / "dist" / "index.html",
+        project_root / "dist" / "roofing-toms-river-nj" / "index.html",
+        project_root / "dist" / "blog" / "index.html",
+    ]
+    for page in public_pages:
+        html = page.read_text(encoding="utf-8")
+        assert "cdn.tailwindcss.com" not in html
+        assert "/static/css/site.min.css" in html
+        assert 'id="mobileMenuToggleBtn"' in html
+        assert 'id="mobileNavDrawer"' in html
+        assert 'id="mobileStickyBar"' in html
+        assert 'href="sms:+18669001221"' in html
+        assert "Work &amp; Proof" in html
+        assert "Towns" in html
+        assert "Free Estimate" in html
+
+    for landing in public_pages[:2]:
+        html = landing.read_text(encoding="utf-8")
+        assert 'id="verified-projects"' in html
+        assert 'touch-action: pan-y' in html
+        assert 'autocomplete="email"' in html
+        assert "text-base sm:text-sm" in html
+
+    for shell in [
+        project_root / "dist" / "privacy-policy" / "index.html",
+        project_root / "dist" / "terms" / "index.html",
+        project_root / "dist" / "feedback" / "index.html",
+        project_root / "dist" / "admin" / "index.html",
+        project_root / "dist" / "portal" / "index.html",
+    ]:
+        shell_html = shell.read_text(encoding="utf-8")
+        assert "cdn.tailwindcss.com" not in shell_html
+        assert "/static/css/site.min.css" in shell_html

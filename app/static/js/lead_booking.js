@@ -242,9 +242,9 @@
         // Update active day pill styling
         document.querySelectorAll('.ocrp-day-pill').forEach(function (btn) {
             if (btn.dataset.date === dayObj.date) {
-                btn.className = 'ocrp-day-pill p-2.5 rounded-xl border-2 border-brand-blue bg-sky-50 text-brand-navy text-center transition cursor-pointer shadow-sm';
+                btn.className = 'ocrp-day-pill min-h-[44px] p-2.5 rounded-xl border-2 border-brand-blue bg-sky-50 text-brand-navy text-center transition cursor-pointer shadow-sm';
             } else {
-                btn.className = 'ocrp-day-pill p-2.5 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-center transition cursor-pointer';
+                btn.className = 'ocrp-day-pill min-h-[44px] p-2.5 rounded-xl border-2 border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-center transition cursor-pointer';
             }
         });
 
@@ -255,7 +255,7 @@
         (dayObj.slots || []).forEach(function (slot) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'ocrp-slot-btn p-2.5 rounded-xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 text-left transition flex items-center justify-between';
+            btn.className = 'ocrp-slot-btn min-h-[46px] p-2.5 rounded-xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 text-left transition flex items-center justify-between';
             btn.dataset.time = slot.time;
             btn.innerHTML = `<div><div class="font-black text-sm text-slate-900">${escapeText(slot.time)}</div><div class="text-[11px] text-slate-500">${escapeText(slot.tag || 'Arrival Window')}</div></div><span class="text-xs font-bold text-emerald-700">Open</span>`;
 
@@ -263,9 +263,9 @@
                 window.quizData.selectedTime = slot.time;
                 window.quizData.selectedStartIso = slot.start_iso || '';
                 document.querySelectorAll('.ocrp-slot-btn').forEach(function (other) {
-                    other.className = 'ocrp-slot-btn p-2.5 rounded-xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 text-left transition flex items-center justify-between';
+                    other.className = 'ocrp-slot-btn min-h-[46px] p-2.5 rounded-xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/40 text-left transition flex items-center justify-between';
                 });
-                btn.className = 'ocrp-slot-btn p-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-50 text-left transition flex items-center justify-between shadow-sm';
+                btn.className = 'ocrp-slot-btn min-h-[46px] p-2.5 rounded-xl border-2 border-emerald-600 bg-emerald-50 text-left transition flex items-center justify-between shadow-sm';
                 if (confirmBtn) {
                     confirmBtn.disabled = false;
                     confirmBtn.innerHTML = `<span>✓ Confirm ${escapeText(dayObj.display_label)} at ${escapeText(slot.time)}</span>`;

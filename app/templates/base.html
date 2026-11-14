@@ -32,138 +32,248 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png">
     {% block og_image %}<meta property="og:image" content="https://oceancountyroofingpros.com{{ current_town.hero_image_url if current_town and current_town.hero_image_url else '/static/images/logo.png' }}">{% endblock %}
 
-    <!-- Google Fonts & Tailwind CSS CDN -->
+    <!-- Google Fonts & Precompiled Tailwind CSS -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Plus Jakarta Sans', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            navy: '{{ brand.visual.palette.primary if brand.visual else "#0A486D" }}',
-                            teal: '#17ABA4',
-                            blue: '{{ brand.visual.palette.secondary if brand.visual else "#0A486D" }}',
-                            accent: '#17ABA4',
-                            dark: '#062B42',
-                            light: '#F8FAFC'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <link rel="stylesheet" href="/static/css/site.min.css">
     
     <!-- Dynamic LocalBusiness Schema Injection -->
     {% block schema %}{% endblock %}
     {% block head_extra %}{% endblock %}
-    <style>
-        [data-reveal] {
-            opacity: 0;
-            transform: translateY(18px);
-            transition: opacity 0.55s ease-out, transform 0.55s ease-out;
-        }
-        [data-reveal].is-visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .card-hover-lift {
-            transition: transform 0.25s ease, box-shadow 0.25s ease;
-        }
-        .card-hover-lift:hover {
-            transform: translateY(-4px);
-        }
-        @keyframes heroKenBurns {
-            0% {
-                transform: scale(1.0);
-            }
-            100% {
-                transform: scale(1.07);
-            }
-        }
-        .hero-ken-burns {
-            animation: heroKenBurns 24s ease-in-out infinite alternate;
-            will-change: transform;
-        }
-        @media (prefers-reduced-motion: reduce) {
-            [data-reveal] {
-                opacity: 1 !important;
-                transform: none !important;
-                transition: none !important;
-            }
-            .card-hover-lift:hover {
-                transform: none !important;
-            }
-            .hero-ken-burns {
-                animation: none !important;
-                transform: none !important;
-            }
-        }
-    </style>
 </head>
-<body class="bg-brand-light text-slate-800 font-sans antialiased pb-20 md:pb-0">
+<body class="bg-brand-light text-slate-800 font-sans antialiased overflow-x-clip pb-24 lg:pb-0">
 
     <!-- Top Emergency Announcement Bar with NWS Storm Triage & Live Dispatch Ticker -->
-    <div id="topAnnouncementBar" class="{% if storm_alert_active %}bg-amber-600{% else %}bg-brand-navy{% endif %} text-white text-xs md:text-sm py-2 px-4 text-center font-medium flex justify-center items-center gap-2 overflow-hidden transition-colors duration-300">
-        <span id="topAnnouncementDot" class="inline-block w-2.5 h-2.5 rounded-full {% if storm_alert_active %}bg-white{% else %}bg-emerald-400{% endif %} animate-pulse shrink-0"></span>
-        <span id="dispatchTicker" class="transition-opacity duration-300 font-semibold">
+    <div id="topAnnouncementBar" class="{% if storm_alert_active %}bg-amber-600{% else %}bg-brand-navy{% endif %} text-white text-[11px] sm:text-xs md:text-sm py-2 px-3 sm:px-4 text-center font-medium flex justify-center items-center gap-2 transition-colors duration-300">
+        <span id="topAnnouncementDot" class="inline-block w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full {% if storm_alert_active %}bg-white{% else %}bg-emerald-400{% endif %} animate-pulse shrink-0"></span>
+        <span id="dispatchTicker" class="transition-opacity duration-300 font-semibold leading-snug line-clamp-2 sm:line-clamp-none">
             {% if storm_alert_active %}
                 {{ storm_alert_headline }}
             {% else %}
-                🟢 Active in {{ current_town.town_name if current_town else brand.base_city }} Today — 21-Point Roof & Attic Inspections Dispatched Daily
+                🟢 Active in {{ current_town.town_name if current_town else brand.base_city }} Today — 21-Point Roof &amp; Attic Inspections Dispatched Daily
             {% endif %}
         </span>
     </div>
 
+    {% set nav_prefix = '/' if is_blog_page else '' %}
+    {% set resolved_sms = brand.sms_phone if brand and brand.sms_phone else '+18669001221' %}
+
     <!-- Header / Navigation -->
-    <header class="sticky top-0 z-40 bg-white/95 backdrop-blur shadow-sm border-b border-slate-100">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            <a href="/" class="flex items-center gap-3 group">
-                <img src="/static/images/logo-icon.png" alt="Ocean County Roofing Pros Logo" class="h-11 md:h-12 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-sm">
-                <div class="flex flex-col justify-center">
-                    <span class="font-black text-lg md:text-xl text-[#0A486D] tracking-tight block leading-tight">
+    <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-slate-100">
+        <div class="max-w-7xl mx-auto px-3.5 sm:px-6 h-16 lg:h-[76px] flex items-center justify-between gap-2 lg:gap-3">
+            <!-- Brand Lockup -->
+            <a href="/" class="flex items-center gap-2 sm:gap-2.5 group shrink-0 min-w-0">
+                <img src="/static/images/logo-icon.png" alt="Ocean County Roofing Pros Logo" class="h-9 sm:h-10 xl:h-11 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-sm shrink-0">
+                <div class="flex flex-col justify-center min-w-0">
+                    <span class="font-black text-sm sm:text-base xl:text-lg text-[#0A486D] tracking-tight block leading-tight truncate">
                         OCEAN COUNTY
                     </span>
-                    <span class="font-extrabold text-xs md:text-sm text-[#17ABA4] tracking-wider block leading-none">
+                    <span class="font-extrabold text-[11px] xl:text-xs text-[#17ABA4] tracking-wider block leading-none">
                         ROOFING PROS
                     </span>
-                    <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mt-0.5">
-                        Residential Roofing & Inspection Desk
+                    <span class="hidden xl:block text-[9px] uppercase font-bold text-slate-400 tracking-wider mt-0.5 truncate">
+                        Residential Roofing &amp; Inspection Desk
                     </span>
                 </div>
             </a>
 
-            {% set nav_prefix = '' if current_town else '/' %}
-            <div class="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
-                <a href="{{ nav_prefix }}#verified-projects" class="hover:text-brand-blue transition">Local Projects</a>
-                <a href="{{ nav_prefix }}#before-after" class="hover:text-brand-blue transition">Before & After</a>
-                <a href="{{ nav_prefix }}#inspection" class="hover:text-brand-blue transition">21-Point Inspection</a>
-                <a href="{{ nav_prefix }}#systems" class="hover:text-brand-blue transition">Roof Packages</a>
-                <a href="/blog" class="hover:text-brand-blue transition">Guides</a>
-                <a href="{{ nav_prefix }}#reviews" class="hover:text-brand-blue transition">Reviews</a>
-                <a href="{{ nav_prefix }}#faq" class="hover:text-brand-blue transition">FAQ</a>
-            </div>
+            <!-- Desktop Primary Navigation (lg+) -->
+            <nav aria-label="Primary navigation" class="hidden lg:flex items-center gap-0.5 xl:gap-1 text-[13px] font-semibold text-slate-700">
+                <a href="{{ nav_prefix }}#inspection" data-nav-spy="inspection" class="desktop-nav-link px-2.5 xl:px-3 py-2 rounded-xl hover:text-brand-navy hover:bg-slate-100/80 transition whitespace-nowrap">
+                    Inspection
+                </a>
+                <a href="{{ nav_prefix }}#estimator" data-nav-spy="estimator" class="desktop-nav-link px-2.5 xl:px-3 py-2 rounded-xl hover:text-brand-navy hover:bg-slate-100/80 transition whitespace-nowrap">
+                    Cost Guide
+                </a>
 
-            <!-- Top Phone CTA -->
-            <div class="flex items-center gap-4">
-                <a href="tel:{{ brand.primary_phone }}" class="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all hover:scale-[1.02]">
-                    <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                <!-- Work & Proof Dropdown -->
+                <div class="relative" data-nav-dropdown>
+                    <button type="button" aria-expanded="false" aria-haspopup="true" class="nav-dropdown-trigger inline-flex items-center gap-1 px-2.5 xl:px-3 py-2 rounded-xl hover:text-brand-navy hover:bg-slate-100/80 transition whitespace-nowrap">
+                        <span>Work &amp; Proof</span>
+                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div class="nav-dropdown-menu hidden absolute left-0 top-full pt-2 w-60 z-50">
+                        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-2 space-y-0.5 text-xs font-semibold text-slate-700">
+                            <a href="{{ nav_prefix }}#verified-projects" class="block px-3.5 py-2.5 rounded-xl hover:bg-slate-50 hover:text-brand-navy transition">📸 Local Verified Projects</a>
+                            <a href="{{ nav_prefix }}#before-after" class="block px-3.5 py-2.5 rounded-xl hover:bg-slate-50 hover:text-brand-navy transition">⇄ Before &amp; After Slider</a>
+                            <a href="{{ nav_prefix }}#systems" class="block px-3.5 py-2.5 rounded-xl hover:bg-slate-50 hover:text-brand-navy transition">🛡️ Certified Roof Packages</a>
+                            <a href="{{ nav_prefix }}#reviews" class="block px-3.5 py-2.5 rounded-xl hover:bg-slate-50 hover:text-brand-navy transition">★ Homeowner Reviews</a>
+                            <a href="{{ nav_prefix }}#faq" class="block px-3.5 py-2.5 rounded-xl hover:bg-slate-50 hover:text-brand-navy transition">❓ Common Roofing FAQ</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ocean County Towns Dropdown -->
+                {% if all_towns %}
+                <div class="relative" data-nav-dropdown>
+                    <button type="button" aria-expanded="false" aria-haspopup="true" class="nav-dropdown-trigger inline-flex items-center gap-1 px-2.5 xl:px-3 py-2 rounded-xl hover:text-brand-navy hover:bg-slate-100/80 transition whitespace-nowrap">
+                        <span>Towns</span>
+                        <svg class="w-3.5 h-3.5 text-slate-400 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div class="nav-dropdown-menu hidden absolute right-0 top-full pt-2 w-[360px] z-50">
+                        <div class="bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3 space-y-2">
+                            <div class="px-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">Ocean County Service Areas</div>
+                            <div class="grid grid-cols-2 gap-1 text-xs font-semibold">
+                                {% for t in all_towns %}
+                                <a href="/{{ t.slug }}" class="px-2.5 py-2 rounded-xl transition truncate {% if current_town and current_town.slug == t.slug %}bg-sky-50 text-brand-navy font-extrabold{% else %}text-slate-700 hover:bg-slate-50 hover:text-brand-navy{% endif %}">
+                                    📍 {{ t.town_name }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                            <a href="{{ nav_prefix }}#service-areas" class="block text-center text-[11px] font-extrabold text-brand-navy bg-slate-50 hover:bg-slate-100 rounded-xl py-2 transition border border-slate-100">
+                                View Full County Coverage →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <a href="/blog" class="px-2.5 xl:px-3 py-2 rounded-xl transition whitespace-nowrap {% if is_blog_page %}bg-sky-50 text-brand-navy font-extrabold{% else %}hover:text-brand-navy hover:bg-slate-100/80{% endif %}">
+                    Guides
+                </a>
+            </nav>
+
+            <!-- Right CTA Cluster & Mobile Hamburger Button -->
+            <div class="flex items-center gap-2 shrink-0">
+                <a href="{{ nav_prefix }}#quizSection" class="hidden md:inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3 xl:px-4 py-2.5 rounded-xl text-xs xl:text-sm shadow-sm transition hover:scale-[1.02] whitespace-nowrap">
+                    <span>⚡ Free Estimate</span>
+                </a>
+
+                <a href="tel:{{ brand.primary_phone }}" class="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white min-h-[42px] px-3 xl:px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all hover:scale-[1.02] whitespace-nowrap">
+                    <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 20 20" aria-hidden="true">
                         <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/>
                     </svg>
                     <div class="text-left hidden sm:block">
-                        <span class="block text-[10px] uppercase font-bold text-emerald-100 leading-none">24/7 Intake</span>
-                        <span class="text-sm font-extrabold leading-none live-dispatch-phone">{{ brand.formatted_phone or brand.primary_phone }}</span>
+                        <span class="block text-[9px] uppercase font-bold text-emerald-100 leading-none">24/7 Intake</span>
+                        <span class="text-xs xl:text-sm font-extrabold leading-none live-dispatch-phone">{{ brand.formatted_phone or brand.primary_phone }}</span>
                     </div>
-                    <span class="sm:hidden font-extrabold">Call Now</span>
+                    <span class="sm:hidden font-extrabold">Call</span>
                 </a>
+
+                <!-- Mobile / Tablet Hamburger Toggle (< 1024px) -->
+                <button type="button" id="mobileMenuToggleBtn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobileNavDrawer" class="lg:hidden min-w-[44px] min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 flex items-center justify-center transition">
+                    <svg id="hamburgerOpenIcon" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    <svg id="hamburgerCloseIcon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
         </div>
     </header>
+
+    <!-- Mobile / Tablet Slide-Over Navigation Drawer -->
+    <div id="mobileNavDrawer" class="lg:hidden fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label="Site navigation menu">
+        <div id="mobileNavBackdrop" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm opacity-0 transition-opacity duration-300"></div>
+
+        <aside id="mobileNavPanel" class="fixed top-0 right-0 bottom-0 w-[88vw] max-w-sm bg-white shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-out">
+            <!-- Drawer Header -->
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <span class="font-black text-sm text-[#0A486D] block leading-tight">OCEAN COUNTY ROOFING PROS</span>
+                    <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 mt-0.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Serving {{ current_town.town_name if current_town else brand.base_city }}, NJ
+                    </span>
+                </div>
+                <button type="button" id="mobileMenuCloseBtn" aria-label="Close navigation menu" class="min-w-[44px] min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Drawer Scroll Body -->
+            <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                <!-- Quick Mobile Contact Tiles -->
+                <div class="grid grid-cols-3 gap-2">
+                    <a href="tel:{{ brand.primary_phone }}" class="min-h-[52px] rounded-xl bg-emerald-600 text-white font-extrabold text-xs flex flex-col items-center justify-center gap-0.5 shadow-sm">
+                        <span>📞</span>
+                        <span>Call 24/7</span>
+                    </a>
+                    <a href="sms:{{ resolved_sms }}" class="min-h-[52px] rounded-xl bg-[#0A486D] text-white font-extrabold text-xs flex flex-col items-center justify-center gap-0.5 shadow-sm">
+                        <span>💬</span>
+                        <span>Text Dispatch</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#quizSection" data-mobile-nav-link data-open-email="true" class="min-h-[52px] rounded-xl bg-slate-100 text-slate-800 border border-slate-200 font-extrabold text-xs flex flex-col items-center justify-center gap-0.5">
+                        <span>✉️</span>
+                        <span>Email Desk</span>
+                    </a>
+                </div>
+
+                <!-- Primary Page Sections -->
+                <div class="space-y-1">
+                    <div class="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400 pb-1">Explore Services</div>
+                    <a href="{{ nav_prefix }}#quizSection" data-mobile-nav-link class="flex items-center justify-between min-h-[48px] px-3.5 rounded-xl bg-amber-50 border border-amber-200/80 text-slate-900 font-black text-sm">
+                        <span>⚡ 60-Second Estimate Quiz</span>
+                        <span class="text-amber-700">→</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#inspection" data-mobile-nav-link class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl hover:bg-slate-50 text-slate-800 font-bold text-sm">
+                        <span>🔍 21-Point Roof &amp; Attic Inspection</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#estimator" data-mobile-nav-link class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl hover:bg-slate-50 text-slate-800 font-bold text-sm">
+                        <span>🧮 Cost &amp; Financing Calculator</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#verified-projects" data-mobile-nav-link class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl hover:bg-slate-50 text-slate-800 font-bold text-sm">
+                        <span>📸 Local Verified Projects</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#before-after" data-mobile-nav-link class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl hover:bg-slate-50 text-slate-800 font-bold text-sm">
+                        <span>⇄ Before &amp; After Transformation</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#systems" data-mobile-nav-link class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl hover:bg-slate-50 text-slate-800 font-bold text-sm">
+                        <span>🛡️ Certified Roof Packages</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#reviews" data-mobile-nav-link class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl hover:bg-slate-50 text-slate-800 font-bold text-sm">
+                        <span>★ Homeowner Reviews</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                    <a href="{{ nav_prefix }}#faq" data-mobile-nav-link class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl hover:bg-slate-50 text-slate-800 font-bold text-sm">
+                        <span>❓ Roofing FAQ</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                    <a href="/blog" class="flex items-center justify-between min-h-[46px] px-3.5 rounded-xl {% if is_blog_page %}bg-sky-50 text-brand-navy font-black{% else %}hover:bg-slate-50 text-slate-800 font-bold{% endif %} text-sm">
+                        <span>📘 Roofing Guides &amp; Blog</span>
+                        <span class="text-slate-400">›</span>
+                    </a>
+                </div>
+
+                <!-- Ocean County Towns Accordion -->
+                {% if all_towns %}
+                <details class="rounded-2xl border border-slate-200 bg-slate-50 p-3 group">
+                    <summary class="flex items-center justify-between font-extrabold text-xs uppercase tracking-wider text-slate-700 cursor-pointer list-none min-h-[36px]">
+                        <span>📍 Select Ocean County Town ({{ all_towns|length }})</span>
+                        <span class="text-brand-navy group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="grid grid-cols-2 gap-1.5 pt-3 mt-2 border-t border-slate-200">
+                        {% for t in all_towns %}
+                        <a href="/{{ t.slug }}" class="min-h-[40px] flex items-center px-2.5 py-1.5 rounded-xl text-xs font-bold border transition truncate {% if current_town and current_town.slug == t.slug %}bg-brand-navy text-white border-brand-navy{% else %}bg-white text-slate-700 border-slate-200 hover:border-brand-teal{% endif %}">
+                            {{ t.town_name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+            </div>
+
+            <!-- Drawer Footer CTA -->
+            <div class="p-4 border-t border-slate-100 bg-slate-50 pb-safe-dock">
+                <a href="{{ nav_prefix }}#quizSection" data-mobile-nav-link class="w-full min-h-[48px] bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-sm rounded-xl shadow-md flex items-center justify-center gap-2">
+                    <span>⚡ Book Free 21-Point Inspection →</span>
+                </a>
+            </div>
+        </aside>
+    </div>
 
     <!-- Main Content Block -->
     <main>
@@ -192,19 +302,191 @@
         </div>
     </footer>
 
-    <!-- MOBILE STICKY BOTTOM BAR (Thumb-Zone Direct Conversions) -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur border-t border-slate-200 p-3 md:hidden flex gap-3 shadow-2xl">
-        <a href="tel:{{ brand.primary_phone }}" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-3.5 rounded-xl text-center shadow flex items-center justify-center gap-2">
-            <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
+    <!-- MOBILE / TABLET STICKY BOTTOM BAR (3-Action Thumb-Zone Dock, Safe Area & Keyboard-Aware) -->
+    <div id="mobileStickyBar" class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 pt-2.5 pb-safe-dock lg:hidden flex gap-2 shadow-2xl transition-all duration-200">
+        <a href="tel:{{ brand.primary_phone }}" class="flex-1 min-h-[46px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm py-2.5 px-2 rounded-xl text-center shadow flex items-center justify-center gap-1.5">
+            <svg class="w-4 h-4 fill-current shrink-0" viewBox="0 0 20 20" aria-hidden="true"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
             <span>Call Now</span>
         </a>
-        <a href="{{ nav_prefix }}#quizSection" class="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-sm py-3.5 rounded-xl text-center shadow flex items-center justify-center gap-1">
-            <span>⚡ 60s Free Estimate</span>
+        <a href="sms:{{ resolved_sms }}" class="flex-1 min-h-[46px] bg-[#0A486D] hover:bg-[#062B42] text-white font-extrabold text-xs sm:text-sm py-2.5 px-2 rounded-xl text-center shadow flex items-center justify-center gap-1.5">
+            <span aria-hidden="true">💬</span>
+            <span>Text Us</span>
+        </a>
+        <a href="{{ nav_prefix }}#quizSection" class="flex-[1.25] min-h-[46px] bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs sm:text-sm py-2.5 px-2 rounded-xl text-center shadow flex items-center justify-center gap-1">
+            <span>⚡ Free Estimate</span>
         </a>
     </div>
 
-    <!-- Live Ocean County Activity Ticker & Real-Time CRO Controls Hydration -->
+    <!-- Live Ocean County Activity Ticker, Navigation Drawer, Dropdowns & Scrollspy -->
     <script>
+        (function() {
+            // 1. Mobile / Tablet Slide-Over Hamburger Drawer
+            const drawer = document.getElementById('mobileNavDrawer');
+            const backdrop = document.getElementById('mobileNavBackdrop');
+            const panel = document.getElementById('mobileNavPanel');
+            const openBtn = document.getElementById('mobileMenuToggleBtn');
+            const closeBtn = document.getElementById('mobileMenuCloseBtn');
+            const openIcon = document.getElementById('hamburgerOpenIcon');
+            const closeIcon = document.getElementById('hamburgerCloseIcon');
+            let isDrawerOpen = false;
+
+            function setDrawerState(open) {
+                if (!drawer || !backdrop || !panel) return;
+                isDrawerOpen = Boolean(open);
+                if (openBtn) openBtn.setAttribute('aria-expanded', isDrawerOpen ? 'true' : 'false');
+                if (openIcon && closeIcon) {
+                    openIcon.classList.toggle('hidden', isDrawerOpen);
+                    closeIcon.classList.toggle('hidden', !isDrawerOpen);
+                }
+
+                if (isDrawerOpen) {
+                    drawer.classList.remove('hidden');
+                    document.body.style.overflow = 'hidden';
+                    requestAnimationFrame(() => {
+                        backdrop.classList.remove('opacity-0');
+                        panel.classList.remove('translate-x-full');
+                    });
+                    if (closeBtn) closeBtn.focus({ preventScroll: true });
+                } else {
+                    backdrop.classList.add('opacity-0');
+                    panel.classList.add('translate-x-full');
+                    document.body.style.overflow = '';
+                    setTimeout(() => {
+                        if (!isDrawerOpen) drawer.classList.add('hidden');
+                    }, 300);
+                    if (openBtn) openBtn.focus({ preventScroll: true });
+                }
+            }
+
+            if (openBtn) {
+                openBtn.addEventListener('click', () => setDrawerState(!isDrawerOpen));
+            }
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => setDrawerState(false));
+            }
+            if (backdrop) {
+                backdrop.addEventListener('click', () => setDrawerState(false));
+            }
+            if (drawer) {
+                drawer.querySelectorAll('[data-mobile-nav-link]').forEach(link => {
+                    link.addEventListener('click', (ev) => {
+                        const wantsEmail = link.getAttribute('data-open-email') === 'true';
+                        setDrawerState(false);
+                        if (wantsEmail && typeof window.toggleEmailMode === 'function') {
+                            ev.preventDefault();
+                            const quizEl = document.getElementById('quizSection');
+                            window.toggleEmailMode(true);
+                            if (quizEl) quizEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    });
+                });
+            }
+
+            // 2. Desktop Accessible Dropdowns (Hover + Click safe)
+            const dropdowns = Array.from(document.querySelectorAll('[data-nav-dropdown]'));
+            function setDropdownOpen(dd, open) {
+                const menu = dd.querySelector('.nav-dropdown-menu');
+                const btn = dd.querySelector('.nav-dropdown-trigger');
+                if (menu) menu.classList.toggle('hidden', !open);
+                if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            function closeAllDropdowns(exceptEl) {
+                dropdowns.forEach(dd => {
+                    if (dd === exceptEl) return;
+                    dd.dataset.hoverOpenedAt = '0';
+                    setDropdownOpen(dd, false);
+                });
+            }
+            dropdowns.forEach(dd => {
+                const trigger = dd.querySelector('.nav-dropdown-trigger');
+                const menu = dd.querySelector('.nav-dropdown-menu');
+                if (!trigger || !menu) return;
+                let closeTimer = null;
+
+                trigger.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isHidden = menu.classList.contains('hidden');
+                    const justHovered = (Date.now() - Number(dd.dataset.hoverOpenedAt || 0)) < 450;
+                    if (isHidden || justHovered) {
+                        closeAllDropdowns(dd);
+                        dd.dataset.hoverOpenedAt = '0';
+                        setDropdownOpen(dd, true);
+                    } else {
+                        setDropdownOpen(dd, false);
+                    }
+                });
+                dd.addEventListener('mouseenter', () => {
+                    if (closeTimer) clearTimeout(closeTimer);
+                    if (menu.classList.contains('hidden')) {
+                        dd.dataset.hoverOpenedAt = String(Date.now());
+                    }
+                    closeAllDropdowns(dd);
+                    setDropdownOpen(dd, true);
+                });
+                dd.addEventListener('mouseleave', () => {
+                    closeTimer = setTimeout(() => {
+                        dd.dataset.hoverOpenedAt = '0';
+                        setDropdownOpen(dd, false);
+                    }, 150);
+                });
+                menu.querySelectorAll('a').forEach(a => {
+                    a.addEventListener('click', () => closeAllDropdowns(null));
+                });
+            });
+
+            document.addEventListener('click', () => closeAllDropdowns(null));
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeAllDropdowns(null);
+                    if (isDrawerOpen) setDrawerState(false);
+                }
+            });
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 1024 && isDrawerOpen) {
+                    setDrawerState(false);
+                }
+            });
+
+            // 3. Keyboard-Aware Sticky Bottom Dock Auto-Hide
+            const stickyBar = document.getElementById('mobileStickyBar');
+            if (stickyBar) {
+                document.addEventListener('focusin', (ev) => {
+                    if (ev.target && ev.target.matches && ev.target.matches('input, textarea, select')) {
+                        stickyBar.classList.add('translate-y-full', 'opacity-0', 'pointer-events-none');
+                    }
+                });
+                document.addEventListener('focusout', () => {
+                    setTimeout(() => {
+                        const active = document.activeElement;
+                        if (!active || !active.matches || !active.matches('input, textarea, select')) {
+                            stickyBar.classList.remove('translate-y-full', 'opacity-0', 'pointer-events-none');
+                        }
+                    }, 120);
+                });
+            }
+
+            // 4. Desktop Section Scrollspy
+            const spyLinks = document.querySelectorAll('[data-nav-spy]');
+            if (spyLinks.length && 'IntersectionObserver' in window) {
+                const sectionIds = Array.from(spyLinks).map(el => el.getAttribute('data-nav-spy'));
+                const spyObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (!entry.isIntersecting) return;
+                        spyLinks.forEach(link => {
+                            const active = link.getAttribute('data-nav-spy') === entry.target.id;
+                            link.classList.toggle('bg-sky-50', active);
+                            link.classList.toggle('text-brand-navy', active);
+                            link.classList.toggle('font-extrabold', active);
+                        });
+                    });
+                }, { rootMargin: '-35% 0px -55% 0px', threshold: 0 });
+                sectionIds.forEach(id => {
+                    const sec = document.getElementById(id);
+                    if (sec) spyObserver.observe(sec);
+                });
+            }
+        })();
+
         (function() {
             const tickerEl = document.getElementById('dispatchTicker');
             const barEl = document.getElementById('topAnnouncementBar');
@@ -264,6 +546,10 @@
                 if (telLink && typeof window.ocrpTrackEvent === 'function') {
                     window.ocrpTrackEvent('phone_call_click', { phone_href: telLink.getAttribute('href') });
                 }
+                const smsLink = ev.target && ev.target.closest ? ev.target.closest('a[href^="sms:"]') : null;
+                if (smsLink && typeof window.ocrpTrackEvent === 'function') {
+                    window.ocrpTrackEvent('sms_click', { sms_href: smsLink.getAttribute('href') });
+                }
             });
 
             fetch(`/api/admin/settings?_t=${Date.now()}`, { cache: 'no-store' })
@@ -289,13 +575,6 @@
                         applyPhoneDisplay(s.dispatch_phone_display);
                     }
                     applyBannerState();
-
-            document.addEventListener('click', function(ev) {
-                const telLink = ev.target && ev.target.closest ? ev.target.closest('a[href^="tel:"]') : null;
-                if (telLink && typeof window.ocrpTrackEvent === 'function') {
-                    window.ocrpTrackEvent('phone_call_click', { phone_href: telLink.getAttribute('href') });
-                }
-            });
                 })
                 .catch(() => {});
 

@@ -1,0 +1,41 @@
+<!-- ========================================================================= -->
+<!-- 5.5 RECENT VERIFIED GEO-TAGGED ROOFING PROJECTS IN {{ town.town_name }} -->
+<!-- ========================================================================= -->
+{% if town_projects %}
+<section id="verified-projects" class="py-16 sm:py-20 bg-slate-50 border-b border-slate-200" data-reveal>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
+            <span class="text-xs font-black uppercase tracking-widest text-brand-teal block mb-2">GPS-Verified Local Proof</span>
+            <h3 class="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">Recent Verified Projects in {{ town.town_name }} &amp; Ocean County</h3>
+            <p class="text-slate-600 text-sm sm:text-base mt-3">Real roof replacements and storm restorations uploaded directly from the field by our certified crews and stamped with Ocean County GPS coordinates.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-6 sm:gap-8">
+            {% for p in town_projects[:3] %}
+            <div class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl transition flex flex-col justify-between group">
+                <div>
+                    <div class="relative aspect-[16/10] overflow-hidden bg-slate-900">
+                        <img src="{{ p.image_webp_url }}" alt="{{ p.shingle_system }} in {{ p.town_name }}, NJ" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        <div class="absolute top-3 left-3 bg-slate-950/85 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full backdrop-blur-sm">
+                            📍 {{ p.neighborhood }}, {{ p.town_name }}
+                        </div>
+                        <div class="absolute bottom-3 right-3 bg-brand-navy/90 text-white text-[10px] font-mono px-2.5 py-1 rounded-lg backdrop-blur-sm">
+                            GPS: {{ "%.4f"|format(p.lat) }}, {{ "%.4f"|format(p.lon) }}
+                        </div>
+                    </div>
+                    <div class="p-5 sm:p-6 space-y-2.5">
+                        <div class="text-xs font-extrabold text-brand-blue uppercase tracking-wider">{{ p.shingle_system }}</div>
+                        <h4 class="text-lg font-black text-slate-900 leading-snug">{{ p.caption }}</h4>
+                        <p class="text-xs text-slate-600 leading-relaxed">{{ p.ai_seo_summary }}</p>
+                    </div>
+                </div>
+                <div class="px-5 sm:px-6 pb-5 sm:pb-6 pt-3 border-t border-slate-200/70 flex items-center justify-between text-xs">
+                    <span class="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">✓ Verified NJ HIC Crew</span>
+                    <a href="#quizSection" class="font-extrabold text-brand-blue hover:underline py-1">Get Same Spec Quote →</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
