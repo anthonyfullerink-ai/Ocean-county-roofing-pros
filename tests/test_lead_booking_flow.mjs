@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GCalService, nyLocalToDate, parseSlotDateTime } from "../netlify/functions/services/gcal-service.mjs";
+import { GCalService, formatPropertyAddress, nyLocalToDate, parseSlotDateTime } from "../netlify/functions/services/gcal-service.mjs";
+import { EmailService } from "../netlify/functions/services/email-service.mjs";
 import { parseIcsBusyIntervals, fetchIcsBusyIntervals } from "../netlify/functions/services/ics-parser.mjs";
 import {
   normalizeEmergencyConfig,
@@ -699,6 +700,7 @@ test("Vapi tools (triage_emergency, dispatch_emergency, check_availability), por
         body: JSON.stringify({
           first_name: "Casey",
           phone: "7325550133",
+          email: "casey@example.com",
           city: "Toms River",
           situation: "Active Water Leak",
           urgency: "Emergency",
@@ -899,5 +901,140 @@ test("VAPI_SERVER_SECRET rejects missing or invalid x-vapi-secret and allows mat
   } finally {
     process.env.VAPI_SERVER_SECRET = prevSecret ?? "";
     process.env.SUPABASE_URL = prevSupaUrl ?? "";
+  }
+});
+
+test("Mandatory email enforcement, Lakehurst address formatting, owner invite payload, and Step 3/4 alert accuracy", async () => {
+  assert.equal(
+    formatPropertyAddress("211 Center Street, Lakehurst, nj", "Toms River"),
+    "211 Center Street, Lakehurst, NJ"
+  );
+  assert.equal(
+    formatPropertyAddress("1420 Hooper Ave", "Toms River"),
+    "1420 Hooper Ave, Toms River, NJ"
+  );
+
+  // Missing email rejected by /api/leads/webform even with valid phone
+  const noEmailRes = await webformHandler(
+    new Request("https://oceancountyroofingpros.com/api/leads/webform", {
+      method: "POST",
+      body: JSON.stringify({
+        first_name: "Mike",
+        last_name: "Jones",
+        phone: "7325550199",
+        address: "211 Center Street, Lakehurst, nj",
+        city: "Toms River"
+      })
+    })
+  );
+  assert.equal(noEmailRes.status, 400);
+
+  // Missing email rejected by /api/calendar/book
+  const badBookRes = await calendarHandler(
+    new Request("https://oceancountyroofingpros.com/api/calendar/book", {
+      method: "POST",
+      body: JSON.stringify({
+        lead_id: "WEB-TEST-NOEMAIL",
+        date: "2026-11-16",
+        time: "09:00 AM",
+        name: "Mike Jones",
+        phone: "7325550199",
+        email: "invalid",
+        address: "211 Center Street, Lakehurst, nj",
+        city: "Toms River"
+      })
+    })
+  );
+  assert.equal(badBookRes.status, 400);
+
+  // Mock fetch for Apps Script booking & Resend alerts
+  const originalFetch = global.fetch;
+  const prevWebhook = process.env.GOOGLE_CALENDAR_WEBHOOK_URL;
+  const prevResend = process.env.RESEND_API_KEY;
+  const prevOwner = process.env.OWNER_ALERT_EMAIL;
+  const sentPayloads = [];
+
+  try {
+    process.env.GOOGLE_CALENDAR_WEBHOOK_URL = "https://script.google.com/macros/s/test-deploy/exec";
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.OWNER_ALERT_EMAIL = "anthony.fuller.ink@gmail.com";
+
+    global.fetch = async (url, init = {}) => {
+      const u = String(url);
+      if (u.includes("script.google.com")) {
+        if (init.method === "POST") {
+          const payload = JSON.parse(init.body || "{}");
+          sentPayloads.push({ type: "apps_script", payload });
+          return new Response(JSON.stringify({ status: "success", event_id: "evt_apps_123" }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ busy: [] }), { status: 200 });
+      }
+      if (u.includes("api.resend.com/emails")) {
+        const payload = JSON.parse(init.body || "{}");
+        sentPayloads.push({ type: "resend", payload });
+        return new Response(JSON.stringify({ id: "email_test_ics" }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    };
+
+    const gcalRes = await GCalService.bookAppointment({
+      leadId: "WEB-LAKEHURST-1",
+      dateStr: "2026-11-16",
+      timeStr: "09:00 AM",
+      customerName: "Mike Jones",
+      customerPhone: "7325550199",
+      customerEmail: "mike@example.com",
+      ownerEmail: "anthony.fuller.ink@gmail.com",
+      address: "211 Center Street, Lakehurst, nj",
+      city: "Toms River",
+      service: "Full Roof Replacement"
+    });
+    assert.equal(gcalRes.status, "success");
+    const scriptCall = sentPayloads.find(p => p.type === "apps_script");
+    assert.ok(scriptCall);
+    assert.equal(scriptCall.payload.address, "211 Center Street, Lakehurst, NJ");
+    assert.equal(scriptCall.payload.is_homeowner, "Not specified");
+    assert.equal(scriptCall.payload.attic_access, "Not specified");
+    assert.ok(scriptCall.payload.customer_email.includes("mike@example.com"));
+    assert.ok(scriptCall.payload.customer_email.includes("anthony.fuller.ink@gmail.com"));
+
+    // Step 3 Owner Alert: never fabricates Both Decision-Makers or Attic Access
+    await EmailService.sendOwnerLeadAlert({
+      lead_id: "WEB-LAKEHURST-1",
+      name: "Mike Jones",
+      phone: "7325550199",
+      email: "mike@example.com",
+      address: "211 Center Street, Lakehurst, NJ",
+      source: "Webform Quiz (Step 3 Captured)"
+    });
+    // Step 4 Owner Alert: attaches .ics and uses Confirmed Booking subject
+    await EmailService.sendOwnerLeadAlert({
+      lead_id: "WEB-LAKEHURST-1",
+      name: "Mike Jones",
+      phone: "7325550199",
+      email: "mike@example.com",
+      address: "211 Center Street, Lakehurst, NJ",
+      date: "Mon, Nov 16",
+      time: "09:00 AM",
+      start_iso: "2026-11-16T14:00:00.000Z",
+      end_iso: "2026-11-16T15:00:00.000Z",
+      source: "Webform Quiz (Booked Calendar)"
+    });
+
+    const resendCalls = sentPayloads.filter(p => p.type === "resend");
+    assert.equal(resendCalls.length, 2);
+    assert.ok(resendCalls[0].payload.subject.includes("[Lead Captured - Selecting Time]"));
+    assert.equal(resendCalls[0].payload.html.includes("Both Decision-Makers"), false);
+    assert.equal(resendCalls[0].payload.html.includes("Attic Access"), false);
+    assert.ok(resendCalls[1].payload.subject.includes("[Confirmed Booking]"));
+    assert.equal(resendCalls[1].payload.attachments?.[0]?.filename, "roof-inspection.ics");
+  } finally {
+    global.fetch = originalFetch;
+    if (prevWebhook === undefined) delete process.env.GOOGLE_CALENDAR_WEBHOOK_URL;
+    else process.env.GOOGLE_CALENDAR_WEBHOOK_URL = prevWebhook;
+    if (prevResend === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = prevResend;
+    if (prevOwner === undefined) delete process.env.OWNER_ALERT_EMAIL;
+    else process.env.OWNER_ALERT_EMAIL = prevOwner;
   }
 });

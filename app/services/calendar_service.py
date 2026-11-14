@@ -112,7 +112,11 @@ def get_live_calendar_events(date_iso: str) -> List[Dict[str, Any]]:
     """
     Fetches confirmed Google Calendar events on date_iso for the active tenant.
     Uses Google Calendar REST API first (for Netlify / Cloud), with fallback to local CLI.
+    Never queries live calendars when settings.MOCK_MODE is enabled.
     """
+    if settings.MOCK_MODE:
+        return []
+
     tenant = TenantManager.get_active_tenant()
     cal_target = tenant.google_calendar_id or settings.GOOGLE_CALENDAR_ID or "primary"
 
@@ -350,6 +354,18 @@ def book_calendar_appointment(customer_name: str, phone: str, address: str, serv
     cal_target = tenant.google_calendar_id or settings.GOOGLE_CALENDAR_ID or "primary"
     
     summary = f"Roof Inspection: {customer_name} ({service})"
+    if settings.MOCK_MODE:
+        mock_id = f"mock-cal-{int(datetime.now().timestamp())}"
+        logger.info(f"[MOCK_MODE] Simulated Google Calendar booking {mock_id} for {customer_name} on {date_iso} at {human_start}")
+        return {
+            "status": "confirmed",
+            "event_id": mock_id,
+            "summary": summary,
+            "date": date_iso,
+            "time": human_start,
+            "end_time": human_end
+        }
+
     email_line = f"Email: {customer_email}\n" if customer_email else ""
     description = (
         f"Customer: {customer_name}\n"
@@ -450,6 +466,9 @@ def update_calendar_event(event_id: str, new_email: Optional[str] = None, new_ad
     """
     if not event_id:
         return False
+    if settings.MOCK_MODE:
+        logger.info(f"[MOCK_MODE] Simulated calendar update for {event_id}")
+        return True
 
     tenant = TenantManager.get_active_tenant()
     cal_target = tenant.google_calendar_id or settings.GOOGLE_CALENDAR_ID or "primary"

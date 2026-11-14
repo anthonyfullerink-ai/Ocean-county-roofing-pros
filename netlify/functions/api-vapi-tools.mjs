@@ -258,7 +258,7 @@ export default async (req, context) => {
           roof_age: issueSummary,
           attic_access: "Emergency Priority Leak",
           ladder_needed: "Tarping / Triage Gear",
-          decision_makers_present: "Yes",
+          decision_makers_present: "",
           source: `Voice AI Emergency (${emerg.dispatch_company}${emerg.is_overflow ? " Overflow" : ""})`
         }).catch(() => {});
 
@@ -312,11 +312,11 @@ export default async (req, context) => {
           }
         }
 
-        const isHomeowner = args.is_homeowner || "Yes";
+        const isHomeowner = args.is_homeowner || "Not confirmed";
         const roofAge = args.roof_age || "Standard inspection";
-        const atticAccess = args.attic_access || "Yes";
-        const ladderNeeded = args.ladder_needed || "Pull-down stairs";
-        const decisionMakers = args.decision_makers_present || "Yes";
+        const atticAccess = args.attic_access || "Not confirmed";
+        const ladderNeeded = args.ladder_needed || "Not specified";
+        const decisionMakers = args.decision_makers_present || "Not confirmed";
 
         const qualificationNotes = `Qualification: Homeowner: ${isHomeowner} | Roof Age: ${roofAge} | Attic Access: ${atticAccess} (Ladder: ${ladderNeeded}) | Both Decision Makers: ${decisionMakers}.`;
 

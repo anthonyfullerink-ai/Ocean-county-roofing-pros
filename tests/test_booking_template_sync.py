@@ -322,3 +322,41 @@ def test_fastapi_emergency_config_portal_admin_and_webform_parity():
         set_setting("tenant_emergency_client_joe_the_roofer", orig_emerg_raw)
         set_setting("emergency_dispatch_policy", orig_policy_raw)
         set_setting("territory_routing_json", orig_routing_raw)
+
+
+def test_mandatory_email_validation_and_static_required_attribute():
+    """Verify FastAPI webform and calendar booking reject missing/invalid email and static widget requires email."""
+    import re as _re
+    from pathlib import Path
+    project_root = Path(__file__).resolve().parent.parent
+    toms_river_html = (project_root / "dist" / "roofing-toms-river-nj" / "index.html").read_text(encoding="utf-8")
+    assert _re.search(r'<input[^>]*id="email"[^>]*required', toms_river_html)
+    client = TestClient(app)
+
+    bad_web = client.post(
+        "/api/leads/webform",
+        json={
+            "first_name": "NoEmail",
+            "phone": "732-555-0199",
+            "address": "211 Center Street, Lakehurst, nj",
+            "city": "Lakehurst",
+        },
+    )
+    assert bad_web.status_code == 400
+    assert "email" in bad_web.json().get("detail", "").lower()
+
+    bad_book = client.post(
+        "/api/calendar/book",
+        json={
+            "lead_id": "WEB-MISSING-EMAIL",
+            "date": "2026-11-16",
+            "time": "09:00 AM",
+            "name": "No Email",
+            "phone": "732-555-0199",
+            "email": "not-an-email",
+            "address": "211 Center Street, Lakehurst, nj",
+            "city": "Lakehurst",
+        },
+    )
+    assert bad_book.status_code == 400
+    assert "email" in bad_book.json().get("detail", "").lower()

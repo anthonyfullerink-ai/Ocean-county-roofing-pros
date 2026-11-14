@@ -4,6 +4,49 @@
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
+function toIcsUtcStamp(isoStr) {
+  const dt = new Date(isoStr);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function escapeIcsText(val) {
+  return String(val || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+export function buildIcsAttachment({ leadId, summary, location, description, startIso, endIso }) {
+  const dtStart = toIcsUtcStamp(startIso);
+  const dtEnd = toIcsUtcStamp(endIso);
+  if (!dtStart || !dtEnd) return null;
+  const dtStamp = toIcsUtcStamp(new Date().toISOString());
+  const uid = `${String(leadId || Date.now()).replace(/[^a-zA-Z0-9_-]/g, "")}@oceancountyroofingpros.com`;
+  const icsLines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Ocean County Roofing Pros//Dispatch//EN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${escapeIcsText(summary || "Roof Inspection - Ocean County Roofing Pros")}`,
+    `LOCATION:${escapeIcsText(location || "Ocean County, NJ")}`,
+    `DESCRIPTION:${escapeIcsText(description || "21-Point Roof & Attic Inspection")}`,
+    "STATUS:CONFIRMED",
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].join("\r\n");
+  return {
+    filename: "roof-inspection.ics",
+    content: Buffer.from(icsLines, "utf-8").toString("base64")
+  };
+}
+
 export class EmailService {
   static getApiKey() {
     return process.env.RESEND_API_KEY || "";
@@ -155,12 +198,24 @@ export class EmailService {
 </html>
     `;
 
+    const icsAttachment = (lead.start_iso && lead.end_iso)
+      ? buildIcsAttachment({
+          leadId: lead.lead_id,
+          summary: `Roof Inspection: ${name}`,
+          location: address,
+          description: `${service} | Lead #${lead.lead_id || "Web"}`,
+          startIso: lead.start_iso,
+          endIso: lead.end_iso
+        })
+      : null;
+
     return await this.sendEmail({
       from: this.getFromAddress(),
       to: [toEmail],
       reply_to: this.getReplyToAddress(),
       subject: `Confirmed: Free 21-Point Roof Inspection for ${address} (${date})`,
-      html: htmlContent
+      html: htmlContent,
+      ...(icsAttachment ? { attachments: [icsAttachment] } : {})
     });
   }
 
@@ -179,10 +234,29 @@ export class EmailService {
     const date = lead.date || lead.appointment_date || "Pending";
     const time = lead.time || lead.appointment_time || "Pending";
     const scope = lead.roof_age || lead.service || "Inspection & Estimate";
-    const attic = lead.attic_access || "Yes";
-    const ladder = lead.ladder_needed || "Standard";
-    const decisionMakers = lead.decision_makers_present || "Yes";
+    const architecture = lead.home_architecture || "";
+    const notes = lead.notes || "";
+    const attic = lead.attic_access || "";
+    const ladder = lead.ladder_needed || "";
+    const decisionMakers = lead.decision_makers_present || "";
     const source = lead.source || "Voice AI (Riley / Sarah)";
+
+    const optionalRows = [
+      architecture ? `<div class="item"><span class="label">Home Architecture:</span> <span class="val">${architecture}</span></div>` : "",
+      attic ? `<div class="item"><span class="label">Attic Access:</span> <span class="val">${attic}${ladder ? ` (${ladder})` : ""}</span></div>` : "",
+      decisionMakers ? `<div class="item"><span class="label">Both Decision-Makers:</span> <span class="val">${decisionMakers}</span></div>` : "",
+      notes ? `<div class="item"><span class="label">Notes:</span> <span class="val">${notes}</span></div>` : ""
+    ].filter(Boolean).join("\n    ");
+
+    const headlineLabel = source.includes("Step 3 Captured")
+      ? `Captured: ${date} (${time})`
+      : `Confirmed: ${date} at ${time}`;
+
+    const subject = source.includes("Step 3 Captured")
+      ? `🚨 [Lead Captured - Selecting Time] ${name} - ${address}`
+      : (source.includes("Booked Calendar")
+          ? `🚨 [Confirmed Booking] ${name} - ${address} (${date} @ ${time})`
+          : `🚨 [New Lead] ${name} - ${address} (${date} @ ${time})`);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -203,26 +277,37 @@ export class EmailService {
     <h2>🚨 NEW ROOFING INSPECTION DISPATCHED</h2>
     <div class="item"><span class="label">Lead ID:</span> <span class="val">${leadId}</span></div>
     <div class="item"><span class="label">Source:</span> <span class="val">${source}</span></div>
-    <div class="item highlight">Confirmed: ${date} at ${time}</div>
+    <div class="item highlight">${headlineLabel}</div>
     <hr style="border: 0; border-top: 1px solid #334155; margin: 16px 0;">
     <div class="item"><span class="label">Homeowner:</span> <span class="val">${name}</span></div>
     <div class="item"><span class="label">Phone:</span> <span class="val"><a href="tel:${phone}" style="color: #38bdf8;">${phone}</a></span></div>
     <div class="item"><span class="label">Email:</span> <span class="val">${email}</span></div>
     <div class="item"><span class="label">Address:</span> <span class="val">${address}</span></div>
     <div class="item"><span class="label">Roof Scope / Symptoms:</span> <span class="val">${scope}</span></div>
-    <div class="item"><span class="label">Attic Access:</span> <span class="val">${attic} (${ladder})</span></div>
-    <div class="item"><span class="label">Both Decision-Makers:</span> <span class="val">${decisionMakers}</span></div>
+    ${optionalRows}
   </div>
 </body>
 </html>
     `;
 
+    const icsAttachment = (lead.start_iso && lead.end_iso)
+      ? buildIcsAttachment({
+          leadId,
+          summary: `Roof Inspection: ${name}`,
+          location: address,
+          description: `Homeowner: ${name}\nPhone: ${phone}\nEmail: ${email}\nAddress: ${address}\nService: ${scope}`,
+          startIso: lead.start_iso,
+          endIso: lead.end_iso
+        })
+      : null;
+
     return await this.sendEmail({
       from: this.getFromAddress(),
       to: [ownerEmail],
       reply_to: email.includes("@") ? email : this.getReplyToAddress(),
-      subject: `🚨 [New Lead] ${name} - ${address} (${date} @ ${time})`,
-      html: htmlContent
+      subject,
+      html: htmlContent,
+      ...(icsAttachment ? { attachments: [icsAttachment] } : {})
     });
   }
 

@@ -268,6 +268,7 @@ def test_contractor_portal_1tap_completed_triggers_review_sms():
             "first_name": "kevin",
             "last_name": "O'Connor",
             "phone": "732-555-0444",
+            "email": "kevin.oconnor@example.com",
             "address": "19 Ocean Blvd",
             "city": "Point Pleasant",
             "service": "Full Roof Replacement",

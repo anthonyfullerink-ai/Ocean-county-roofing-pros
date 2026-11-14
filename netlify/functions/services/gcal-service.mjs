@@ -147,6 +147,19 @@ export function addDaysIso(isoDate, deltaDays) {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
 }
 
+export function formatPropertyAddress(rawAddress, fallbackCity = "Toms River") {
+  const clean = String(rawAddress || "").trim().replace(/\s+/g, " ");
+  if (!clean) return `${fallbackCity || "Ocean County"}, NJ`;
+  if (/,\s*[^,]+,\s*(?:nj|new jersey)\b/i.test(clean) || /,\s*(?:nj|new jersey)(?:\s+\d{5})?$/i.test(clean)) {
+    return clean.replace(/\bnj\b/gi, "NJ").replace(/\bnew jersey\b/gi, "NJ");
+  }
+  const city = String(fallbackCity || "").trim();
+  if (city && clean.toLowerCase().includes(city.toLowerCase())) {
+    return /\bNJ\b/i.test(clean) ? clean : `${clean}, NJ`;
+  }
+  return city ? `${clean}, ${city}, NJ` : `${clean}, NJ`;
+}
+
 export function parseSlotDateTime(dateStr, timeStr) {
   // Parse 12-hour or 24-hour time string into { hour, minute }
   let hour = 13;
@@ -442,13 +455,17 @@ export class GCalService {
     phone,
     customerEmail,
     contractorEmail = "",
+    ownerEmail = "",
     icsFeedUrl = "",
     address,
+    city = "Ocean County",
     service,
     dateStr,
     timeStr,
     diagnosticSituation = "",
     homeArchitecture = "",
+    isHomeowner = "",
+    atticAccess = "",
     notes = "",
     fetchFn = fetch
   }) {
@@ -483,12 +500,13 @@ export class GCalService {
       };
     }
 
+    const normalizedAddress = formatPropertyAddress(address, city);
     const summary = `Roof Inspection: ${customerName || "Homeowner"}`;
     const fullDescription = [
       `Customer: ${customerName || "Homeowner"}`,
       `Phone: ${phone || "Not provided"}`,
       `Email: ${customerEmail || "Not provided"}`,
-      `Address: ${address || "Ocean County, NJ"}`,
+      `Address: ${normalizedAddress}`,
       `Service: ${service || "21-Point Roof & Attic Inspection"}`,
       `Lead ID: ${leadId || "Web"}`,
       "",
@@ -500,11 +518,16 @@ export class GCalService {
     ].join("\n");
 
     const guestEmails = [];
-    if (customerEmail && customerEmail.includes("@")) {
-      guestEmails.push(customerEmail.trim());
-    }
-    if (contractorEmail && contractorEmail.includes("@") && !guestEmails.includes(contractorEmail.trim())) {
-      guestEmails.push(contractorEmail.trim());
+    const addGuest = (raw) => {
+      const e = String(raw || "").trim();
+      if (e.includes("@") && !guestEmails.some(g => g.toLowerCase() === e.toLowerCase())) {
+        guestEmails.push(e);
+      }
+    };
+    addGuest(customerEmail);
+    addGuest(contractorEmail);
+    if (process.env.CALENDAR_INVITE_OWNER !== "false") {
+      addGuest(ownerEmail || process.env.OWNER_ALERT_EMAIL || "");
     }
 
     // 2. Prefer direct Service Account Calendar API if configured
@@ -514,7 +537,7 @@ export class GCalService {
         const token = await getServiceAccountToken(saJson, fetchFn);
         const eventBody = {
           summary,
-          location: address || "Ocean County, NJ",
+          location: normalizedAddress,
           description: fullDescription,
           start: { dateTime: parsed.startIso, timeZone: NY_TIMEZONE },
           end: { dateTime: parsed.endIso, timeZone: NY_TIMEZONE },
@@ -575,10 +598,12 @@ export class GCalService {
             customer_name: customerName || "Homeowner",
             phone: phone || "",
             customer_email: guestEmails.join(","),
-            address: address || "Ocean County, NJ",
+            address: normalizedAddress,
             service: service || "21-Point Roof & Attic Inspection",
             diagnostic_situation: diagnosticSituation,
             home_architecture: homeArchitecture,
+            is_homeowner: isHomeowner || "Not specified",
+            attic_access: atticAccess || "Not specified",
             notes,
             start: parsed.startIso,
             end: parsed.endIso

@@ -92,8 +92,8 @@ function doPost(e) {
       "--- LEAD DIAGNOSTIC DETAILS ---",
       "Situation: " + (data.diagnostic_situation || data.roof_age || "Standard inspection"),
       "Home Type: " + (data.home_architecture || "Standard Residential"),
-      "Homeowner: " + (data.is_homeowner || "Yes"),
-      "Attic Access: " + (data.attic_access || "Yes"),
+      "Homeowner: " + (data.is_homeowner || "Not specified"),
+      "Attic Access: " + (data.attic_access || "Not specified"),
       "Notes: " + (data.notes || "Booked online via Ocean County Roofing Pros"),
       "",
       "Dispatched via Ocean County Roofing Pros Referral Network"
@@ -106,7 +106,10 @@ function doPost(e) {
     };
 
     if (data.customer_email && data.customer_email.indexOf("@") !== -1) {
-      options.guests = data.customer_email.trim();
+      var guests = data.customer_email.split(",").map(function (s) { return s.trim(); }).filter(function (s) { return s.indexOf("@") !== -1; });
+      if (guests.length > 0) {
+        options.guests = guests.join(",");
+      }
     }
 
     var event = calendar.createEvent(summary, startTime, endTime, options);

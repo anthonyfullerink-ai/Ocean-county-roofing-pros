@@ -122,9 +122,14 @@ async def submit_webform(lead: WebFormLead, background_tasks: BackgroundTasks):
     4. Sends notification to the business owner/on-call dispatcher.
     5. (If enabled) Triggers Vapi outbound AI callback within 30 seconds for speed-to-lead.
     """
+    import re as _re
     raw_phone = (lead.phone or "").strip()
     clean_email = (lead.email or "").strip()
-    is_email_mode = (lead.contact_preference == "email") and ("@" in clean_email)
+    is_email_valid = bool(_re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", clean_email))
+    is_email_mode = (lead.contact_preference == "email") and is_email_valid
+
+    if not is_email_valid:
+        raise HTTPException(status_code=400, detail="Valid email address is required.")
 
     if not raw_phone and not is_email_mode:
         raise HTTPException(status_code=400, detail="Phone number is required.")
@@ -278,6 +283,11 @@ async def get_calendar_availability(
 
 @calendar_router.post("/book")
 async def book_calendar_slot(payload: CalendarBookRequest):
+    import re as _re
+    clean_email = (payload.email or "").strip()
+    if not _re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", clean_email):
+        raise HTTPException(status_code=400, detail="Valid email address is required.")
+
     result = book_calendar_appointment(
         customer_name=payload.name or "Homeowner",
         phone=payload.phone or "",
@@ -285,7 +295,7 @@ async def book_calendar_slot(payload: CalendarBookRequest):
         service=payload.service or "21-Point Roof & Attic Inspection",
         date_str=payload.date,
         time_str=payload.time,
-        customer_email=payload.email or None,
+        customer_email=clean_email,
     )
 
     if result.get("status") == "conflict":

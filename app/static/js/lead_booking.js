@@ -630,9 +630,10 @@
             const address = (document.getElementById('address')?.value || '').trim();
             const email = (document.getElementById('email')?.value || '').trim();
 
-            if (!phone || !firstName || !address) {
+            const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            if (!phone || !firstName || !address || !emailValid) {
                 if (errBox) {
-                    errBox.textContent = 'Please complete your name, phone number, and property address.';
+                    errBox.textContent = 'Please complete your name, phone number, property address, and a valid email address.';
                     errBox.classList.remove('hidden');
                 }
                 return;

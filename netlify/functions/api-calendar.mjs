@@ -7,8 +7,10 @@
  */
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
-import { GCalService, getNyDateParts, normalizeAvailabilityConfig } from "./services/gcal-service.mjs";
+import { GCalService, formatPropertyAddress, getNyDateParts, normalizeAvailabilityConfig } from "./services/gcal-service.mjs";
 import { resolveEmergencyHandler } from "./services/emergency-router.mjs";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -245,13 +247,17 @@ export default async (req) => {
       const email = (body.email || "").trim();
       const address = (body.address || "Ocean County, NJ").trim();
       const city = (body.city || "Toms River").trim();
+      const formattedAddress = formatPropertyAddress(address, city);
       const service = (body.service || "21-Point Roof & Attic Inspection").trim();
 
       if (!dateStr || !timeStr) {
         return json({ detail: "Date and inspection window are required." }, 400);
       }
+      if (!EMAIL_REGEX.test(email)) {
+        return json({ detail: "Valid email address is required." }, 400);
+      }
 
-      const { tenant, icsFeedUrl } = await resolveTenantAndSchedule(`${address} ${city}`);
+      const { tenant, icsFeedUrl } = await resolveTenantAndSchedule(`${formattedAddress} ${city}`);
       if (tenant.scheduling_type === "external_link" && tenant.booking_url) {
         return json({
           status: "external_redirect",
@@ -269,8 +275,9 @@ export default async (req) => {
         phone,
         customerEmail: email,
         contractorEmail: tenant.email || "",
+        ownerEmail: EmailService.getOwnerAlertEmail(),
         icsFeedUrl,
-        address: address.includes(city) ? address : `${address}, ${city}, NJ`,
+        address: formattedAddress,
         service,
         dateStr,
         timeStr,
@@ -317,7 +324,7 @@ export default async (req) => {
       if (twilioSid && twilioToken && phone && !phone.toLowerCase().includes("email")) {
         try {
           const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
-          const smsText = `Confirmed! Hi ${name.split(" ")[0]}, your free 21-point roof inspection with Ocean County Roofing Pros is locked in for ${displayDay} at ${timeStr} at ${address}. Ref #${leadId || "WEB"}. Reply STOP to opt out.`;
+          const smsText = `Confirmed! Hi ${name.split(" ")[0]}, your free 21-point roof inspection with Ocean County Roofing Pros is locked in for ${displayDay} at ${timeStr} at ${formattedAddress}. Ref #${leadId || "WEB"}. Reply STOP to opt out.`;
           await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
             method: "POST",
             headers: {
@@ -340,14 +347,18 @@ export default async (req) => {
         name,
         phone: phone || "Not provided",
         email,
-        address: address.includes(city) ? address : `${address}, ${city}, NJ`,
+        address: formattedAddress,
         date: displayDay,
         time: timeStr,
+        start_iso: bookResult.start || "",
+        end_iso: bookResult.end || "",
         service,
         roof_age: body.diagnostic_situation || service,
-        attic_access: "Attic & Roof 21-Point Check",
-        ladder_needed: body.home_architecture || "Standard",
-        decision_makers_present: "Yes",
+        home_architecture: body.home_architecture || "",
+        notes: body.notes || "",
+        attic_access: "",
+        ladder_needed: "",
+        decision_makers_present: "",
         source: "Website Self-Booked Calendar"
       };
 

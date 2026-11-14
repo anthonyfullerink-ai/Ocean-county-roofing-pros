@@ -5,6 +5,9 @@
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { resolveEmergencyHandler, sendEmergencySmsEscalation } from "./services/emergency-router.mjs";
+import { formatPropertyAddress } from "./services/gcal-service.mjs";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default async (req, context) => {
   if (req.method !== "POST") {
@@ -19,7 +22,15 @@ export default async (req, context) => {
     const contactPreference = (body.contact_preference || "calendar_flow").trim();
     const rawPhone = (body.phone || "").trim();
     const customerEmail = (body.email || "").trim();
-    const isEmailMode = contactPreference === "email" && customerEmail.includes("@");
+    const isEmailValid = EMAIL_REGEX.test(customerEmail);
+    const isEmailMode = contactPreference === "email" && isEmailValid;
+
+    if (!isEmailValid) {
+      return new Response(JSON.stringify({ detail: "Valid email address is required." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
 
     if (!rawPhone && !isEmailMode) {
       return new Response(JSON.stringify({ detail: "Phone number is required." }), {
@@ -32,8 +43,9 @@ export default async (req, context) => {
     const firstName = (body.first_name || "Homeowner").trim();
     const lastName = (body.last_name || "").trim();
     const service = body.service || "Roof Replacement";
-    const address = body.address || "";
-    const city = body.city || "Toms River";
+    const address = (body.address || "").trim();
+    const city = (body.city || "Toms River").trim();
+    const formattedAddress = address ? formatPropertyAddress(address, city) : `${city}, NJ`;
     const leadId = `WEB-${Date.now() % 100000000}`;
 
     const supabaseUrl = process.env.SUPABASE_URL || "";
@@ -94,7 +106,7 @@ export default async (req, context) => {
           last_name: lastName,
           phone: phone,
           email: customerEmail,
-          street_address: address,
+          street_address: address ? formattedAddress : "",
           city: city,
           service_requested: service,
           urgency: isEmergencyLead ? "Emergency" : (body.urgency || "Standard"),
@@ -177,14 +189,16 @@ export default async (req, context) => {
       name: `${firstName} ${lastName}`.trim(),
       phone: phone,
       email: customerEmail,
-      address: address ? `${address}, ${city}, NJ` : `${city}, NJ`,
+      address: formattedAddress,
       date: body.preferred_date || (isEmailMode ? "Email Inquiry" : "Selecting Slot"),
       time: body.preferred_time || (isEmailMode ? "Reply via Email" : "Pending Calendar"),
       service: service,
       roof_age: body.diagnostic_situation || service,
-      attic_access: body.notes || "Pending inspection",
-      ladder_needed: body.home_architecture || "Standard",
-      decision_makers_present: "Yes",
+      home_architecture: body.home_architecture || "",
+      notes: body.notes || "",
+      attic_access: "",
+      ladder_needed: "",
+      decision_makers_present: "",
       source: isEmailMode ? "Website Email Inquiry" : "Website Lead Form (Step 3 Captured)"
     };
 
