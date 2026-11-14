@@ -4,7 +4,7 @@ import json
 import sqlite3
 import logging
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional
 
 import httpx
@@ -66,8 +66,8 @@ def _get_conn() -> sqlite3.Connection:
     return conn
 
 
-_CLOUD_BOOL_COLS = {"is_active", "review_request_sent", "is_public", "webhook_dispatched"}
-_CLOUD_NULLABLE_TIMESTAMPTZ_COLS = {"review_request_sent_at", "auto_publish_at"}
+_CLOUD_BOOL_COLS = {"is_active", "review_request_sent", "is_public", "webhook_dispatched", "meta_shared"}
+_CLOUD_NULLABLE_TIMESTAMPTZ_COLS = {"review_request_sent_at", "auto_publish_at", "published_at"}
 
 
 def _prepare_cloud_payload(payload: Any) -> Any:
@@ -137,6 +137,9 @@ def init_db() -> None:
             scheduling_type TEXT DEFAULT 'google_calendar',
             booking_url TEXT DEFAULT '',
             calendar_id TEXT DEFAULT 'primary',
+            ics_feed_url TEXT DEFAULT '',
+            availability_json TEXT DEFAULT '{}',
+            emergency_config_json TEXT DEFAULT '{}',
             service_license TEXT DEFAULT 'Fully Licensed & Insured NJ HIC',
             monthly_retainer REAL DEFAULT 1500.00,
             is_active INTEGER DEFAULT 0,
@@ -252,6 +255,32 @@ def init_db() -> None:
             value TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS blog_posts (
+            id TEXT PRIMARY KEY,
+            slug TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            meta_title TEXT DEFAULT '',
+            meta_description TEXT DEFAULT '',
+            category TEXT DEFAULT 'Coastal Materials',
+            excerpt TEXT DEFAULT '',
+            target_towns_json TEXT DEFAULT '[]',
+            sections_json TEXT DEFAULT '[]',
+            faqs_json TEXT DEFAULT '[]',
+            hero_image_url TEXT DEFAULT '',
+            hero_image_alt TEXT DEFAULT '',
+            veo_video_url TEXT DEFAULT '',
+            veo_video_poster_url TEXT DEFAULT '',
+            reading_time_min INTEGER DEFAULT 6,
+            cta_service TEXT DEFAULT 'Free 21-Point Roof & Attic Inspection',
+            author_name TEXT DEFAULT 'Ocean County Roofing Pros Editorial Team',
+            status TEXT DEFAULT 'draft_auto_24h',
+            auto_publish_at TEXT DEFAULT '',
+            published_at TEXT DEFAULT '',
+            meta_shared INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
         """
     )
 
@@ -261,6 +290,12 @@ def init_db() -> None:
         cur.execute("ALTER TABLE tenants ADD COLUMN scheduling_type TEXT DEFAULT 'google_calendar'")
     if "booking_url" not in existing_tenant_cols:
         cur.execute("ALTER TABLE tenants ADD COLUMN booking_url TEXT DEFAULT ''")
+    if "ics_feed_url" not in existing_tenant_cols:
+        cur.execute("ALTER TABLE tenants ADD COLUMN ics_feed_url TEXT DEFAULT ''")
+    if "availability_json" not in existing_tenant_cols:
+        cur.execute("ALTER TABLE tenants ADD COLUMN availability_json TEXT DEFAULT '{}'")
+    if "emergency_config_json" not in existing_tenant_cols:
+        cur.execute("ALTER TABLE tenants ADD COLUMN emergency_config_json TEXT DEFAULT '{}'")
 
     # Sync tenant YAML presets to DB for any existing seeded rows
     cur.execute(
@@ -714,6 +749,48 @@ def init_db() -> None:
             gbp_seed,
         )
 
+    # 7. Seed Starter Ocean County SEO Blog Articles
+    cur.execute("SELECT COUNT(*) FROM blog_posts")
+    if cur.fetchone()[0] == 0:
+        from app.services.blog_seed import get_starter_blog_posts
+        for post in get_starter_blog_posts(now_iso):
+            cur.execute(
+                """
+                INSERT INTO blog_posts (
+                    id, slug, title, meta_title, meta_description, category, excerpt,
+                    target_towns_json, sections_json, faqs_json, hero_image_url,
+                    hero_image_alt, veo_video_url, veo_video_poster_url,
+                    reading_time_min, cta_service, author_name, status,
+                    auto_publish_at, published_at, meta_shared, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    post["id"],
+                    post["slug"],
+                    post["title"],
+                    post.get("meta_title", ""),
+                    post.get("meta_description", ""),
+                    post.get("category", "Coastal Materials"),
+                    post.get("excerpt", ""),
+                    json.dumps(post.get("target_towns", [])),
+                    json.dumps(post.get("sections", [])),
+                    json.dumps(post.get("faqs", [])),
+                    post.get("hero_image_url", ""),
+                    post.get("hero_image_alt", ""),
+                    post.get("veo_video_url", ""),
+                    post.get("veo_video_poster_url", ""),
+                    int(post.get("reading_time_min") or 6),
+                    post.get("cta_service", "Free 21-Point Roof & Attic Inspection"),
+                    post.get("author_name", "Ocean County Roofing Pros Editorial Team"),
+                    post.get("status", "published"),
+                    post.get("auto_publish_at", ""),
+                    post.get("published_at", now_iso),
+                    1 if post.get("meta_shared") else 0,
+                    post.get("created_at", now_iso),
+                    post.get("updated_at", now_iso),
+                ),
+            )
+
     conn.commit()
     conn.close()
 
@@ -848,6 +925,12 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
         tenant_id = f"client_{slug}"
     existing = get_tenant(tenant_id) or {}
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    raw_avail = data.get("availability_json", data.get("availability", existing.get("availability_json", "{}")))
+    avail_str = json.dumps(raw_avail) if isinstance(raw_avail, (dict, list)) else str(raw_avail or "{}")
+    ics_url = str(data.get("ics_feed_url", existing.get("ics_feed_url", "")) or "").strip()
+    raw_emerg = data.get("emergency_config_json", data.get("emergency_config", existing.get("emergency_config_json", "{}")))
+    emerg_str = json.dumps(raw_emerg) if isinstance(raw_emerg, dict) else str(raw_emerg or "{}")
+
     record = {
         "tenant_id": tenant_id,
         "company_name": data.get("company_name", existing.get("company_name", "Roofing Partner LLC")),
@@ -859,6 +942,9 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
         "scheduling_type": data.get("scheduling_type", existing.get("scheduling_type", "google_calendar")),
         "booking_url": data.get("booking_url", existing.get("booking_url", "")),
         "calendar_id": data.get("calendar_id", data.get("google_calendar_id", existing.get("calendar_id", "primary"))),
+        "ics_feed_url": ics_url,
+        "availability_json": avail_str,
+        "emergency_config_json": emerg_str,
         "service_license": data.get("service_license", existing.get("service_license", "Fully Licensed & Insured NJ HIC")),
         "monthly_retainer": float(data.get("monthly_retainer", data.get("monthly_rate", existing.get("monthly_retainer", 1500.0)))),
         "is_active": 1 if data.get("is_active", existing.get("is_active", False)) else 0,
@@ -870,12 +956,12 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         INSERT INTO tenants (
             tenant_id, company_name, contact_name, estimator_name, dispatch_phone,
-            email, portal_pin, scheduling_type, booking_url, calendar_id, service_license, monthly_retainer,
-            is_active, notes, created_at
+            email, portal_pin, scheduling_type, booking_url, calendar_id, ics_feed_url, availability_json, emergency_config_json,
+            service_license, monthly_retainer, is_active, notes, created_at
         ) VALUES (
             :tenant_id, :company_name, :contact_name, :estimator_name, :dispatch_phone,
-            :email, :portal_pin, :scheduling_type, :booking_url, :calendar_id, :service_license, :monthly_retainer,
-            :is_active, :notes, :created_at
+            :email, :portal_pin, :scheduling_type, :booking_url, :calendar_id, :ics_feed_url, :availability_json, :emergency_config_json,
+            :service_license, :monthly_retainer, :is_active, :notes, :created_at
         )
         ON CONFLICT(tenant_id) DO UPDATE SET
             company_name = excluded.company_name,
@@ -887,6 +973,9 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
             scheduling_type = excluded.scheduling_type,
             booking_url = excluded.booking_url,
             calendar_id = excluded.calendar_id,
+            ics_feed_url = excluded.ics_feed_url,
+            availability_json = excluded.availability_json,
+            emergency_config_json = excluded.emergency_config_json,
             service_license = excluded.service_license,
             monthly_retainer = excluded.monthly_retainer,
             is_active = excluded.is_active,
@@ -897,6 +986,14 @@ def upsert_tenant(data: Dict[str, Any]) -> Dict[str, Any]:
     conn.commit()
     conn.close()
     _sync_to_supabase_cloud("tenants", "UPSERT", record, match_col="tenant_id", match_val=tenant_id)
+    if ics_url or avail_str != "{}":
+        try:
+            avail_obj = json.loads(avail_str)
+        except Exception:
+            avail_obj = {}
+        set_setting(f"tenant_schedule_{tenant_id}", json.dumps({"ics_feed_url": ics_url, "availability": avail_obj}))
+    if emerg_str and emerg_str != "{}":
+        set_setting(f"tenant_emergency_{tenant_id}", emerg_str)
     return get_tenant(tenant_id)
 
 
@@ -1669,6 +1766,10 @@ def get_dashboard_kpis(tenant_id: Optional[str] = None) -> Dict[str, Any]:
     gbp_posts = list_gbp_posts()
     pending_gbp = [g for g in gbp_posts if g.get("status") == "draft_auto_24h"]
 
+    blog_posts = list_blog_posts()
+    published_blog_posts = [b for b in blog_posts if b.get("status") == "published"]
+    pending_blog_posts = [b for b in blog_posts if b.get("status") == "draft_auto_24h"]
+
     return {
         "total_leads": total_leads,
         "booked_count": booked_count,
@@ -1688,7 +1789,337 @@ def get_dashboard_kpis(tenant_id: Optional[str] = None) -> Dict[str, Any]:
         "pending_replies_count": len(pending_replies),
         "open_resolutions_count": len(open_resolutions),
         "pending_gbp_count": len(pending_gbp),
-        "pending_approval_total": len(pending_projects) + len(pending_replies) + len(pending_gbp),
+        "published_blog_count": len(published_blog_posts),
+        "pending_blog_count": len(pending_blog_posts),
+        "pending_approval_total": len(pending_projects) + len(pending_replies) + len(pending_gbp) + len(pending_blog_posts),
         "supabase_cloud_connected": is_supabase_configured(),
         "local_mirror_path": get_sqlite_path(),
     }
+
+
+# ==============================================================================
+# BLOG POSTS CRUD & SUPABASE CLOUD SYNC
+# ==============================================================================
+
+def _parse_json_list(raw: Any) -> List[Any]:
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, list) else []
+        except Exception:
+            return []
+    return []
+
+
+def _normalize_blog_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    d = dict(row)
+    d["meta_shared"] = bool(d.get("meta_shared"))
+    d["target_towns"] = _parse_json_list(d.get("target_towns") if "target_towns" in d else d.get("target_towns_json"))
+    d["sections"] = _parse_json_list(d.get("sections") if "sections" in d else d.get("sections_json"))
+    d["faqs"] = _parse_json_list(d.get("faqs") if "faqs" in d else d.get("faqs_json"))
+    d["target_towns_json"] = d.get("target_towns_json") or json.dumps(d["target_towns"])
+    d["sections_json"] = d.get("sections_json") or json.dumps(d["sections"])
+    d["faqs_json"] = d.get("faqs_json") or json.dumps(d["faqs"])
+    d["reading_time_min"] = int(d.get("reading_time_min") or 6)
+    pub_raw = str(d.get("published_at") or d.get("created_at") or "")
+    d["published_date_iso"] = pub_raw[:10] if len(pub_raw) >= 10 else datetime.now().strftime("%Y-%m-%d")
+    return d
+
+
+def _slugify_blog_title(text: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return cleaned or f"ocean-county-roofing-guide-{int(datetime.now().timestamp())}"
+
+
+def _save_blog_record_sqlite(record: Dict[str, Any]) -> None:
+    conn = _get_conn()
+    conn.execute(
+        "DELETE FROM blog_posts WHERE slug = ? AND id != ?",
+        (record["slug"], record["id"]),
+    )
+    conn.execute(
+        """
+        INSERT INTO blog_posts (
+            id, slug, title, meta_title, meta_description, category, excerpt,
+            target_towns_json, sections_json, faqs_json, hero_image_url,
+            hero_image_alt, veo_video_url, veo_video_poster_url,
+            reading_time_min, cta_service, author_name, status,
+            auto_publish_at, published_at, meta_shared, created_at, updated_at
+        ) VALUES (
+            :id, :slug, :title, :meta_title, :meta_description, :category, :excerpt,
+            :target_towns_json, :sections_json, :faqs_json, :hero_image_url,
+            :hero_image_alt, :veo_video_url, :veo_video_poster_url,
+            :reading_time_min, :cta_service, :author_name, :status,
+            :auto_publish_at, :published_at, :meta_shared, :created_at, :updated_at
+        )
+        ON CONFLICT(id) DO UPDATE SET
+            slug = excluded.slug,
+            title = excluded.title,
+            meta_title = excluded.meta_title,
+            meta_description = excluded.meta_description,
+            category = excluded.category,
+            excerpt = excluded.excerpt,
+            target_towns_json = excluded.target_towns_json,
+            sections_json = excluded.sections_json,
+            faqs_json = excluded.faqs_json,
+            hero_image_url = excluded.hero_image_url,
+            hero_image_alt = excluded.hero_image_alt,
+            veo_video_url = excluded.veo_video_url,
+            veo_video_poster_url = excluded.veo_video_poster_url,
+            reading_time_min = excluded.reading_time_min,
+            cta_service = excluded.cta_service,
+            author_name = excluded.author_name,
+            status = excluded.status,
+            auto_publish_at = excluded.auto_publish_at,
+            published_at = excluded.published_at,
+            meta_shared = excluded.meta_shared,
+            updated_at = excluded.updated_at
+        """,
+        record,
+    )
+    conn.commit()
+    conn.close()
+
+
+def sync_blog_posts_from_supabase() -> List[Dict[str, Any]]:
+    """
+    Pulls blog_posts from live Supabase PostgREST (if configured) and mirrors them
+    into local SQLite so static builds (`build_static.py`) and local renders stay in sync
+    with cloud edits from `/admin` or `cron-seo-flywheel.mjs`.
+    Falls back gracefully to local SQLite on offline/error.
+    """
+    if not is_supabase_configured():
+        return []
+    base_url = settings.SUPABASE_URL.rstrip("/")
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    try:
+        with httpx.Client(timeout=6.0) as client:
+            r = client.get(
+                f"{base_url}/rest/v1/blog_posts?order=published_at.desc.nullslast,created_at.desc",
+                headers=headers,
+            )
+            if r.status_code != 200:
+                logger.warning(f"Supabase blog_posts pull returned {r.status_code}: {r.text[:200]}")
+                return []
+            cloud_rows = r.json()
+            if not isinstance(cloud_rows, list):
+                return []
+            cloud_ids = []
+            now_utc = datetime.now(timezone.utc).isoformat()
+            for row in cloud_rows:
+                norm_rec = {
+                    "id": str(row.get("id") or ""),
+                    "slug": str(row.get("slug") or ""),
+                    "title": str(row.get("title") or ""),
+                    "meta_title": row.get("meta_title") or "",
+                    "meta_description": row.get("meta_description") or "",
+                    "category": row.get("category") or "Coastal Materials",
+                    "excerpt": row.get("excerpt") or "",
+                    "target_towns_json": row.get("target_towns_json") or "[]",
+                    "sections_json": row.get("sections_json") or "[]",
+                    "faqs_json": row.get("faqs_json") or "[]",
+                    "hero_image_url": row.get("hero_image_url") or "",
+                    "hero_image_alt": row.get("hero_image_alt") or "",
+                    "veo_video_url": row.get("veo_video_url") or "",
+                    "veo_video_poster_url": row.get("veo_video_poster_url") or "",
+                    "reading_time_min": int(row.get("reading_time_min") or 6),
+                    "cta_service": row.get("cta_service") or "Free 21-Point Roof & Attic Inspection",
+                    "author_name": row.get("author_name") or "Ocean County Roofing Pros Editorial Team",
+                    "status": row.get("status") or "draft_auto_24h",
+                    "auto_publish_at": row.get("auto_publish_at") or "",
+                    "published_at": row.get("published_at") or "",
+                    "meta_shared": 1 if row.get("meta_shared") else 0,
+                    "created_at": row.get("created_at") or now_utc,
+                    "updated_at": row.get("updated_at") or now_utc,
+                }
+                if norm_rec["id"] and norm_rec["slug"]:
+                    cloud_ids.append(norm_rec["id"])
+                    _save_blog_record_sqlite(norm_rec)
+            if cloud_ids:
+                placeholders = ",".join("?" for _ in cloud_ids)
+                conn = _get_conn()
+                conn.execute(f"DELETE FROM blog_posts WHERE id NOT IN ({placeholders})", cloud_ids)
+                conn.commit()
+                conn.close()
+            return [_normalize_blog_row(r) for r in cloud_rows]
+    except Exception as e:
+        logger.warning(f"Supabase blog_posts pull warning: {e}")
+        return []
+
+
+def list_blog_posts(
+    status: Optional[str] = None,
+    category: Optional[str] = None,
+    sync_from_cloud: bool = False,
+) -> List[Dict[str, Any]]:
+    if sync_from_cloud:
+        sync_blog_posts_from_supabase()
+    conn = _get_conn()
+    query = "SELECT * FROM blog_posts WHERE 1=1"
+    params: List[Any] = []
+    if status and status != "All":
+        query += " AND status = ?"
+        params.append(status)
+    if category and category != "All":
+        query += " AND category = ?"
+        params.append(category)
+    query += " ORDER BY CASE WHEN published_at != '' THEN published_at ELSE created_at END DESC"
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [_normalize_blog_row(dict(r)) for r in rows]
+
+
+def get_blog_post(slug_or_id: str, sync_from_cloud: bool = False) -> Optional[Dict[str, Any]]:
+    if not slug_or_id:
+        return None
+    if sync_from_cloud:
+        sync_blog_posts_from_supabase()
+    key = slug_or_id.strip()
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM blog_posts WHERE slug = ? OR id = ?", (key, key)).fetchone()
+    conn.close()
+    return _normalize_blog_row(dict(row)) if row else None
+
+
+def upsert_blog_post(data: Dict[str, Any]) -> Dict[str, Any]:
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+    slug = (data.get("slug") or _slugify_blog_title(data.get("title") or "")).strip().lower()
+    existing = (get_blog_post(str(data["id"])) if data.get("id") else None) or get_blog_post(slug) or {}
+    post_id = str(data.get("id") or existing.get("id") or f"BLOG-{int(now_dt.timestamp() * 1000) % 100000000}")
+    status = (data.get("status") or existing.get("status") or "draft_auto_24h").strip()
+    auto_publish_at = data.get("auto_publish_at")
+    if auto_publish_at is None:
+        auto_publish_at = (
+            (now_dt + timedelta(hours=24)).isoformat()
+            if status == "draft_auto_24h"
+            else ""
+        )
+    published_at = data.get("published_at")
+    if published_at is None:
+        if status == "published":
+            published_at = existing.get("published_at") or now_iso
+        else:
+            published_at = existing.get("published_at") or ""
+
+    target_towns = data.get("target_towns")
+    if target_towns is None:
+        target_towns = _parse_json_list(data.get("target_towns_json")) or existing.get("target_towns", [])
+    sections = data.get("sections")
+    if sections is None:
+        sections = _parse_json_list(data.get("sections_json")) or existing.get("sections", [])
+    faqs = data.get("faqs")
+    if faqs is None:
+        faqs = _parse_json_list(data.get("faqs_json")) or existing.get("faqs", [])
+
+    record = {
+        "id": post_id,
+        "slug": slug,
+        "title": (data.get("title") or existing.get("title") or "Ocean County Roofing Guide").strip(),
+        "meta_title": (data.get("meta_title") or existing.get("meta_title") or data.get("title") or "").strip(),
+        "meta_description": (data.get("meta_description") or existing.get("meta_description") or data.get("excerpt") or "").strip(),
+        "category": (data.get("category") or existing.get("category") or "Coastal Materials").strip(),
+        "excerpt": (data.get("excerpt") or existing.get("excerpt") or "").strip(),
+        "target_towns_json": json.dumps(target_towns),
+        "sections_json": json.dumps(sections),
+        "faqs_json": json.dumps(faqs),
+        "hero_image_url": (data.get("hero_image_url") if data.get("hero_image_url") is not None else existing.get("hero_image_url", "/static/images/shingle-restored-after.webp")).strip(),
+        "hero_image_alt": (data.get("hero_image_alt") if data.get("hero_image_alt") is not None else existing.get("hero_image_alt", "")).strip(),
+        "veo_video_url": (data.get("veo_video_url") if data.get("veo_video_url") is not None else existing.get("veo_video_url", "")).strip(),
+        "veo_video_poster_url": (data.get("veo_video_poster_url") if data.get("veo_video_poster_url") is not None else existing.get("veo_video_poster_url", "")).strip(),
+        "reading_time_min": int(data.get("reading_time_min") or existing.get("reading_time_min") or 6),
+        "cta_service": (data.get("cta_service") or existing.get("cta_service") or "Free 21-Point Roof & Attic Inspection").strip(),
+        "author_name": (data.get("author_name") or existing.get("author_name") or "Ocean County Roofing Pros Editorial Team").strip(),
+        "status": status,
+        "auto_publish_at": auto_publish_at or "",
+        "published_at": published_at or "",
+        "meta_shared": 1 if data.get("meta_shared", existing.get("meta_shared", False)) else 0,
+        "created_at": existing.get("created_at") or data.get("created_at") or now_iso,
+        "updated_at": now_iso,
+    }
+
+    _save_blog_record_sqlite(record)
+    _sync_to_supabase_cloud("blog_posts", "UPSERT", record, match_col="id", match_val=post_id)
+    return get_blog_post(post_id)
+
+
+def update_blog_post(slug_or_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    existing = get_blog_post(slug_or_id)
+    if not existing:
+        return None
+    post_id = existing["id"]
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+    allowed = {
+        "slug",
+        "title",
+        "meta_title",
+        "meta_description",
+        "category",
+        "excerpt",
+        "target_towns_json",
+        "sections_json",
+        "faqs_json",
+        "hero_image_url",
+        "hero_image_alt",
+        "veo_video_url",
+        "veo_video_poster_url",
+        "reading_time_min",
+        "cta_service",
+        "author_name",
+        "status",
+        "auto_publish_at",
+        "published_at",
+        "meta_shared",
+    }
+    clean: Dict[str, Any] = {"updated_at": now_iso}
+    if "target_towns" in updates and updates["target_towns"] is not None:
+        clean["target_towns_json"] = json.dumps(updates["target_towns"])
+    if "sections" in updates and updates["sections"] is not None:
+        clean["sections_json"] = json.dumps(updates["sections"])
+    if "faqs" in updates and updates["faqs"] is not None:
+        clean["faqs_json"] = json.dumps(updates["faqs"])
+    for k, v in updates.items():
+        if k in allowed and v is not None:
+            if k == "meta_shared":
+                clean[k] = 1 if v else 0
+            elif k == "reading_time_min":
+                clean[k] = int(v)
+            else:
+                clean[k] = v
+    if clean.get("status") == "published":
+        if not clean.get("published_at") and not existing.get("published_at"):
+            clean["published_at"] = now_iso
+        if "auto_publish_at" not in clean:
+            clean["auto_publish_at"] = ""
+    if clean.get("status") == "draft_auto_24h" and not clean.get("auto_publish_at") and not existing.get("auto_publish_at"):
+        clean["auto_publish_at"] = (now_dt + timedelta(hours=24)).isoformat()
+
+    set_clause = ", ".join(f"{k} = ?" for k in clean.keys())
+    vals = list(clean.values()) + [post_id]
+    conn = _get_conn()
+    conn.execute(f"UPDATE blog_posts SET {set_clause} WHERE id = ?", vals)
+    conn.commit()
+    conn.close()
+    _sync_to_supabase_cloud("blog_posts", "PATCH", clean, match_col="id", match_val=post_id)
+    return get_blog_post(post_id)
+
+
+def delete_blog_post(slug_or_id: str) -> bool:
+    existing = get_blog_post(slug_or_id)
+    if not existing:
+        return False
+    post_id = existing["id"]
+    conn = _get_conn()
+    cur = conn.execute("DELETE FROM blog_posts WHERE id = ?", (post_id,))
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    if deleted:
+        _sync_to_supabase_cloud("blog_posts", "DELETE", match_col="id", match_val=post_id)
+    return deleted

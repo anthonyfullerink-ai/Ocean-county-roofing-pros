@@ -1,0 +1,263 @@
+<!-- ========================================================================= -->
+<!-- 5B. INTERACTIVE BALLPARK & FINANCING ESTIMATOR + KNOWLEDGE CENTER -->
+<!-- ========================================================================= -->
+<section id="estimator" class="py-20 bg-white border-b border-slate-200" data-reveal>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-20">
+
+        <!-- Interactive Ballpark & Financing Calculator -->
+        <div class="bg-gradient-to-br from-slate-950 via-brand-dark to-slate-900 rounded-3xl p-6 sm:p-10 text-white shadow-2xl border border-slate-800">
+            <div class="grid lg:grid-cols-12 gap-8 items-center">
+                <div class="lg:col-span-7 space-y-6">
+                    <div>
+                        <span class="inline-block bg-teal-500/20 text-teal-300 border border-teal-400/30 text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-3">
+                            Interactive Ocean County Cost Guide
+                        </span>
+                        <h3 class="text-2xl sm:text-3xl font-black tracking-tight">Estimate Your Roof Replacement &amp; Monthly Payment</h3>
+                        <p class="text-slate-300 text-sm mt-2">Adjust your home size, roof complexity, and preferred material tier for an instant NJ ballpark range. Compare GAF, CertainTeed, Owens Corning, and Metal quotes from your matched local contractor.</p>
+                    </div>
+
+                    <!-- Home Size Slider -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-slate-300">
+                            <label for="estSqftRange">Estimated Roof Footprint</label>
+                            <span id="estSqftLabel" class="text-teal-300 font-black text-sm">2,000 sq ft (~20 Squares)</span>
+                        </div>
+                        <input id="estSqftRange" type="range" min="1200" max="3600" step="100" value="2000" class="w-full accent-teal-400 cursor-pointer">
+                        <div class="flex justify-between text-[11px] text-slate-400">
+                            <span>1,200 sq ft (Cape / Ranch)</span>
+                            <span>2,400 sq ft (Colonial)</span>
+                            <span>3,600 sq ft (Large Coastal)</span>
+                        </div>
+                    </div>
+
+                    <!-- Pitch & Tier Selectors -->
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="estPitch" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">Roof Pitch &amp; Complexity</label>
+                            <select id="estPitch" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:ring-2 focus:ring-teal-400 outline-none">
+                                <option value="1.0">Standard Gable / Walkable Pitch</option>
+                                <option value="1.15">Steep Pitch / Multi-Dormer or Hip</option>
+                                <option value="1.10">Coastal Ranch + Low-Slope Section</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="estTier" class="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">Material &amp; Wind Spec Tier</label>
+                            <select id="estTier" class="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:ring-2 focus:ring-teal-400 outline-none">
+                                <option value="essential">Essential Architectural (GAF / CertainTeed / OC)</option>
+                                <option value="coastal" selected>Coastal 160-MPH Storm Upgrade (Most Popular)</option>
+                                <option value="metal">Standing Seam Metal / Specialty System</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Output Card -->
+                <div class="lg:col-span-5 bg-white text-slate-900 rounded-2xl p-6 sm:p-7 shadow-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-500">Estimated Ocean County Range</span>
+                        <span class="text-[11px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">0% Intro Financing Options</span>
+                    </div>
+                    <div>
+                        <div id="estPriceRange" class="text-3xl sm:text-4xl font-black text-brand-navy tracking-tight">$10,400 – $13,200</div>
+                        <div id="estMonthlyRange" class="text-sm font-bold text-teal-700 mt-1">Flexible monthly financing from ~$144/mo*</div>
+                    </div>
+                    <ul class="text-xs text-slate-600 space-y-1.5 pt-1">
+                        <li class="flex items-center gap-2"><span class="text-emerald-600 font-black">✓</span> Includes full tear-off, underlayment &amp; magnetic sweep</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-600 font-black">✓</span> Choose GAF, CertainTeed, Owens Corning, or Metal on-site</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-600 font-black">✓</span> Exact written price locked free via 21-point inspection</li>
+                    </ul>
+                    <button type="button" onclick="applyEstimatorToQuiz()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black py-3.5 px-4 rounded-xl shadow-lg transition-all hover:scale-[1.01] text-sm">
+                        Lock In Free 21-Point Exact Quote &rarr;
+                    </button>
+                    <p class="text-[10px] text-slate-400 leading-snug text-center">
+                        *Ballpark guide only. Final pricing &amp; financing terms depend on on-site decking inspection, layers, and contractor material selection.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Homeowner Education Tabs (Contractor-Agnostic) -->
+        <div class="space-y-8">
+            <div class="text-center max-w-3xl mx-auto">
+                <span class="text-xs font-black uppercase tracking-widest text-brand-blue block mb-2">Homeowner Knowledge Center</span>
+                <h3 class="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Make a Confident, No-Pressure Roofing Decision</h3>
+                <p class="text-slate-600 text-base mt-3">Straight answers on repairs vs. replacements, NJ coastal wind insurance claims, and why full tear-offs protect your home's value.</p>
+            </div>
+
+            <div class="flex flex-wrap justify-center gap-2" role="tablist">
+                <button type="button" onclick="switchGuideTab('repair')" id="guideBtn-repair" class="guide-tab-btn px-5 py-2.5 rounded-xl text-sm font-extrabold transition bg-brand-navy text-white shadow">
+                    1. Repair vs. Full Replacement
+                </button>
+                <button type="button" onclick="switchGuideTab('insurance')" id="guideBtn-insurance" class="guide-tab-btn px-5 py-2.5 rounded-xl text-sm font-extrabold transition bg-slate-100 text-slate-700 hover:bg-slate-200">
+                    2. NJ Storm &amp; Wind Insurance Claims
+                </button>
+                <button type="button" onclick="switchGuideTab('tearoff')" id="guideBtn-tearoff" class="guide-tab-btn px-5 py-2.5 rounded-xl text-sm font-extrabold transition bg-slate-100 text-slate-700 hover:bg-slate-200">
+                    3. Full Tear-Off vs. Layer-Over
+                </button>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
+                <div id="guidePanel-repair" class="guide-panel grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-6 border border-emerald-200 space-y-2">
+                        <span class="inline-block text-[11px] font-black uppercase bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">Targeted Repair Makes Sense When</span>
+                        <h4 class="text-lg font-black text-slate-900">Localized Leak, Flashing, or Pipe Boot Failure</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">If your roof is under 12–15 years old and leaks are isolated to a cracked plumbing boot, chimney step flashing, or a handful of wind-lifted tabs, an honest targeted repair saves thousands.</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-amber-200 space-y-2">
+                        <span class="inline-block text-[11px] font-black uppercase bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">Full Replacement Is Smarter When</span>
+                        <h4 class="text-lg font-black text-slate-900">Widespread Granule Loss, Curling, or Soft Decking</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">Once shingles turn brittle, lose protective granules in gutters, or show multiple attic moisture points, patching creates recurring leaks. Our 21-point photo audit shows you both options transparently.</p>
+                    </div>
+                </div>
+
+                <div id="guidePanel-insurance" class="guide-panel hidden grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200 space-y-2">
+                        <span class="inline-block text-[11px] font-black uppercase bg-sky-100 text-brand-blue px-2.5 py-0.5 rounded-full">Step 1: Photo Documentation</span>
+                        <h4 class="text-lg font-black text-slate-900">High-Resolution Drone &amp; Crease Evidence</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">Insurance adjusters look for clean, timestamped evidence of wind-creased tabs, lifted seals, and hail bruising—not vague claims. Every inspection delivers organized digital proof.</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200 space-y-2">
+                        <span class="inline-block text-[11px] font-black uppercase bg-sky-100 text-brand-blue px-2.5 py-0.5 rounded-full">Step 2: Scope &amp; Code Alignment</span>
+                        <h4 class="text-lg font-black text-slate-900">NJ Building Code &amp; Ice/Water Requirements</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">Your matched NJ licensed contractor prepares an itemized scope covering drip edge, Ice &amp; Water Shield, and underlayment code items so nothing gets missed during claim review.</p>
+                    </div>
+                </div>
+
+                <div id="guidePanel-tearoff" class="guide-panel hidden grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-6 border border-rose-200 space-y-2">
+                        <span class="inline-block text-[11px] font-black uppercase bg-rose-100 text-rose-800 px-2.5 py-0.5 rounded-full">Why Avoid "Nail-Over" Layers</span>
+                        <h4 class="text-lg font-black text-slate-900">Hidden Rot &amp; Voided Manufacturer Warranties</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">Installing new shingles over old ones traps summer heat, hides rotted plywood decking, adds unnecessary weight, and frequently voids top-tier manufacturer wind warranties.</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-emerald-200 space-y-2">
+                        <span class="inline-block text-[11px] font-black uppercase bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">The Full Tear-Off Standard</span>
+                        <h4 class="text-lg font-black text-slate-900">Inspect Plywood, Waterproof &amp; Ventilate</h4>
+                        <p class="text-sm text-slate-600 leading-relaxed">Vetted partner crews strip down to bare decking, replace any damaged sheathing, lay Ice &amp; Water Shield along eaves/valleys, and verify balanced ridge &amp; soffit airflow.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4-Step Process & Property-Safe Cleanup Timeline -->
+        <div class="space-y-8">
+            <div class="text-center max-w-2xl mx-auto">
+                <span class="text-xs font-black uppercase tracking-widest text-brand-teal block mb-2">Zero-Surprise Process</span>
+                <h3 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">What Happens After You Request an Inspection</h3>
+            </div>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 card-hover-lift">
+                    <div class="text-xs font-black text-brand-blue uppercase tracking-widest mb-2">Step 01</div>
+                    <h4 class="font-black text-slate-900 mb-1.5">21-Point Drone &amp; Attic Audit</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed">We inspect flashing, decking, ventilation, and storm wear—delivering clear photo proof without sales pressure.</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 card-hover-lift">
+                    <div class="text-xs font-black text-brand-blue uppercase tracking-widest mb-2">Step 02</div>
+                    <h4 class="font-black text-slate-900 mb-1.5">Compare Materials &amp; Quote</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed">Review itemized repair or replacement options (GAF, CertainTeed, Owens Corning, or Metal) plus monthly financing.</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 card-hover-lift">
+                    <div class="text-xs font-black text-brand-blue uppercase tracking-widest mb-2">Step 03</div>
+                    <h4 class="font-black text-slate-900 mb-1.5">Protected Crew Installation</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed">Licensed NJ crews shield landscaping, siding, and driveways during full tear-off and precision system installation.</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 card-hover-lift">
+                    <div class="text-xs font-black text-brand-blue uppercase tracking-widest mb-2">Step 04</div>
+                    <h4 class="font-black text-slate-900 mb-1.5">Magnetic Sweep &amp; Warranty</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed">Multi-pass magnetic nail sweep across lawns and driveways, final walkthrough, and warranty registration.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<script>
+(function() {
+    const sqftInput = document.getElementById('estSqftRange');
+    const pitchSelect = document.getElementById('estPitch');
+    const tierSelect = document.getElementById('estTier');
+    const sqftLabel = document.getElementById('estSqftLabel');
+    const priceRangeEl = document.getElementById('estPriceRange');
+    const monthlyRangeEl = document.getElementById('estMonthlyRange');
+
+    if (sqftInput && pitchSelect && tierSelect) {
+        function updateEstimator() {
+            const sqft = parseInt(sqftInput.value, 10) || 2000;
+            const squares = Math.round(sqft / 100);
+            const pitchMult = parseFloat(pitchSelect.value) || 1.0;
+            const tier = tierSelect.value;
+
+            let minPerSq = 430;
+            let maxPerSq = 550;
+            if (tier === 'coastal') {
+                minPerSq = 510;
+                maxPerSq = 650;
+            } else if (tier === 'metal') {
+                minPerSq = 850;
+                maxPerSq = 1200;
+            }
+
+            const low = Math.round((squares * minPerSq * pitchMult) / 100) * 100;
+            const high = Math.round((squares * maxPerSq * pitchMult) / 100) * 100;
+            const monthlyLow = Math.max(89, Math.round(low / 72));
+
+            sqftLabel.textContent = `${sqft.toLocaleString()} sq ft (~${squares} Squares)`;
+            priceRangeEl.textContent = `$${low.toLocaleString()} – $${high.toLocaleString()}`;
+            monthlyRangeEl.textContent = `Flexible monthly financing from ~$${monthlyLow.toLocaleString()}/mo*`;
+
+            const tierLabel = tierSelect.options[tierSelect.selectedIndex]?.text || 'Coastal 160-MPH Spec';
+            window.ocrpEstimatorSelection = {
+                sqft: sqft,
+                squares: squares,
+                tier: tier,
+                tierLabel: tierLabel.replace(/\s*\(.*?\)/g, ''),
+                low: low,
+                high: high,
+                monthlyLow: monthlyLow
+            };
+        }
+
+        sqftInput.addEventListener('input', updateEstimator);
+        pitchSelect.addEventListener('change', updateEstimator);
+        tierSelect.addEventListener('change', updateEstimator);
+        updateEstimator();
+    }
+
+    window.applyEstimatorToQuiz = function() {
+        const tier = tierSelect ? tierSelect.value : 'coastal';
+        const serviceInput = document.getElementById('service');
+        if (serviceInput) {
+            if (tier === 'metal') serviceInput.value = 'Standing Seam Metal / Specialty Roof';
+            else if (tier === 'essential') serviceInput.value = 'Essential Architectural Replacement';
+            else serviceInput.value = 'Coastal 160-MPH Roof Replacement';
+        }
+        if (typeof window.applyEstimatorSelectionToWidget === 'function' && window.ocrpEstimatorSelection) {
+            window.applyEstimatorSelectionToWidget(window.ocrpEstimatorSelection);
+            if (window.quizData && serviceInput) {
+                window.quizData.service = serviceInput.value;
+            }
+        }
+        if (typeof window.ocrpTrackEvent === 'function') {
+            window.ocrpTrackEvent('estimator_quote_click', { tier: tier });
+        }
+        const quizEl = document.getElementById('quizSection');
+        if (quizEl) quizEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    window.switchGuideTab = function(tabKey) {
+        document.querySelectorAll('.guide-panel').forEach(p => p.classList.add('hidden'));
+        const activePanel = document.getElementById('guidePanel-' + tabKey);
+        if (activePanel) activePanel.classList.remove('hidden');
+
+        document.querySelectorAll('.guide-tab-btn').forEach(btn => {
+            btn.classList.remove('bg-brand-navy', 'text-white', 'shadow');
+            btn.classList.add('bg-slate-100', 'text-slate-700');
+        });
+        const activeBtn = document.getElementById('guideBtn-' + tabKey);
+        if (activeBtn) {
+            activeBtn.classList.remove('bg-slate-100', 'text-slate-700');
+            activeBtn.classList.add('bg-brand-navy', 'text-white', 'shadow');
+        }
+    };
+})();
+</script>

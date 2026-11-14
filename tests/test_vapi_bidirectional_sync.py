@@ -59,6 +59,12 @@ def test_vapi_assistant_state_and_empathy_prompts():
     assert "stairs or should our specialist bring a ladder" in riley_prompt
     assert "spouse or co-owner be available" in riley_prompt
 
+    # 6. Verify Human Representative Request Protocol on BOTH Sarah and Riley
+    assert "Human Representative Request Protocol" in sarah_prompt
+    assert "request_human_callback" in sarah_prompt
+    assert "Human Representative Request Protocol" in riley_prompt
+    assert "request_human_callback" in riley_prompt
+
     # 6. Verify wrap-up closing inquiry & dynamic date
     assert "anything else I can help you with today" in riley_prompt
     assert "Current Date Context" in riley_prompt

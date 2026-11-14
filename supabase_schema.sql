@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS public.tenants (
     scheduling_type TEXT DEFAULT 'google_calendar',
     booking_url TEXT DEFAULT '',
     calendar_id TEXT DEFAULT 'primary',
+    ics_feed_url TEXT DEFAULT '',
+    availability_json TEXT DEFAULT '{}',
+    emergency_config_json TEXT DEFAULT '{}',
     service_license TEXT DEFAULT 'Fully Licensed & Insured NJ HIC',
     monthly_retainer NUMERIC(12, 2) DEFAULT 1500.00,
     is_active BOOLEAN DEFAULT FALSE,
@@ -168,3 +171,34 @@ VALUES
     ('client_joe_the_roofer', 'Joe The Roofer LLC', 'Joe', 'Hannah', '+17326609121', 'powurnj@gmail.com', '732100', '7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com', 1500.00, TRUE, 'Primary launch partner for Ocean County, NJ. Full 21-point drone inspections.'),
     ('client_apex_roofing', 'Apex Shore Roofing & Restoration LLC', 'Mike Sullivan', 'Tyler', '+17325550199', 'dispatch@apexshoreroofing.com', '732200', 'apex_shore_calendar@group.calendar.google.com', 2000.00, FALSE, 'Backup / prospective tenant covering northern Ocean and Monmouth counties.')
 ON CONFLICT (tenant_id) DO NOTHING;
+
+-- 9. BLOG POSTS (Automated Ocean County SEO Guides + Flow Nano Banana / Veo Media)
+CREATE TABLE IF NOT EXISTS public.blog_posts (
+    id TEXT PRIMARY KEY,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    meta_title TEXT DEFAULT '',
+    meta_description TEXT DEFAULT '',
+    category TEXT DEFAULT 'Coastal Materials',
+    excerpt TEXT DEFAULT '',
+    target_towns_json TEXT DEFAULT '[]',
+    sections_json TEXT DEFAULT '[]',
+    faqs_json TEXT DEFAULT '[]',
+    hero_image_url TEXT DEFAULT '',
+    hero_image_alt TEXT DEFAULT '',
+    veo_video_url TEXT DEFAULT '',
+    veo_video_poster_url TEXT DEFAULT '',
+    reading_time_min INTEGER DEFAULT 6,
+    cta_service TEXT DEFAULT 'Free 21-Point Roof & Attic Inspection',
+    author_name TEXT DEFAULT 'Ocean County Roofing Pros Editorial Team',
+    status TEXT DEFAULT 'draft_auto_24h', -- draft_auto_24h | published | archived
+    auto_publish_at TIMESTAMPTZ,
+    published_at TIMESTAMPTZ,
+    meta_shared BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_posts_status ON public.blog_posts(status);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_slug ON public.blog_posts(slug);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_published_at ON public.blog_posts(published_at DESC);

@@ -4,6 +4,7 @@
  */
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
+import { resolveEmergencyHandler, sendEmergencySmsEscalation } from "./services/emergency-router.mjs";
 
 export default async (req, context) => {
   if (req.method !== "POST") {
@@ -15,14 +16,19 @@ export default async (req, context) => {
 
   try {
     const body = await req.json();
-    const phone = (body.phone || "").trim();
-    if (!phone) {
+    const contactPreference = (body.contact_preference || "calendar_flow").trim();
+    const rawPhone = (body.phone || "").trim();
+    const customerEmail = (body.email || "").trim();
+    const isEmailMode = contactPreference === "email" && customerEmail.includes("@");
+
+    if (!rawPhone && !isEmailMode) {
       return new Response(JSON.stringify({ detail: "Phone number is required." }), {
         status: 400,
         headers: { "Content-Type": "application/json" }
       });
     }
 
+    const phone = rawPhone || "Email Inquiry";
     const firstName = (body.first_name || "Homeowner").trim();
     const lastName = (body.last_name || "").trim();
     const service = body.service || "Roof Replacement";
@@ -33,18 +39,36 @@ export default async (req, context) => {
     const supabaseUrl = process.env.SUPABASE_URL || "";
     const supabaseKey = process.env.SUPABASE_KEY || "";
 
+    const isEmergencyLead =
+      body.urgency === "Emergency" ||
+      body.diagnostic_situation === "Active Water Leak" ||
+      /active water leak|emergency/i.test(service);
+
     let schedulingType = "google_calendar";
     let bookingUrl = "";
     let activeTenantId = "client_joe_the_roofer";
+    let resolvedTenant = null;
+    let sysSettings = {};
+    let emergencyResolution = null;
 
-    // 1. Resolve Tenant via Hybrid Territory Routing -> Active Default Partner
+    // 1. Resolve Tenant via Hybrid Territory Routing -> Active Default Partner (+ Emergency Overflow if active leak)
     if (supabaseUrl && supabaseKey) {
       try {
-        const sysSettings = await AIEmailAgent.loadSystemSettings();
-        const resolvedTenant = await AIEmailAgent.resolveTenantForText(
+        sysSettings = await AIEmailAgent.loadSystemSettings();
+        resolvedTenant = await AIEmailAgent.resolveTenantForText(
           `${address} ${city}`,
           sysSettings.territory_routing_json
         );
+        if (isEmergencyLead) {
+          emergencyResolution = await resolveEmergencyHandler({
+            addressOrCity: `${address} ${city}`,
+            sysSettings,
+            primaryTenant: resolvedTenant
+          });
+          if (emergencyResolution?.tenant) {
+            resolvedTenant = emergencyResolution.tenant;
+          }
+        }
         if (resolvedTenant) {
           activeTenantId = resolvedTenant.tenant_id || activeTenantId;
           schedulingType = resolvedTenant.scheduling_type || "google_calendar";
@@ -58,24 +82,27 @@ export default async (req, context) => {
     // 2. Insert Lead record into Supabase Cloud
     if (supabaseUrl && supabaseKey) {
       try {
+        const overflowTag = emergencyResolution?.is_overflow
+          ? ` [Routed to 24/7 Emergency Overflow Partner: ${resolvedTenant?.company_name}]`
+          : "";
         const leadPayload = {
           id: leadId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          lead_source: "Website Form",
+          lead_source: isEmailMode ? "Website Email Inquiry" : "Website Form",
           first_name: firstName,
           last_name: lastName,
           phone: phone,
-          email: body.email || "",
+          email: customerEmail,
           street_address: address,
           city: city,
           service_requested: service,
-          urgency: body.urgency || "Standard",
+          urgency: isEmergencyLead ? "Emergency" : (body.urgency || "Standard"),
           diagnostic_situation: body.diagnostic_situation || "",
           home_architecture: body.home_architecture || "",
-          notes: body.notes || "",
+          notes: `${body.notes || ""}${overflowTag}`.trim(),
           assigned_tenant_id: activeTenantId,
-          status: "New Lead",
+          status: isEmergencyLead ? "Emergency Priority" : "New Lead",
           estimated_value: 12500.00
         };
 
@@ -94,70 +121,126 @@ export default async (req, context) => {
       }
     }
 
-    // 3. Send SMS if Twilio credentials exist
+    const backgroundDispatches = [];
+
+    if (isEmergencyLead && emergencyResolution) {
+      backgroundDispatches.push(
+        sendEmergencySmsEscalation({
+          tenant: resolvedTenant,
+          emergencyConfig: emergencyResolution.emergencyConfig,
+          isOverflow: emergencyResolution.is_overflow,
+          sysSettings,
+          lead: {
+            id: leadId,
+            name: `${firstName} ${lastName}`.trim(),
+            phone,
+            address: address ? `${address}, ${city}, NJ` : `${city}, NJ`,
+            city,
+            service,
+            issue_summary: body.diagnostic_situation || service
+          }
+        }).catch(err => console.error("Emergency escalation SMS err:", err))
+      );
+    }
+
+    // 3. Send SMS if Twilio credentials exist and a real phone number was supplied
     const twilioSid = process.env.TWILIO_ACCOUNT_SID;
     const twilioToken = process.env.TWILIO_AUTH_TOKEN;
     const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
 
-    if (twilioSid && twilioToken) {
-      try {
-        let msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Our local estimator will arrive at the scheduled time for your free 21-point inspection. Reply STOP to opt out.`;
-        if (schedulingType === "external_link" && bookingUrl) {
-          msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Please finalize your preferred 15-minute arrival window on our live dispatch calendar: ${bookingUrl} Reply STOP to opt out.`;
-        }
+    if (twilioSid && twilioToken && rawPhone) {
+      let msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Select your preferred inspection time on screen, or reply here to coordinate. Reply STOP to opt out.`;
+      if (schedulingType === "external_link" && bookingUrl) {
+        msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Please finalize your preferred 15-minute arrival window on our live dispatch calendar: ${bookingUrl} Reply STOP to opt out.`;
+      }
 
-        const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
-        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+      const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
+      backgroundDispatches.push(
+        fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
           method: "POST",
           headers: {
             "Authorization": `Basic ${auth}`,
             "Content-Type": "application/x-www-form-urlencoded"
           },
           body: new URLSearchParams({
-            To: phone,
+            To: rawPhone,
             From: twilioPhone,
             Body: msgBody
           })
-        });
-      } catch (err) {
-        console.error("Error dispatching SMS:", err);
-      }
+        }).catch(err => console.error("Error dispatching SMS:", err))
+      );
     }
 
     // 4. Send Domain-Branded Email Alerts via Resend
-    const customerEmail = body.email || "";
     const emailLeadPayload = {
       lead_id: leadId,
       name: `${firstName} ${lastName}`.trim(),
       phone: phone,
       email: customerEmail,
-      address: `${address}, ${city}, NJ`.trim(),
-      date: body.preferred_date || "Pending Dispatch",
-      time: body.preferred_time || "Pending Dispatch",
+      address: address ? `${address}, ${city}, NJ` : `${city}, NJ`,
+      date: body.preferred_date || (isEmailMode ? "Email Inquiry" : "Selecting Slot"),
+      time: body.preferred_time || (isEmailMode ? "Reply via Email" : "Pending Calendar"),
       service: service,
       roof_age: body.diagnostic_situation || service,
-      attic_access: body.attic_access || "Attic access pending confirmation",
-      ladder_needed: "Standard",
+      attic_access: body.notes || "Pending inspection",
+      ladder_needed: body.home_architecture || "Standard",
       decision_makers_present: "Yes",
-      source: "Website Lead Form"
+      source: isEmailMode ? "Website Email Inquiry" : "Website Lead Form (Step 3 Captured)"
     };
 
-    try {
-      if (customerEmail && customerEmail.includes("@")) {
-        EmailService.sendBookingConfirmation(emailLeadPayload).catch(e => console.error("Webform confirmation email err:", e));
-      }
-      EmailService.sendOwnerLeadAlert(emailLeadPayload).catch(e => console.error("Webform owner email err:", e));
-    } catch (eErr) {
-      console.error("Webform email dispatch err:", eErr);
+    backgroundDispatches.push(
+      EmailService.sendOwnerLeadAlert(emailLeadPayload).catch(e => console.error("Webform owner email err:", e))
+    );
+
+    if (isEmailMode) {
+      const safeMsg = (body.notes || "Roof inspection & estimate request").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      backgroundDispatches.push(
+        EmailService.sendEmail({
+          from: EmailService.getFromAddress(),
+          to: [customerEmail],
+          reply_to: EmailService.getReplyToAddress(),
+          subject: `We received your roofing inquiry for ${city} (#${leadId})`,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+              <div style="background: #0A486D; color: #fff; padding: 24px;">
+                <h2 style="margin: 0; font-size: 20px;">OCEAN COUNTY ROOFING PROS</h2>
+                <p style="margin: 4px 0 0; color: #17ABA4; font-size: 12px; font-weight: 700; text-transform: uppercase;">Inquiry Received (#${leadId})</p>
+              </div>
+              <div style="padding: 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
+                <p>Hi ${firstName},</p>
+                <p>Thank you for reaching out! Our scheduling coordinator Riley Davis received your message regarding <strong>${service}</strong> in <strong>${city}</strong> and will reply to this email thread shortly.</p>
+                <div style="background: #f8fafc; border-left: 4px solid #17ABA4; padding: 14px; border-radius: 0 10px 10px 0; margin: 18px 0;">
+                  <strong>Your Note:</strong><br>${safeMsg}
+                </div>
+                <p>Need faster dispatch or want to lock in a day/time directly? Reply to this email or call our 24/7 dispatch line at <strong>(732) 660-9121</strong>.</p>
+              </div>
+            </div>
+          `
+        }).catch(e => console.error("Email inquiry ack err:", e))
+      );
     }
+
+    await Promise.allSettled(backgroundDispatches);
 
     return new Response(JSON.stringify({
       status: "success",
-      message: "Lead received successfully. Estimator dispatch initiated.",
+      message: isEmailMode
+        ? "Email inquiry sent! Check your inbox for a reply from Riley."
+        : "Lead received successfully. Select your inspection window.",
       lead_id: leadId,
       assigned_tenant_id: activeTenantId,
       scheduling_type: schedulingType,
       booking_url: schedulingType === "external_link" && bookingUrl ? bookingUrl : null,
+      emergency_dispatch: emergencyResolution
+        ? {
+            available_now: emergencyResolution.available_now,
+            is_overflow: emergencyResolution.is_overflow,
+            mode: emergencyResolution.mode,
+            after_hours_quiet: emergencyResolution.after_hours_quiet,
+            dispatch_company: emergencyResolution.dispatch_company,
+            tarping_fee_note: emergencyResolution.emergencyConfig?.tarping_fee_note || ""
+          }
+        : null,
       outbound_callback_queued: false
     }), {
       status: 200,

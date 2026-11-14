@@ -80,7 +80,7 @@ def pull_vapi_state_to_db() -> Dict[str, Any]:
 def build_sarah_prompt(tenant=None) -> str:
     return """[Identity & Role]
 You are Sarah, the welcoming, deeply knowledgeable, and highly empathetic front-desk receptionist for Ocean County Roofing Pros.
-Your goal is to have a natural, helpful conversation with local homeowners, answer their roofing questions with genuine industry expertise, ask low-friction discovery questions to understand their needs, and once qualified as a homeowner, smoothly transfer them to Riley on our scheduling desk to book their free 21-point roof and attic inspection.
+Your goal is to have a natural, helpful conversation with local homeowners, answer their roofing questions with genuine industry expertise, ask low-friction discovery questions to understand their needs, and once qualified as a homeowner, smoothly transfer them to our roofing specialist Riley on our scheduling desk to book their free 21-point roof and attic inspection.
 
 [Modular Identity Guidelines]
 - Never mention specific sub-contractor names or individual license numbers over the phone. You represent Ocean County Roofing Pros directly.
@@ -101,10 +101,18 @@ Your goal is to have a natural, helpful conversation with local homeowners, answ
 
 [Active Leak, Storm Damage & Emergency Protocol]
 If the caller mentions an active leak, water stains on ceilings/walls, dripping sounds, or missing shingles from a storm:
-1. Empathy First: Immediately validate their distress with genuine care:
-   "Oh no, I am so sorry you're dealing with that! Having water coming inside the house is so stressful, especially with the coastal weather here. Let's make sure we get one of our certified roofing specialists out to your home as soon as possible before it does any more damage."
+1. Empathy First: Immediately validate their distress with genuine care without overpromising an immediate truck before our dispatcher checks live overnight availability:
+   "Oh no, I am so sorry you're dealing with that! Having water coming inside the house is so stressful, and we'll get our dispatch desk on this right away."
 2. Priority Discovery: Confirm they are the homeowner: "And are you the homeowner of the property in Ocean County?"
-3. Priority Transfer: As soon as they confirm, trigger the transfer to Riley immediately!
+3. Priority Transfer: As soon as they confirm, trigger the transfer to Riley immediately so he can run live emergency triage and either connect/escalate immediately or lock in our very first morning priority window!
+
+[Human Representative Request Protocol]
+If at ANY point the caller asks to speak to a human, real person, manager, owner, representative, or expresses frustration talking to an AI:
+1. Immediate Warm Agreement (Zero Pushback): Never argue or force them through qualification questions first! Say warmly: "Of course—I'd be happy to have a team representative reach out to you directly."
+2. Gather 3 Quick Details (1 question at a time if missing):
+   - Their name, best callback phone number (confirm their caller ID if visible or ask politely), and a quick 1-sentence reason for their call so our representative calls back prepared.
+3. Call 'request_human_callback' immediately (pass agent_name='Sarah', name, phone, address_or_town if shared, and reason).
+4. Speak the EXACT callback window instruction returned by 'request_human_callback' (within the hour and usually sooner during 7 AM–9 PM ET, or 8:00 AM first-morning priority overnight) and wrap up warmly.
 
 [Low-Friction Conversational Qualification Flow]
 Follow this strict step-by-step turn sequence. Do NOT skip ahead or combine steps:
@@ -164,7 +172,19 @@ Once verified, read the address back AND spell out the street name letter-by-let
 "Just to make sure our roofing specialist arrives at the right home, I have your address verified as [House Number] [Street Name]. To be sure we don't miss it, that's spelled [S-T-R-E-E-T] in [City], is that correct?"
 Wait for the caller to say yes before moving on.
 
-Step 2: High-Value 5-Point Qualification Protocol (Ask ONE question per turn)
+Step 2: High-Value 5-Point Qualification Protocol & Live Emergency Triage (Ask ONE question per turn)
+- ACTIVE LEAK / STORM EMERGENCY RULE: If the caller reports active water inside the house, active ceiling drips, or urgent storm breaches, call 'triage_emergency' as soon as you know their town/address! Strictly follow the exact instruction returned by 'triage_emergency':
+  * Never promise an overnight crew unless 'triage_emergency' says EMERGENCY LIVE TRANSFER ACTIVE or EMERGENCY PRIORITY CALLBACK ACTIVE.
+  * When 'triage_emergency' instructs you to collect info & call 'dispatch_emergency', gather name, phone, street address, and issue summary, call 'dispatch_emergency', calmly share any fee disclosure returned by 'triage_emergency', and either transfer via 'transferCall' (when instructed) or book the earliest morning backup window.
+  * When 'triage_emergency' reports no overnight crew right now, express empathy, advise safely placing a bucket/towels indoors (never climb onto a wet roof at night), call 'dispatch_emergency', and book the earliest morning inspection slot via 'check_availability' (with urgent=true) & 'book_inspection'.
+
+[Human Representative Request Protocol]
+If at ANY point the caller asks to speak with a human, manager, owner, representative, or real person (instead of finishing automated scheduling):
+1. Agree warmly with zero pushback: "No problem at all—I'll have one of our representatives reach right out to you directly."
+2. Confirm their name, best callback phone number, and a quick 1-sentence reason for their request (ask 1 question at a time only if missing).
+3. Call 'request_human_callback' immediately (with agent_name='Riley', name, phone, address_or_town if known, and reason).
+4. Read back the exact callback window instruction returned by 'request_human_callback' (within the hour and usually sooner during 7 AM–9 PM ET, or 8:00 AM first-morning priority overnight) and conclude politely.
+
 Q1 (Homeowner Status): "Just to make sure our team has everything prepared, are you the homeowner of the property?"
 Q2 (Roof Scope & Age): "About how old would you say the current roof is, or are you noticing any active leaks or missing shingles?"
 Q3 (Attic Access & Ladder Equipment): "Is there access to the attic from inside the home? And if so, are there pull-down stairs or should our specialist bring a ladder?"
@@ -203,6 +223,70 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
 
     sarah_prompt = build_sarah_prompt(tenant)
     riley_prompt = build_riley_prompt(tenant)
+    vapi_secret = (settings.VAPI_SERVER_SECRET or "").strip()
+
+    credential_id = None
+    if vapi_secret:
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                c_res = client.get(f"{VAPI_API_URL}/credential", headers=headers)
+                if c_res.status_code == 200:
+                    for item in c_res.json():
+                        if item.get("name") == "OceanCountyWebhookSecret" and item.get("provider") == "custom-credential":
+                            credential_id = item.get("id")
+                            break
+                if not credential_id:
+                    c_create = client.post(
+                        f"{VAPI_API_URL}/credential",
+                        headers=headers,
+                        json={
+                            "provider": "custom-credential",
+                            "name": "OceanCountyWebhookSecret",
+                            "authenticationPlan": {
+                                "type": "bearer",
+                                "token": vapi_secret,
+                                "headerName": "x-vapi-secret",
+                                "bearerPrefixEnabled": False,
+                            },
+                        },
+                    )
+                    if c_create.status_code in (200, 201):
+                        credential_id = c_create.json().get("id")
+        except Exception as e:
+            logger.warning(f"Could not resolve Vapi custom-credential: {e}")
+
+    def _vapi_server(url: str, timeout_seconds: Optional[int] = None, include_secret: bool = False) -> Dict[str, Any]:
+        cfg: Dict[str, Any] = {"url": url}
+        if timeout_seconds is not None:
+            cfg["timeoutSeconds"] = timeout_seconds
+        if credential_id:
+            cfg["credentialId"] = credential_id
+        elif include_secret and vapi_secret:
+            cfg["secret"] = vapi_secret
+        return cfg
+
+    webhook_url = "https://oceancountyroofingpros.com/api/vapi/webhook"
+    tools_url = "https://oceancountyroofingpros.com/api/vapi/tools"
+
+    human_callback_tool = {
+        "type": "function",
+        "function": {
+            "name": "request_human_callback",
+            "description": "Logs a caller request to speak with a human representative, fires instant email and SMS alerts to the owner, and returns the exact callback window SLA to speak back.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Caller name."},
+                    "phone": {"type": "string", "description": "Caller best callback phone number."},
+                    "address_or_town": {"type": "string", "description": "Optional Ocean or Monmouth County town or address."},
+                    "reason": {"type": "string", "description": "Concise 1-sentence reason caller requested a human."},
+                    "agent_name": {"type": "string", "description": "Name of agent (Sarah or Riley)."}
+                },
+                "required": ["name", "phone", "reason"]
+            }
+        },
+        "server": _vapi_server(tools_url, include_secret=True)
+    }
 
     # 1. Update Sarah
     sarah_patch = {
@@ -211,9 +295,10 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
         "model": {
             "provider": "openai",
             "model": "gpt-4o",
-            "messages": [{"role": "system", "content": sarah_prompt}]
+            "messages": [{"role": "system", "content": sarah_prompt}],
+            "tools": [human_callback_tool]
         },
-        "serverUrl": "https://ocean-county-roofing-pros.netlify.app/api/vapi/webhook",
+        "server": _vapi_server(webhook_url, timeout_seconds=20),
         "backchannelingEnabled": True,
         "startSpeakingPlan": {
             "waitSeconds": 0.25,
@@ -225,13 +310,93 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
             "backoffSeconds": 1.0
         }
     }
+    if vapi_secret:
+        sarah_patch["serverUrlSecret"] = vapi_secret
 
-    # 2. Update Riley
+    # 2. Update Riley + inject dynamic Emergency Triage / Dispatch Tools + Live Transfer destinations
     riley_raw = fetch_vapi_assistant(ASSISTANT_RILEY_ID)
     riley_tools = riley_raw.get("model", {}).get("tools", [])
+    existing_fn_names = set()
+    cleaned_tools = []
     for t in riley_tools:
-        if "server" in t:
-            t["server"]["url"] = "https://ocean-county-roofing-pros.netlify.app/api/vapi/tools"
+        if t.get("type") == "function":
+            fn_name = (t.get("function") or {}).get("name")
+            if fn_name in ("triage_emergency", "dispatch_emergency", "request_human_callback"):
+                continue  # replace cleanly with canonical schema below
+            t["server"] = _vapi_server(tools_url, include_secret=True)
+            existing_fn_names.add(fn_name)
+            cleaned_tools.append(t)
+        elif t.get("type") == "transferCall":
+            continue  # rebuild live emergency destinations fresh from tenant configs
+        else:
+            cleaned_tools.append(t)
+
+    cleaned_tools.extend([
+        human_callback_tool,
+        {
+            "type": "function",
+            "function": {
+                "name": "triage_emergency",
+                "description": "Checks live 24/7 emergency dispatch availability, overflow coverage, extended-hours policy, and fee note for the caller's town/address.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "address_or_town": {"type": "string", "description": "Caller's Ocean/Monmouth County town or street address."},
+                        "issue_summary": {"type": "string", "description": "Short summary of active leak or storm damage."}
+                    },
+                    "required": ["address_or_town"]
+                }
+            },
+            "server": _vapi_server(tools_url, include_secret=True)
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "dispatch_emergency",
+                "description": "Logs an Emergency Priority roof leak lead and sends an immediate urgent SMS escalation alert to the on-call contractor emergency phone.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "phone": {"type": "string"},
+                        "address": {"type": "string"},
+                        "email": {"type": "string"},
+                        "issue_summary": {"type": "string"}
+                    },
+                    "required": ["name", "phone", "address", "issue_summary"]
+                }
+            },
+            "server": _vapi_server(tools_url, include_secret=True)
+        }
+    ])
+
+    # Attach Vapi live transfer destinations for any partner with emergency_enabled & live_transfer mode
+    live_transfer_destinations = []
+    seen_numbers = set()
+    for t_rec in list_tenants():
+        tid = t_rec.get("tenant_id", "")
+        raw_em = get_setting(f"tenant_emergency_{tid}", "") or t_rec.get("emergency_config_json", "{}")
+        try:
+            em_cfg = json.loads(raw_em) if isinstance(raw_em, str) and raw_em.strip() else (raw_em or {})
+        except Exception:
+            em_cfg = {}
+        if isinstance(em_cfg, dict) and em_cfg.get("emergency_enabled") and em_cfg.get("emergency_mode") == "live_transfer":
+            em_phone = str(em_cfg.get("emergency_phone") or t_rec.get("dispatch_phone") or "").strip()
+            if em_phone and em_phone not in seen_numbers:
+                seen_numbers.add(em_phone)
+                comp = t_rec.get("company_name", "On-Call Roofing Specialist")
+                live_transfer_destinations.append({
+                    "type": "number",
+                    "number": em_phone,
+                    "message": f"I've flagged this as an emergency and I'm connecting you right now to our on-call emergency leak desk at {comp}. Please stay on the line...",
+                    "description": f"Live emergency transfer destination for {comp} ({em_phone}). Use ONLY when triage_emergency confirms EMERGENCY LIVE TRANSFER ACTIVE."
+                })
+
+    if live_transfer_destinations:
+        cleaned_tools.append({
+            "type": "transferCall",
+            "destinations": live_transfer_destinations
+        })
 
     riley_patch = {
         "name": f"{tenant.assigned_estimator} - Scheduling Specialist",
@@ -246,9 +411,9 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
             "provider": "openai",
             "model": "gpt-4o-mini",
             "messages": [{"role": "system", "content": riley_prompt}],
-            "tools": riley_tools
+            "tools": cleaned_tools
         },
-        "serverUrl": "https://ocean-county-roofing-pros.netlify.app/api/vapi/webhook",
+        "server": _vapi_server(webhook_url, timeout_seconds=20),
         "backchannelingEnabled": True,
         "startSpeakingPlan": {
             "waitSeconds": 0.35,
@@ -260,6 +425,8 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
             "backoffSeconds": 1.0
         }
     }
+    if vapi_secret:
+        riley_patch["serverUrlSecret"] = vapi_secret
 
     # 3. Synchronize Squad Transfer Destinations
     squad_patch = {
@@ -286,6 +453,13 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
         r_sarah = client.patch(f"{VAPI_API_URL}/assistant/{ASSISTANT_SARAH_ID}", headers=headers, json=sarah_patch)
         r_riley = client.patch(f"{VAPI_API_URL}/assistant/{ASSISTANT_RILEY_ID}", headers=headers, json=riley_patch)
         r_squad = client.patch(f"{VAPI_API_URL}/squad/e82b6f21-499f-4bf6-9d86-939cda20c714", headers=headers, json=squad_patch)
+        if settings.VAPI_PHONE_NUMBER_ID:
+            phone_patch: Dict[str, Any] = {
+                "server": _vapi_server(webhook_url, timeout_seconds=20),
+            }
+            if vapi_secret:
+                phone_patch["serverUrlSecret"] = vapi_secret
+            client.patch(f"{VAPI_API_URL}/phone-number/{settings.VAPI_PHONE_NUMBER_ID}", headers=headers, json=phone_patch)
 
     if r_sarah.status_code == 200 and r_riley.status_code == 200:
         set_setting("vapi_last_pushed_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

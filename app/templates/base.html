@@ -23,14 +23,14 @@
             } catch (e) {}
         };
     </script>
-    <meta name="description" content="{% block meta_description %}CertainTeed ShingleMaster Certified Roof Replacement & Emergency Leak Repair in {{ brand.base_city }} & Ocean County, NJ. Free 21-point drone inspection.{% endblock %}">
+    <meta name="description" content="{% block meta_description %}NJ Licensed &amp; Insured Roof Replacement (GAF, CertainTeed, Owens Corning &amp; Metal) and Urgent Roof Leak Triage in {{ brand.base_city }} &amp; Ocean County, NJ. Free 21-point drone inspection.{% endblock %}">
     
     <!-- Favicon & Mobile Touch Icons -->
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png">
-    <meta property="og:image" content="/static/images/logo.png">
+    {% block og_image %}<meta property="og:image" content="https://oceancountyroofingpros.com{{ current_town.hero_image_url if current_town and current_town.hero_image_url else '/static/images/logo.png' }}">{% endblock %}
 
     <!-- Google Fonts & Tailwind CSS CDN -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -61,6 +61,50 @@
     
     <!-- Dynamic LocalBusiness Schema Injection -->
     {% block schema %}{% endblock %}
+    {% block head_extra %}{% endblock %}
+    <style>
+        [data-reveal] {
+            opacity: 0;
+            transform: translateY(18px);
+            transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+        }
+        [data-reveal].is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .card-hover-lift {
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .card-hover-lift:hover {
+            transform: translateY(-4px);
+        }
+        @keyframes heroKenBurns {
+            0% {
+                transform: scale(1.0);
+            }
+            100% {
+                transform: scale(1.07);
+            }
+        }
+        .hero-ken-burns {
+            animation: heroKenBurns 24s ease-in-out infinite alternate;
+            will-change: transform;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            [data-reveal] {
+                opacity: 1 !important;
+                transform: none !important;
+                transition: none !important;
+            }
+            .card-hover-lift:hover {
+                transform: none !important;
+            }
+            .hero-ken-burns {
+                animation: none !important;
+                transform: none !important;
+            }
+        }
+    </style>
 </head>
 <body class="bg-brand-light text-slate-800 font-sans antialiased pb-20 md:pb-0">
 
@@ -94,13 +138,15 @@
                 </div>
             </a>
 
+            {% set nav_prefix = '' if current_town else '/' %}
             <div class="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
-                <a href="#verified-projects" class="hover:text-brand-blue transition">Local Projects</a>
-                <a href="#before-after" class="hover:text-brand-blue transition">Before & After</a>
-                <a href="#inspection" class="hover:text-brand-blue transition">Drone Inspection</a>
-                <a href="#systems" class="hover:text-brand-blue transition">Roof Packages</a>
-                <a href="#reviews" class="hover:text-brand-blue transition">Reviews</a>
-                <a href="#faq" class="hover:text-brand-blue transition">FAQ</a>
+                <a href="{{ nav_prefix }}#verified-projects" class="hover:text-brand-blue transition">Local Projects</a>
+                <a href="{{ nav_prefix }}#before-after" class="hover:text-brand-blue transition">Before & After</a>
+                <a href="{{ nav_prefix }}#inspection" class="hover:text-brand-blue transition">Drone Inspection</a>
+                <a href="{{ nav_prefix }}#systems" class="hover:text-brand-blue transition">Roof Packages</a>
+                <a href="/blog" class="hover:text-brand-blue transition">Guides</a>
+                <a href="{{ nav_prefix }}#reviews" class="hover:text-brand-blue transition">Reviews</a>
+                <a href="{{ nav_prefix }}#faq" class="hover:text-brand-blue transition">FAQ</a>
             </div>
 
             <!-- Top Phone CTA -->
@@ -110,7 +156,7 @@
                         <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/>
                     </svg>
                     <div class="text-left hidden sm:block">
-                        <span class="block text-[10px] uppercase font-bold text-emerald-100 leading-none">24/7 Dispatch</span>
+                        <span class="block text-[10px] uppercase font-bold text-emerald-100 leading-none">24/7 Intake</span>
                         <span class="text-sm font-extrabold leading-none live-dispatch-phone">{{ brand.formatted_phone or brand.primary_phone }}</span>
                     </div>
                     <span class="sm:hidden font-extrabold">Call Now</span>
@@ -137,6 +183,7 @@
                 </p>
             </div>
             <div class="flex flex-wrap justify-center gap-5">
+                <a href="/blog" class="hover:text-white transition">Roofing Guides</a>
                 <a href="/privacy-policy" class="hover:text-white transition">Privacy Policy</a>
                 <a href="/terms" class="hover:text-white transition">Terms of Service</a>
                 <a href="/feedback" class="hover:text-white transition">Customer Review Hub</a>
@@ -151,7 +198,7 @@
             <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 4V3z"/></svg>
             <span>Call Now</span>
         </a>
-        <a href="#quizSection" class="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-sm py-3.5 rounded-xl text-center shadow flex items-center justify-center gap-1">
+        <a href="{{ nav_prefix }}#quizSection" class="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold text-sm py-3.5 rounded-xl text-center shadow flex items-center justify-center gap-1">
             <span>⚡ 60s Free Estimate</span>
         </a>
     </div>
@@ -262,6 +309,58 @@
                     tickerEl.style.opacity = '1';
                 }, 300);
             }, 4500);
+        })();
+
+        // Lightweight Scroll-Reveal & Count-Up Animations
+        (function() {
+            const revealEls = document.querySelectorAll('[data-reveal]');
+            const countEls = document.querySelectorAll('[data-count-to]');
+            const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            function animateCount(el) {
+                if (el.dataset.counted) return;
+                el.dataset.counted = '1';
+                const target = parseFloat(el.dataset.countTo || '0');
+                const decimals = parseInt(el.dataset.countDecimals || '0', 10);
+                const prefix = el.dataset.countPrefix || '';
+                const suffix = el.dataset.countSuffix || '';
+                if (prefersReduced || !target) {
+                    el.textContent = prefix + target.toFixed(decimals) + suffix;
+                    return;
+                }
+                const duration = 900;
+                const start = performance.now();
+                function step(now) {
+                    const progress = Math.min((now - start) / duration, 1);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+                    const val = target * eased;
+                    el.textContent = prefix + val.toFixed(decimals) + suffix;
+                    if (progress < 1) requestAnimationFrame(step);
+                }
+                requestAnimationFrame(step);
+            }
+
+            if (prefersReduced || !('IntersectionObserver' in window)) {
+                revealEls.forEach(el => el.classList.add('is-visible'));
+                countEls.forEach(animateCount);
+                return;
+            }
+
+            const io = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        if (entry.target.hasAttribute('data-count-to')) {
+                            animateCount(entry.target);
+                        }
+                        entry.target.querySelectorAll('[data-count-to]').forEach(animateCount);
+                        io.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.12 });
+
+            revealEls.forEach(el => io.observe(el));
+            countEls.forEach(el => io.observe(el));
         })();
     </script>
     {% block scripts %}{% endblock %}

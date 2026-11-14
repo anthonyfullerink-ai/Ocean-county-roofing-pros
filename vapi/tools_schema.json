@@ -2,21 +2,89 @@
   {
     "type": "function",
     "function": {
+      "name": "triage_emergency",
+      "description": "Checks live 24/7 emergency dispatch availability, overflow coverage, extended-hours rules, and fee disclosure for an Ocean/Monmouth County town or street address whenever a caller reports an active roof leak, ceiling water, or storm breach.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "address_or_town": {
+            "type": "string",
+            "description": "Street address or town/city in Ocean or Monmouth County (e.g. 'Toms River' or '123 Main St, Brick, NJ')."
+          },
+          "issue_summary": {
+            "type": "string",
+            "description": "Brief summary of the active leak or storm damage."
+          }
+        },
+        "required": ["address_or_town"]
+      }
+    },
+    "server": {
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "dispatch_emergency",
+      "description": "Logs an Emergency Priority roof leak lead and sends an immediate high-urgency SMS escalation alert to the assigned on-call roofing dispatch phone (or overflow crew).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name of the homeowner."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Homeowner callback mobile phone number."
+          },
+          "address": {
+            "type": "string",
+            "description": "Property street address and town."
+          },
+          "email": {
+            "type": "string",
+            "description": "Optional homeowner email address."
+          },
+          "issue_summary": {
+            "type": "string",
+            "description": "Detailed description of the leak location, water intrusion, or storm damage."
+          }
+        },
+        "required": ["name", "phone", "address", "issue_summary"]
+      }
+    },
+    "server": {
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
       "name": "check_availability",
-      "description": "Checks available inspection appointment windows for a given date in Ocean County.",
+      "description": "Checks live open inspection appointment windows for a town/address or target date in Ocean & Monmouth County.",
       "parameters": {
         "type": "object",
         "properties": {
           "date": {
             "type": "string",
-            "description": "The date to check availability for in YYYY-MM-DD format (e.g. 2026-11-12)."
+            "description": "Optional preferred date in YYYY-MM-DD format (e.g. 2026-11-16)."
+          },
+          "town_or_address": {
+            "type": "string",
+            "description": "Optional town or street address to match the territory contractor schedule."
+          },
+          "urgent": {
+            "type": "boolean",
+            "description": "Set true for active leaks or storm damage requiring earliest available triage."
           }
         },
         "required": ["date"]
       }
     },
     "server": {
-      "url": "https://YOUR_BACKEND_DOMAIN.com/api/vapi/tools"
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
     }
   },
   {
@@ -35,13 +103,17 @@
             "type": "string",
             "description": "Customer contact mobile phone number."
           },
+          "email": {
+            "type": "string",
+            "description": "Homeowner email address for calendar confirmation."
+          },
           "address": {
             "type": "string",
             "description": "Property street address and town."
           },
           "service": {
             "type": "string",
-            "description": "Roofing service requested (e.g. Complete Roof Replacement, Active Leak Repair)."
+            "description": "Roofing service requested (e.g. Complete Roof Replacement, Emergency Leak Repair)."
           },
           "date": {
             "type": "string",
@@ -49,14 +121,50 @@
           },
           "time": {
             "type": "string",
-            "description": "Inspection window (e.g. 10:00 AM, 1:00 PM, 3:30 PM)."
+            "description": "Inspection window (e.g. 9:00 AM, 11:30 AM, 2:00 PM)."
           }
         },
         "required": ["name", "phone", "address", "date", "time"]
       }
     },
     "server": {
-      "url": "https://YOUR_BACKEND_DOMAIN.com/api/vapi/tools"
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "request_human_callback",
+      "description": "Logs a caller request to speak with a human representative, sends an instant email and SMS alert to the owner, and returns the exact callback window promise to read back to the homeowner.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Caller full or first name."
+          },
+          "phone": {
+            "type": "string",
+            "description": "Caller best callback phone number."
+          },
+          "address_or_town": {
+            "type": "string",
+            "description": "Optional Ocean or Monmouth County town or street address."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Concise 1-sentence reason the caller wants to speak with a human representative."
+          },
+          "agent_name": {
+            "type": "string",
+            "description": "AI agent handling the call (Sarah or Riley)."
+          }
+        },
+        "required": ["name", "phone", "reason"]
+      }
+    },
+    "server": {
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
     }
   }
 ]

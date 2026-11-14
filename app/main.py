@@ -55,6 +55,7 @@ async def health_check():
 
 # Include API & Portal Routers First (before dynamic /{town_slug} catch-all)
 app.include_router(leads.router)
+app.include_router(leads.calendar_router)
 app.include_router(vapi.router)
 app.include_router(portals.router)
 

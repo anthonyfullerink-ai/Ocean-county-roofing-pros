@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Ocean County Roofing Guides & Cost Resources | {{ brand.brand_name }}{% endblock %}
+{% block meta_description %}Expert, contractor-agnostic guides for Ocean County, NJ homeowners: coastal wind ratings, salt-air flashing protection, storm insurance proof, and roof replacement cost breakdowns.{% endblock %}
+
+{% block head_extra %}
+<link rel="canonical" href="https://oceancountyroofingpros.com/blog">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Ocean County Roofing Guides & Resources | {{ brand.brand_name }}">
+<meta property="og:description" content="Compare GAF, CertainTeed, Owens Corning, and Standing Seam Metal systems for Jersey Shore and Ocean County homes.">
+<meta property="og:url" content="https://oceancountyroofingpros.com/blog">
+{% endblock %}
+
+{% block schema %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": "https://oceancountyroofingpros.com/blog#collection",
+      "name": "Ocean County Roofing Guides & Homeowner Knowledge Center",
+      "description": "Local engineering, material comparison, storm insurance, and cost guides for Ocean County, NJ homeowners.",
+      "url": "https://oceancountyroofingpros.com/blog"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://oceancountyroofingpros.com/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Roofing Guides",
+          "item": "https://oceancountyroofingpros.com/blog"
+        }
+      ]
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Header -->
+<section class="bg-slate-950 text-white py-16 md:py-20 border-b border-slate-800 relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-[#0A486D]/40 via-slate-950 to-[#17ABA4]/20 pointer-events-none"></div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <nav class="text-xs font-semibold text-slate-400 mb-4 flex items-center gap-2">
+            <a href="/" class="hover:text-teal-300 transition">Home</a>
+            <span>/</span>
+            <span class="text-teal-300">Roofing Guides</span>
+        </nav>
+
+        <div class="max-w-3xl space-y-4">
+            <span class="inline-flex items-center gap-2 bg-teal-500/15 border border-teal-400/30 text-teal-300 text-xs font-black uppercase tracking-widest px-3.5 py-1.5 rounded-full">
+                Ocean County Homeowner Resource Hub
+            </span>
+            <h1 class="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
+                Jersey Shore Roofing Guides, Cost Breakdowns &amp; Coastal Specs
+            </h1>
+            <p class="text-slate-300 text-base sm:text-lg leading-relaxed">
+                Straightforward, manufacturer-neutral guidance built for Ocean County homes—comparing GAF, CertainTeed, Owens Corning, Standing Seam Metal, Flat/TPO, and VELUX systems against coastal wind and salt-air reality.
+            </p>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="mt-8 flex flex-wrap gap-2.5" id="blogCategoryFilters">
+            <button type="button" data-category="All" onclick="filterBlogPosts('All')" class="blog-filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-[#17ABA4] text-slate-950 shadow transition">
+                All Guides ({{ posts|length }})
+            </button>
+            {% for cat in categories %}
+            <button type="button" data-category="{{ cat }}" onclick="filterBlogPosts(this.dataset.category)" class="blog-filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-slate-200 border border-slate-700 hover:border-teal-400 transition">
+                {{ cat }}
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Articles Grid -->
+<section class="py-16 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {% if posts %}
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8" id="blogPostsGrid">
+            {% for post in posts %}
+            <article data-category="{{ post.category }}" class="blog-card bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl card-hover-lift flex flex-col">
+                <a href="/blog/{{ post.slug }}" class="block relative aspect-[16/9] bg-slate-900 overflow-hidden">
+                    <img src="{{ post.hero_image_url or '/static/images/shingle-restored-after.webp' }}" alt="{{ post.hero_image_alt or post.title }}" loading="lazy" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105">
+                    <span class="absolute top-3 left-3 bg-[#0A486D]/90 backdrop-blur text-white text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full">
+                        {{ post.category }}
+                    </span>
+                    {% if post.veo_video_url %}
+                    <span class="absolute bottom-3 right-3 bg-slate-950/85 text-teal-300 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-teal-400/30">
+                        ▶ Video Guide
+                    </span>
+                    {% endif %}
+                </a>
+
+                <div class="p-6 flex-1 flex flex-col justify-between space-y-4">
+                    <div class="space-y-2.5">
+                        <div class="flex items-center justify-between text-xs font-semibold text-slate-500">
+                            <span>{{ post.published_date_iso }}</span>
+                            <span>{{ post.reading_time_min }} min read</span>
+                        </div>
+                        <h2 class="text-xl font-black text-slate-900 leading-snug">
+                            <a href="/blog/{{ post.slug }}" class="hover:text-[#0A486D] transition">{{ post.title }}</a>
+                        </h2>
+                        <p class="text-sm text-slate-600 leading-relaxed line-clamp-3">
+                            {{ post.excerpt }}
+                        </p>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 space-y-3">
+                        {% if post.target_towns %}
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for t in post.target_towns[:3] %}
+                            <a href="/{{ t.slug }}" class="text-[11px] font-bold bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-[#0A486D] px-2.5 py-1 rounded-lg transition">
+                                📍 {{ t.label }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <a href="/blog/{{ post.slug }}" class="inline-flex items-center gap-1.5 text-sm font-extrabold text-[#0A486D] hover:text-[#17ABA4] transition">
+                            <span>Read Full Ocean County Guide</span>
+                            <span>→</span>
+                        </a>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-2xl mx-auto">
+            <h2 class="text-2xl font-black text-slate-900">New Ocean County Guides Publishing Soon</h2>
+            <p class="text-slate-600 mt-2">Need answers about a roof leak, wind rating, or replacement estimate right away? Schedule a free 21-point roof &amp; attic inspection.</p>
+            <a href="/#quizSection" class="inline-block mt-6 bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-3 rounded-xl shadow">Schedule Free Inspection →</a>
+        </div>
+        {% endif %}
+
+        <!-- Bottom Conversion Card -->
+        <div class="mt-16 bg-gradient-to-br from-slate-950 via-[#0A486D] to-slate-900 rounded-3xl p-8 sm:p-12 text-white shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-8">
+            <div class="space-y-2 max-w-2xl">
+                <span class="text-xs font-black uppercase tracking-widest text-teal-300">Zero-Pressure Diagnostics</span>
+                <h2 class="text-2xl sm:text-3xl font-black tracking-tight">Ready for Exact Measurements &amp; Photos of Your Own Roof?</h2>
+                <p class="text-slate-200 text-sm sm:text-base">
+                    Compare written options across GAF, CertainTeed, Owens Corning, Standing Seam Metal, or Flat/TPO from a vetted NJ licensed roofing specialist in your town.
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-3 shrink-0">
+                <a href="/#quizSection" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-6 py-4 rounded-2xl text-sm shadow-lg transition">
+                    ⚡ Free 21-Point Roof Inspection →
+                </a>
+                <a href="tel:{{ brand.primary_phone }}" class="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold px-5 py-4 rounded-2xl text-sm transition live-dispatch-phone">
+                    {{ brand.formatted_phone or brand.primary_phone }}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterBlogPosts(category) {
+    document.querySelectorAll('.blog-filter-btn').forEach(btn => {
+        const active = btn.getAttribute('data-category') === category;
+        btn.className = active
+            ? 'blog-filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-[#17ABA4] text-slate-950 shadow transition'
+            : 'blog-filter-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-slate-200 border border-slate-700 hover:border-teal-400 transition';
+    });
+    document.querySelectorAll('.blog-card').forEach(card => {
+        const cardCat = card.getAttribute('data-category');
+        card.style.display = (category === 'All' || cardCat === category) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

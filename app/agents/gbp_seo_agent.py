@@ -186,7 +186,7 @@ def build_dynamic_town_json_ld(
         "telephone": brand.get("primary_phone", "+17326609121"),
         "url": f"https://oceancountyroofingpros.com/{town_slug}",
         "logo": "https://oceancountyroofingpros.com/static/images/logo.png",
-        "image": "https://oceancountyroofingpros.com/static/images/hero-drone-poster.webp",
+        "image": f"https://oceancountyroofingpros.com{town.get('hero_image_url') or '/static/images/heroes/hero-hub-toms-river.webp'}",
         "priceRange": "$$",
         "address": {
             "@type": "PostalAddress",

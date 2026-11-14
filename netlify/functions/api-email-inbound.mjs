@@ -3,8 +3,53 @@
  * Routes: POST /api/email/inbound
  */
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
+import { EmailService } from "./services/email-service.mjs";
 
 const RESEND_RECEIVING_API_URL = "https://api.resend.com/emails/receiving";
+
+function extractSenderAddress(fromHeader) {
+  const raw = String(fromHeader || "").trim();
+  const match = raw.match(/<([^>]+)>/);
+  return (match ? match[1] : raw).trim().toLowerCase();
+}
+
+function extractRecipientAddresses(toField) {
+  const items = Array.isArray(toField)
+    ? toField
+    : String(toField || "").split(",");
+  return items
+    .map((entry) => {
+      const s = String(entry || "").trim();
+      const match = s.match(/<([^>]+)>/);
+      return (match ? match[1] : s).trim().toLowerCase();
+    })
+    .filter((addr) => addr.includes("@"));
+}
+
+function isOwnerDirectAlias(toAddresses) {
+  const configured = (process.env.OWNER_DIRECT_ALIASES || "anthony@oceancountyroofingpros.com")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return toAddresses.some((addr) => configured.includes(addr));
+}
+
+function shouldBypassAutoReply(senderEmail, toAddresses) {
+  if (isOwnerDirectAlias(toAddresses)) return true;
+
+  const ownerEmail = EmailService.getOwnerAlertEmail().toLowerCase();
+  if (senderEmail === ownerEmail) return true;
+  if (senderEmail.endsWith("@oceancountyroofingpros.com")) return true;
+
+  // Never AI-reply to automated system/verification/directory emails
+  if (/^(no[-_.]?reply|do[-_.]?not[-_.]?reply|mailer-daemon|postmaster|notifications?|verify|security)@/i.test(senderEmail)) {
+    return true;
+  }
+  if (/@(mail\.instagram\.com|facebookmail\.com|yelp\.com|accounts\.google\.com|google\.com|bing\.com)$/i.test(senderEmail)) {
+    return true;
+  }
+  return false;
+}
 
 function stripHtmlTags(html) {
   if (!html) return "";
@@ -93,7 +138,33 @@ export default async (req, context) => {
       textBody = stripHtmlTags(htmlBody);
     }
 
-    // Process email with Autonomous Rank-and-Rent AI Email Agent
+    const toAddresses = extractRecipientAddresses(to);
+    const senderAddress = extractSenderAddress(from);
+
+    // Direct owner aliases (e.g. anthony@), owner's Gmail, or automated/no-reply senders:
+    // Forward straight to Gmail without triggering Riley AI auto-reply.
+    if (shouldBypassAutoReply(senderAddress, toAddresses)) {
+      console.log(`[api-email-inbound] Bypassing AI auto-reply and forwarding to owner Gmail (to=${toAddresses.join(",")}, from=${senderAddress})`);
+      const forwardResult = await EmailService.forwardInboundToOwner({
+        toAliases: toAddresses,
+        from,
+        subject,
+        textBody,
+        htmlBody
+      });
+
+      return new Response(JSON.stringify({
+        status: "forwarded_to_owner",
+        skipped_ai: true,
+        to: toAddresses,
+        forwardResult
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // Process business/lead email with Autonomous Rank-and-Rent AI Email Agent
     const result = await AIEmailAgent.processInboundEmail({
       from,
       to,
@@ -103,6 +174,15 @@ export default async (req, context) => {
       messageId,
       emailId,
       headers: emailHeaders
+    });
+
+    // Forward ALL inbound business emails (including spam) to owner Gmail
+    await EmailService.forwardInboundToOwner({
+      toAliases: toAddresses,
+      from,
+      subject: result?.status === "silenced_spam" ? `[SPAM] ${subject}` : subject,
+      textBody,
+      htmlBody
     });
 
     return new Response(JSON.stringify({

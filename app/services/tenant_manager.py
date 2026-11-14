@@ -31,6 +31,9 @@ class TenantConfig(BaseModel):
     scheduling_type: str = "google_calendar"  # "google_calendar" or "external_link"
     booking_url: Optional[str] = ""            # e.g. "https://calendly.com/joe-the-roofer/inspection"
     google_calendar_id: str = "7df414b869c61a9932cc261f1c9951bcbcd8c3c59e6ea057495e65db2720e02f@group.calendar.google.com"
+    ics_feed_url: Optional[str] = ""
+    availability_json: Optional[str] = "{}"
+    emergency_config_json: Optional[str] = "{}"
     service_license: str = "Fully Licensed & Insured NJ HIC"
     billing_type: str = "flat_monthly_retainer"
     monthly_rate: float = 1500.00
@@ -51,6 +54,9 @@ def _record_to_tenant_config(rec: Dict[str, Any]) -> TenantConfig:
         scheduling_type=rec.get("scheduling_type") or "google_calendar",
         booking_url=rec.get("booking_url") or "",
         google_calendar_id=rec.get("calendar_id") or rec.get("google_calendar_id") or "primary",
+        ics_feed_url=rec.get("ics_feed_url") or "",
+        availability_json=rec.get("availability_json") or "{}",
+        emergency_config_json=rec.get("emergency_config_json") or "{}",
         service_license=rec.get("service_license") or "Fully Licensed & Insured NJ HIC",
         monthly_rate=float(rec.get("monthly_retainer") or rec.get("monthly_rate") or 1500.00),
         status="active" if rec.get("is_active") else "standby",

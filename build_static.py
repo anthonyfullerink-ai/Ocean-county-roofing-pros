@@ -20,6 +20,8 @@ from app.services.db import (
     get_bool_setting,
     list_tenants,
     get_dashboard_kpis,
+    list_blog_posts,
+    sync_blog_posts_from_supabase,
 )
 from app.services.tenant_manager import TenantManager
 from app.agents.gbp_seo_agent import build_dynamic_town_json_ld
@@ -133,6 +135,64 @@ def main():
         encoding="utf-8"
     )
 
+    # 5B. SEO Blog Hub (/blog) & Article Pages (/blog/<slug>) from Supabase blog_posts
+    print("Syncing and generating /blog SEO hub & articles...")
+    sync_blog_posts_from_supabase()
+    published_posts = list_blog_posts(status="published")
+    blog_categories = []
+    for p in published_posts:
+        cat = p.get("category")
+        if cat and cat not in blog_categories:
+            blog_categories.append(cat)
+
+    storm_alert_active = get_bool_setting("storm_alert_active", False) and get_bool_setting(
+        "enable_weather_storm_banner", True
+    )
+    storm_alert_headline = get_setting(
+        "storm_alert_headline",
+        "🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily",
+    )
+    raw_ticker = get_setting("dispatch_ticker_json", "[]")
+    try:
+        ticker_list = json.loads(raw_ticker)
+    except Exception:
+        ticker_list = []
+
+    blog_shared_ctx = {
+        "brand": brand,
+        "all_towns": all_towns,
+        "storm_alert_active": storm_alert_active,
+        "storm_alert_headline": storm_alert_headline,
+        "dispatch_ticker_messages": ticker_list,
+    }
+
+    blog_index_template = env.get_template("blog_index.html")
+    blog_index_html = blog_index_template.render({
+        **blog_shared_ctx,
+        "posts": published_posts,
+        "categories": blog_categories,
+    })
+    (DIST_DIR / "blog").mkdir(parents=True, exist_ok=True)
+    (DIST_DIR / "blog" / "index.html").write_text(blog_index_html, encoding="utf-8")
+    (DIST_DIR / "blog.html").write_text(blog_index_html, encoding="utf-8")
+
+    blog_post_template = env.get_template("blog_post.html")
+    for post in published_posts:
+        pslug = post.get("slug")
+        if not pslug:
+            continue
+        print(f"Generating blog article: /blog/{pslug}...")
+        related = [p for p in published_posts if p.get("slug") != pslug][:2]
+        rendered_post = blog_post_template.render({
+            **blog_shared_ctx,
+            "post": post,
+            "related_posts": related,
+        })
+        post_dir = DIST_DIR / "blog" / pslug
+        post_dir.mkdir(parents=True, exist_ok=True)
+        (post_dir / "index.html").write_text(rendered_post, encoding="utf-8")
+        (DIST_DIR / "blog" / f"{pslug}.html").write_text(rendered_post, encoding="utf-8")
+
     # 6. Admin, Partner Portal, and Feedback Hub Shells
     print("Generating admin dashboard and partner portal shells...")
     from app.services.db import (
@@ -150,6 +210,7 @@ def main():
     all_reviews = list_reviews()
     all_tenants = list_tenants()
     all_gbp = list_gbp_posts()
+    all_blog = list_blog_posts(sync_from_cloud=False)
     all_runs = list_agent_runs(limit=30)
     latest_rep = get_latest_daily_report()
 
@@ -165,6 +226,7 @@ def main():
             "projects": all_projects,
             "reviews": all_reviews,
             "gbp_posts": all_gbp,
+            "blog_posts": all_blog,
             "agent_runs": all_runs,
             "latest_report": latest_rep,
             "sys_settings": sys_settings,
@@ -225,6 +287,16 @@ def main():
         if slug:
             urls.append(
                 f"""  <url>\n    <loc>{base_url}/{slug}</loc>\n    <lastmod>{today_iso}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>"""
+            )
+    urls.append(
+        f"""  <url>\n    <loc>{base_url}/blog</loc>\n    <lastmod>{today_iso}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.85</priority>\n  </url>"""
+    )
+    for post in published_posts:
+        pslug = post.get("slug")
+        if pslug:
+            lastmod = (post.get("updated_at") or post.get("published_at") or today_iso)[:10]
+            urls.append(
+                f"""  <url>\n    <loc>{base_url}/blog/{pslug}</loc>\n    <lastmod>{lastmod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>"""
             )
     urls.append(f"""  <url>\n    <loc>{base_url}/privacy-policy</loc>\n    <lastmod>{today_iso}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>""")
     urls.append(f"""  <url>\n    <loc>{base_url}/terms</loc>\n    <lastmod>{today_iso}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.3</priority>\n  </url>""")

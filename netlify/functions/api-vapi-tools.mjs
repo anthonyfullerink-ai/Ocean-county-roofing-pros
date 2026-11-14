@@ -4,6 +4,36 @@
  */
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
+import { GCalService, normalizeAvailabilityConfig, getNyDateParts } from "./services/gcal-service.mjs";
+import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
+
+function parseToolArgs(rawArgs) {
+  if (!rawArgs) return {};
+  if (typeof rawArgs === "string") {
+    try {
+      return JSON.parse(rawArgs);
+    } catch {
+      return {};
+    }
+  }
+  return rawArgs;
+}
+
+function loadScheduleExtras(tenant, sysSettings = {}) {
+  let extras = {};
+  const raw = sysSettings[`tenant_schedule_${tenant?.tenant_id}`];
+  if (raw) {
+    try {
+      extras = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch {
+      extras = {};
+    }
+  }
+  return {
+    icsFeedUrl: tenant?.ics_feed_url || extras.ics_feed_url || "",
+    availabilityConfig: normalizeAvailabilityConfig(tenant?.availability_json || extras.availability || null)
+  };
+}
 
 export default async (req, context) => {
   if (req.method !== "POST") {
@@ -11,6 +41,17 @@ export default async (req, context) => {
       status: 405,
       headers: { "Content-Type": "application/json" }
     });
+  }
+
+  const expectedSecret = (process.env.VAPI_SERVER_SECRET || "").trim();
+  if (expectedSecret) {
+    const providedSecret = (req.headers.get("x-vapi-secret") || "").trim();
+    if (providedSecret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized tool call" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
   }
 
   try {
@@ -53,22 +94,180 @@ export default async (req, context) => {
       const callId = toolCall.id;
       const func = toolCall.function || {};
       const funcName = func.name;
-      const args = func.arguments || {};
+      const args = parseToolArgs(func.arguments);
 
-      // 1. CHECK AVAILABILITY
+      // 1. CHECK AVAILABILITY (Live Multi-Tenant Calendar + Custom Windows + .ICS)
       if (funcName === "check_availability") {
-        const dateStr = args.date || "tomorrow";
-        if (tenant.scheduling_type === "external_link" && tenant.booking_url) {
+        const dateStr = (args.date || "").trim();
+        const areaText = (args.address || args.town || args.city || "").trim();
+        let targetTenant = tenant;
+        if (areaText && sysSettings.territory_routing_json) {
+          try {
+            targetTenant = await AIEmailAgent.resolveTenantForText(
+              areaText,
+              sysSettings.territory_routing_json,
+              tenant
+            );
+          } catch {}
+        }
+
+        if (targetTenant.scheduling_type === "external_link" && targetTenant.booking_url) {
           results.push({
             toolCallId: callId,
-            result: `Please select your preferred roof inspection time directly on ${tenant.company_name}'s calendar: ${tenant.booking_url}`
+            result: `Please let the homeowner know we will text them a direct calendar link to finalize their inspection window on ${targetTenant.company_name}'s schedule: ${targetTenant.booking_url}`
+          });
+        } else {
+          const { icsFeedUrl, availabilityConfig } = loadScheduleExtras(targetTenant, sysSettings);
+          const calendarId = GCalService.resolveCalendarId(targetTenant);
+          const avail = await GCalService.getAvailableDays({
+            calendarId,
+            daysCount: 4,
+            includeTodayUrgent: Boolean(args.urgent),
+            availabilityConfig,
+            icsFeedUrl
+          });
+          const requestedDay = dateStr ? avail.days.find(d => d.date === dateStr) : null;
+          if (requestedDay && requestedDay.slots.length > 0) {
+            const times = requestedDay.slots.map(s => s.time).join(", ");
+            results.push({
+              toolCallId: callId,
+              result: `Open inspection times for ${requestedDay.display_label} (${requestedDay.date}) are: ${times}. Ask which window works best.`
+            });
+          } else if (avail.days.length > 0) {
+            const summary = avail.days
+              .slice(0, 2)
+              .map(d => `${d.display_label} (${d.date}): ${d.slots.map(s => s.time).join(", ")}`)
+              .join(" | ");
+            results.push({
+              toolCallId: callId,
+              result: `Next available open inspection windows are: ${summary}. Offer the two earliest options clearly.`
+            });
+          } else {
+            results.push({
+              toolCallId: callId,
+              result: `Available open inspection times for ${dateStr || "tomorrow"} include 9:00 AM, 11:30 AM, or 2:00 PM. What time works best for you?`
+            });
+          }
+        }
+      }
+
+      // 1B. TRIAGE EMERGENCY (Multi-Tenant 24/7 Policy + Overflow + Extended Hours Check)
+      else if (funcName === "triage_emergency") {
+        const addressOrTown = (args.address_or_town || args.address || args.city || "").trim();
+        const emerg = await resolveEmergencyHandler({
+          addressOrCity: addressOrTown,
+          sysSettings,
+          primaryTenant: await AIEmailAgent.resolveTenantForText(addressOrTown, sysSettings.territory_routing_json, tenant)
+        });
+        const feeNote = emerg.emergencyConfig?.tarping_fee_note || "";
+
+        if (emerg.available_now && emerg.mode === "live_transfer" && emerg.emergencyConfig?.emergency_phone) {
+          results.push({
+            toolCallId: callId,
+            result: `EMERGENCY LIVE TRANSFER ACTIVE (${emerg.dispatch_company}${emerg.is_overflow ? " - 24/7 Emergency Overflow" : ""}). Emergency Line: ${emerg.emergencyConfig.emergency_phone}. Step 1: Collect homeowner name, phone, and exact street address. Step 2: Disclose calmly: "${feeNote}". Step 3: Call dispatch_emergency, then transfer the caller immediately to emergency dispatch number ${emerg.emergencyConfig.emergency_phone}.`
+          });
+        } else if (emerg.available_now) {
+          const eta = emerg.emergencyConfig?.max_response_eta_min || 30;
+          results.push({
+            toolCallId: callId,
+            result: `EMERGENCY PRIORITY CALLBACK ACTIVE (${emerg.dispatch_company}${emerg.is_overflow ? " - 24/7 Emergency Overflow" : ""}). Emergency Phone: ${emerg.emergencyConfig?.emergency_phone || emerg.tenant?.dispatch_phone}. Collect name, phone, street address, and email. Disclose calmly: "${feeNote}". Call dispatch_emergency to trigger an immediate urgent SMS alert so the on-call leak specialist calls back within ${eta} minutes, AND book the earliest open inspection slot as backup.`
           });
         } else {
           results.push({
             toolCallId: callId,
-            result: `Available open inspection times for ${dateStr} include 9:00 AM, 11:30 AM, or 2:00 PM. What time works best for you?`
+            result: `NO OVERNIGHT CREW IS AVAILABLE IN THIS TOWN RIGHT NOW (${emerg.after_hours_quiet ? "currently outside extended 7AM-9PM emergency hours" : "territory partner runs daytime service only"}). IMPORTANT: Do NOT promise an overnight truck tonight. Express warm empathy, advise placing a bucket or towels safely indoors (do NOT climb onto a wet roof at night), collect their name, phone, street address, and email, call dispatch_emergency to flag them as Urgent First-Morning Priority, and book the earliest 9:00 AM window via check_availability & book_inspection.`
           });
         }
+      }
+
+      // 1C. DISPATCH EMERGENCY (Logs Emergency Priority Lead & Fires Urgent Twilio SMS)
+      else if (funcName === "dispatch_emergency") {
+        const name = (args.name || "Homeowner").trim();
+        const phone = (args.phone || inboundCallerPhone || "").trim();
+        const email = (args.email || "").trim();
+        const address = (args.address || args.town || "Ocean County, NJ").trim();
+        const issueSummary = (args.issue_summary || args.notes || "Active Water Leak / Storm Damage").trim();
+        const leadId = `EMERG-${Date.now() % 100000000}`;
+
+        const emerg = await resolveEmergencyHandler({
+          addressOrCity: address,
+          sysSettings,
+          primaryTenant: await AIEmailAgent.resolveTenantForText(address, sysSettings.territory_routing_json, tenant)
+        });
+        const targetTenant = emerg.tenant || tenant;
+        const detectedCity = AIEmailAgent.detectCityFromText(address);
+
+        if (supabaseUrl && supabaseKey) {
+          try {
+            await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/leads`, {
+              method: "POST",
+              headers: {
+                "apikey": supabaseKey,
+                "Authorization": `Bearer ${supabaseKey}`,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+              },
+              body: JSON.stringify({
+                id: leadId,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                lead_source: "Vapi Emergency Dispatch",
+                first_name: name.split(" ")[0] || name,
+                last_name: name.split(" ").slice(1).join(" ") || "",
+                phone,
+                email,
+                street_address: address,
+                city: detectedCity !== "Ocean County" ? detectedCity : "Toms River",
+                service_requested: "Emergency Leak Repair",
+                urgency: "Emergency",
+                diagnostic_situation: "Active Water Leak",
+                status: "Emergency Priority",
+                assigned_tenant_id: targetTenant.tenant_id,
+                notes: `[Voice Emergency Triage${emerg.is_overflow ? " - 24/7 Overflow Pool" : ""}] ${issueSummary}`
+              })
+            });
+          } catch (err) {
+            console.error("Error logging Vapi emergency lead:", err);
+          }
+        }
+
+        const smsResult = await sendEmergencySmsEscalation({
+          tenant: targetTenant,
+          emergencyConfig: emerg.emergencyConfig,
+          isOverflow: emerg.is_overflow,
+          sysSettings,
+          lead: {
+            id: leadId,
+            name,
+            phone,
+            address,
+            city: detectedCity,
+            issue_summary: issueSummary
+          }
+        });
+
+        await EmailService.sendOwnerLeadAlert({
+          lead_id: leadId,
+          name,
+          phone: phone || "Not provided",
+          email: email || "Not provided",
+          address,
+          date: emerg.available_now ? "URGENT SAME-DAY / 24H TRIAGE" : "FIRST-MORNING PRIORITY",
+          time: emerg.available_now ? `Mode: ${emerg.mode}` : "9:00 AM Earliest",
+          service: "Emergency Leak Repair",
+          roof_age: issueSummary,
+          attic_access: "Emergency Priority Leak",
+          ladder_needed: "Tarping / Triage Gear",
+          decision_makers_present: "Yes",
+          source: `Voice AI Emergency (${emerg.dispatch_company}${emerg.is_overflow ? " Overflow" : ""})`
+        }).catch(() => {});
+
+        results.push({
+          toolCallId: callId,
+          result: emerg.available_now
+            ? `Emergency priority alert #${leadId} dispatched to ${emerg.dispatch_company} (SMS escalated: ${smsResult.sent ? "yes" : "logged"}). Proceed with ${emerg.mode === "live_transfer" ? `transferring caller to ${emerg.emergencyConfig?.emergency_phone}` : "reassuring caller of urgent callback and booking a backup morning slot"}.`
+            : `Lead #${leadId} marked Emergency Priority for ${emerg.dispatch_company} first-morning dispatch. Proceed to lock in the earliest morning inspection slot via book_inspection.`
+        });
       }
 
       // 2. VERIFY ADDRESS
@@ -220,6 +419,119 @@ export default async (req, context) => {
             result: `Appointment successfully confirmed for ${name} on ${dateStr} at ${timeStr}. One of our certified roofing specialists from our local crew will arrive at ${address} for the free 21-point roof inspection.${inviteNote}`
           });
         }
+      }
+
+      // 4. REQUEST HUMAN CALLBACK (Both Sarah & Riley: 7am-9pm ET <=1hr SLA vs Overnight 8am priority)
+      else if (funcName === "request_human_callback") {
+        const name = (args.name || "Homeowner").trim();
+        const phone = (args.phone || args.callback_phone || inboundCallerPhone || "").trim();
+        const email = (args.email || "").trim();
+        const address = (args.address_or_town || args.town || args.address || "Ocean County, NJ").trim();
+        const reason = (args.reason || args.issue_summary || args.notes || "Requested to speak with a human representative").trim();
+        const agentName = (args.agent_name || "Voice AI").trim();
+        const leadId = `HUMAN-${Date.now() % 100000000}`;
+
+        const nyNow = getNyDateParts(new Date());
+        const isActiveCallbackHours = nyNow.hour >= 7 && nyNow.hour < 21;
+        const slaLabel = isActiveCallbackHours
+          ? "Within 1 Hour (usually sooner)"
+          : "First-Morning 8:00 AM ET Priority (Manager Alerted Now)";
+
+        let targetTenant = tenant;
+        if (supabaseUrl && supabaseKey && sysSettings.territory_routing_json) {
+          try {
+            targetTenant = await AIEmailAgent.resolveTenantForText(
+              address,
+              sysSettings.territory_routing_json,
+              tenant
+            );
+          } catch {}
+        }
+        const detectedCity = AIEmailAgent.detectCityFromText(address);
+
+        if (supabaseUrl && supabaseKey) {
+          try {
+            await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/leads`, {
+              method: "POST",
+              headers: {
+                "apikey": supabaseKey,
+                "Authorization": `Bearer ${supabaseKey}`,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+              },
+              body: JSON.stringify({
+                id: leadId,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                lead_source: "Voice AI Human Escalation",
+                first_name: name.split(" ")[0] || name,
+                last_name: name.split(" ").slice(1).join(" ") || "",
+                phone: phone,
+                email: email,
+                street_address: address,
+                city: detectedCity !== "Ocean County" ? detectedCity : "Toms River",
+                service_requested: "Human Representative Callback",
+                urgency: "High",
+                status: "Human Callback Requested",
+                assigned_tenant_id: targetTenant.tenant_id,
+                notes: `[Human Callback Requested via ${agentName}] SLA: ${slaLabel} | Reason: ${reason}`
+              })
+            });
+          } catch (err) {
+            console.error("Error logging human callback lead:", err);
+          }
+        }
+
+        // Instant Owner Email Alert via Resend
+        const emailResult = await EmailService.sendOwnerHumanEscalationAlert({
+          lead_id: leadId,
+          name,
+          phone: phone || "Not provided",
+          email,
+          address,
+          reason,
+          agent_name: agentName,
+          sla_label: slaLabel
+        }).catch(err => ({ status: "error", error: err.message }));
+
+        // Instant Owner SMS Alert via Twilio (+18669001221 -> OWNER_ALERT_PHONE)
+        const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+        const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+        const fromPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+18669001221";
+        const ownerPhone = sanitizePhoneE164(
+          sysSettings?.owner_alert_phone || process.env.OWNER_ALERT_PHONE || "+17325523896"
+        );
+        let smsSent = false;
+        if (twilioSid && twilioToken && ownerPhone) {
+          try {
+            const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
+            const smsBody = `🙋 [HUMAN CALLBACK REQ] #${leadId} | ${name} (${phone || "No phone"}) | ${address} | Reason: ${reason} | Told caller: ${slaLabel} -> https://oceancountyroofingpros.com/admin`;
+            const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Basic ${auth}`,
+                "Content-Type": "application/x-www-form-urlencoded"
+              },
+              body: new URLSearchParams({
+                To: ownerPhone,
+                From: fromPhone,
+                Body: smsBody
+              })
+            });
+            smsSent = Boolean(smsRes && smsRes.ok);
+          } catch (smsErr) {
+            console.error("Error sending human escalation SMS:", smsErr);
+          }
+        }
+
+        const spokenInstruction = isActiveCallbackHours
+          ? "Tell the caller warmly: 'Of course — I've sent your details right over, and a representative will get back to you within the hour, and most of the time even sooner. Thank you for calling Ocean County Roofing Pros!'"
+          : "Tell the caller warmly: 'Of course — our office wraps up live callbacks at 9 PM Eastern, so I've placed your request at the top of the list for a representative to call you back first thing tomorrow morning around 8 AM, and I've already alerted our manager right now. Thank you for calling Ocean County Roofing Pros!'";
+
+        results.push({
+          toolCallId: callId,
+          result: `Human callback ticket #${leadId} logged and owner alerted (email: ${emailResult?.status || "attempted"}, sms: ${smsSent ? "queued" : "skipped"}). ${spokenInstruction}`
+        });
       }
 
       // Default fallback

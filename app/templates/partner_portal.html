@@ -663,30 +663,149 @@
 
                             <div>
                                 <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Scheduling Mode</label>
-                                <select id="settingsSchedulingType" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs font-bold text-white outline-none">
-                                    <option value="google_calendar" {% if tenant.scheduling_type == 'google_calendar' %}selected{% endif %}>Google Calendar Direct Slot Booking (google_calendar)</option>
-                                    <option value="external_link" {% if tenant.scheduling_type == 'external_link' %}selected{% endif %}>External Booking Link — Calendly / JobNimbus / Housecall Pro (external_link)</option>
+                                <select id="settingsSchedulingType" onchange="onSchedulingModeChange()" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs font-bold text-white outline-none">
+                                    <option value="google_calendar" {% if tenant.scheduling_type == 'google_calendar' %}selected{% endif %}>Built-In Slot Picker + Google Calendar / ICS Sync (Recommended)</option>
+                                    <option value="external_link" {% if tenant.scheduling_type == 'external_link' %}selected{% endif %}>External Booking Link — Calendly / HubSpot / Cal.com / CRM (Inline Embed)</option>
                                 </select>
                             </div>
 
-                            <div>
-                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">External Booking URL (if external_link)</label>
+                            <div id="portalExternalUrlBox">
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">External Booking URL (Calendly, HubSpot, Cal.com, Acuity, CRM)</label>
                                 <input type="url" id="settingsBookingUrl" value="{{ tenant.booking_url or '' }}" placeholder="https://calendly.com/your-roofing-team/inspection" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs text-white font-mono outline-none">
+                                <p class="text-[10px] text-slate-400 mt-1.5">
+                                    Supported links embed inline in Step 4 and auto-update lead status via <code class="text-[#14b8a6]">https://oceancountyroofingpros.com/api/calendar/webhook</code>.
+                                </p>
                             </div>
 
                             <div>
-                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">24/7 SMS & Voice Dispatch Phone</label>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Primary SMS &amp; Lead Alert Phone</label>
                                 <input type="text" id="settingsDispatchPhone" value="{{ tenant.dispatch_phone }}" required class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs text-[#14b8a6] font-mono font-bold outline-none">
                             </div>
 
                             <div>
-                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Dispatch Notification Email</label>
+                                <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Dispatch Notification Email (Calendar Invites Sent Here)</label>
                                 <input type="email" id="settingsEmail" value="{{ tenant.email or '' }}" placeholder="dispatch@contractor.com" class="w-full bg-[#0a0a0c] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+                            </div>
+
+                            <!-- Built-In Availability & Zero-OAuth .ICS Sync Panel -->
+                            <div id="portalBuiltInScheduleBox" class="sm:col-span-2 bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-4 space-y-4">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#1f222a] pb-3">
+                                    <div>
+                                        <h4 class="text-xs font-black uppercase tracking-wider text-[#14b8a6]">Built-In Availability &amp; Zero-OAuth Calendar Sync</h4>
+                                        <p class="text-[11px] text-slate-400 mt-0.5">Set your crew inspection schedule below. Optionally paste your private read-only <code class="text-slate-200">.ics</code> iCal feed URL to automatically block busy times across Google, Apple, or Outlook.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Operating Days -->
+                                <div>
+                                    <label class="block text-[11px] font-bold uppercase text-slate-300 mb-2">Operating Inspection Days</label>
+                                    <div class="flex flex-wrap gap-2" id="settingsDaysGroup">
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availDay" value="Mon" checked class="accent-[#14b8a6]"> Mon</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availDay" value="Tue" checked class="accent-[#14b8a6]"> Tue</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availDay" value="Wed" checked class="accent-[#14b8a6]"> Wed</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availDay" value="Thu" checked class="accent-[#14b8a6]"> Thu</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availDay" value="Fri" checked class="accent-[#14b8a6]"> Fri</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availDay" value="Sat" checked class="accent-[#14b8a6]"> Sat</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availDay" value="Sun" class="accent-[#14b8a6]"> Sun</label>
+                                    </div>
+                                </div>
+
+                                <!-- Curated Windows -->
+                                <div>
+                                    <label class="block text-[11px] font-bold uppercase text-slate-300 mb-2">Allowed Inspection Arrival Windows (ET)</label>
+                                    <div class="flex flex-wrap gap-2" id="settingsWindowsGroup">
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availWin" value="9:00 AM" checked class="accent-[#14b8a6]"> 9:00 AM (Morning)</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availWin" value="11:30 AM" checked class="accent-[#14b8a6]"> 11:30 AM (Midday)</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availWin" value="2:00 PM" checked class="accent-[#14b8a6]"> 2:00 PM (Afternoon)</label>
+                                        <label class="inline-flex items-center gap-1.5 bg-[#111318] border border-[#1f222a] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-200 cursor-pointer"><input type="checkbox" name="availWin" value="4:30 PM" checked class="accent-[#14b8a6]"> 4:30 PM (Late Day)</label>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Minimum Notice Buffer</label>
+                                        <select id="settingsMinNotice" class="w-full bg-[#111318] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3 py-2 text-xs font-bold text-white outline-none">
+                                            <option value="same_day_2h">Same-Day (2+ hrs notice)</option>
+                                            <option value="next_day" selected>Next-Day (No same-day surprise visits)</option>
+                                            <option value="48h">48 Hours Advance Notice</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Max Inspections / Day</label>
+                                        <input type="number" id="settingsMaxPerDay" min="1" max="12" value="4" class="w-full bg-[#111318] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3 py-2 text-xs font-bold text-white outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Blackout Dates (YYYY-MM-DD)</label>
+                                        <input type="text" id="settingsBlackoutDates" placeholder="2026-11-26, 2026-12-25" class="w-full bg-[#111318] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3 py-2 text-xs font-mono text-white outline-none">
+                                    </div>
+                                </div>
+
+                                <!-- Private .ICS Feed URL + Test Sync -->
+                                <div>
+                                    <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Optional Read-Only .ICS Calendar Sync URL (Google / Apple / Outlook Secret iCal Address)</label>
+                                    <div class="flex flex-col sm:flex-row gap-2">
+                                        <input type="url" id="settingsIcsUrl" value="{{ tenant.ics_feed_url or '' }}" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" class="flex-1 bg-[#111318] border border-[#1f222a] focus:border-[#14b8a6] rounded-xl px-3.5 py-2.5 text-xs font-mono text-white outline-none">
+                                        <button type="button" id="testIcsBtn" onclick="testPartnerIcsFeed()" class="bg-[#1f222a] hover:bg-slate-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-700 transition whitespace-nowrap">
+                                            🔄 Test Sync
+                                        </button>
+                                    </div>
+                                    <p id="icsTestStatus" class="text-[11px] text-slate-400 mt-1.5">
+                                        Zero OAuth required: events marked Busy in your personal calendar automatically block conflicting homeowner inspection slots.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Optional 24/7 Emergency Leak Dispatch Settings -->
+                            <div id="portalEmergencyDispatchBox" class="sm:col-span-2 bg-[#0a0a0c] border border-rose-500/30 rounded-2xl p-4 space-y-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <span class="text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded">Optional After-Hours Service</span>
+                                        <h4 class="text-sm font-black text-white mt-1">🚨 24/7 Emergency Leak Dispatch</h4>
+                                        <p class="text-[11px] text-[#8b92a5]">Enable only if your crew can respond to active roof leaks &amp; emergency tarping. When OFF, urgent leads route to the county overflow pool or First-Morning 9:00 AM Priority.</p>
+                                    </div>
+                                    <label class="inline-flex items-center gap-2.5 cursor-pointer select-none bg-[#14161c] border border-[#1f222a] px-3.5 py-2 rounded-xl">
+                                        <input type="checkbox" id="settingsEmergencyEnabled" onchange="onEmergencyToggleChange()" class="w-4 h-4 accent-rose-500 rounded cursor-pointer">
+                                        <span class="text-xs font-extrabold text-white">Accept 24/7 / Extended Emergency Dispatch</span>
+                                    </label>
+                                </div>
+
+                                <div id="settingsEmergencyDetails" class="hidden grid sm:grid-cols-2 gap-3 pt-2 border-t border-[#1f222a]">
+                                    <div>
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Escalation Mode</label>
+                                        <select id="settingsEmergencyMode" class="w-full bg-[#14161c] border border-[#1f222a] focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white font-semibold outline-none">
+                                            <option value="sms_callback">Urgent SMS Alert + Priority Callback (Recommended)</option>
+                                            <option value="live_transfer">Live AI Call Transfer + Urgent SMS</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">On-Call Emergency Cell Phone</label>
+                                        <input type="text" id="settingsEmergencyPhone" placeholder="+17325550199" class="w-full bg-[#14161c] border border-[#1f222a] focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-rose-300 font-mono font-bold outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Coverage Hours Window (ET)</label>
+                                        <select id="settingsEmergencyHours" class="w-full bg-[#14161c] border border-[#1f222a] focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white font-semibold outline-none">
+                                            <option value="24_7">True 24/7 Emergency Coverage</option>
+                                            <option value="extended_7am_9pm">Extended Hours Only (7:00 AM – 9:00 PM ET)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Callback / Dispatch SLA Target</label>
+                                        <select id="settingsMaxResponseEta" class="w-full bg-[#14161c] border border-[#1f222a] focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white font-semibold outline-none">
+                                            <option value="15">15 Minutes</option>
+                                            <option value="30" selected>30 Minutes</option>
+                                            <option value="60">60 Minutes</option>
+                                        </select>
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-[11px] font-bold uppercase text-slate-300 mb-1.5">Tarping / After-Hours Fee Disclosure (Read by AI &amp; Shown on Web Form)</label>
+                                        <input type="text" id="settingsTarpingFeeNote" placeholder="Free daytime emergency inspection; after-hours tarping quote provided upfront before any work begins." class="w-full bg-[#14161c] border border-[#1f222a] focus:border-rose-500 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="sm:col-span-2 pt-1">
                                 <button type="submit" id="savePartnerSettingsBtn" class="bg-[#14b8a6] hover:bg-teal-400 text-slate-950 font-black text-xs px-5 py-3 rounded-xl shadow transition">
-                                    💾 Save Booking & Dispatch Configuration
+                                    💾 Save Booking &amp; Dispatch Configuration
                                 </button>
                             </div>
                         </form>
@@ -1148,6 +1267,43 @@
                     if (setUrl) setUrl.value = t.booking_url || '';
                     const setSched = document.getElementById('settingsSchedulingType');
                     if (setSched && t.scheduling_type) setSched.value = t.scheduling_type;
+                    const setIcs = document.getElementById('settingsIcsUrl');
+                    if (setIcs) setIcs.value = t.ics_feed_url || '';
+
+                    const avail = t.availability || {};
+                    if (Array.isArray(avail.days_of_week)) {
+                        document.querySelectorAll('input[name="availDay"]').forEach(cb => {
+                            cb.checked = avail.days_of_week.includes(cb.value);
+                        });
+                    }
+                    if (Array.isArray(avail.windows)) {
+                        document.querySelectorAll('input[name="availWin"]').forEach(cb => {
+                            cb.checked = avail.windows.includes(cb.value);
+                        });
+                    }
+                    const setMinNotice = document.getElementById('settingsMinNotice');
+                    if (setMinNotice && avail.min_notice) setMinNotice.value = avail.min_notice;
+                    const setMaxPerDay = document.getElementById('settingsMaxPerDay');
+                    if (setMaxPerDay && avail.max_per_day !== undefined) setMaxPerDay.value = avail.max_per_day;
+                    const setBlackouts = document.getElementById('settingsBlackoutDates');
+                    if (setBlackouts && Array.isArray(avail.blackout_dates)) {
+                        setBlackouts.value = avail.blackout_dates.join(', ');
+                    }
+                    const em = t.emergency_config || {};
+                    const emEnabledEl = document.getElementById('settingsEmergencyEnabled');
+                    if (emEnabledEl) emEnabledEl.checked = Boolean(em.emergency_enabled);
+                    const emModeEl = document.getElementById('settingsEmergencyMode');
+                    if (emModeEl && em.emergency_mode) emModeEl.value = em.emergency_mode;
+                    const emPhoneEl = document.getElementById('settingsEmergencyPhone');
+                    if (emPhoneEl) emPhoneEl.value = em.emergency_phone || t.dispatch_phone || '';
+                    const emHoursEl = document.getElementById('settingsEmergencyHours');
+                    if (emHoursEl && em.emergency_hours) emHoursEl.value = em.emergency_hours;
+                    const emEtaEl = document.getElementById('settingsMaxResponseEta');
+                    if (emEtaEl && em.max_response_eta_min) emEtaEl.value = String(em.max_response_eta_min);
+                    const emFeeEl = document.getElementById('settingsTarpingFeeNote');
+                    if (emFeeEl && em.tarping_fee_note) emFeeEl.value = em.tarping_fee_note;
+                    onEmergencyToggleChange();
+                    onSchedulingModeChange();
                 }
 
                 if (data.kpis) {
@@ -1418,8 +1574,77 @@
         }
 
         // ---------------------------------------------------------------------
-        // Booking & Calendar Settings Save (POST /api/admin/tenants)
+        // Booking Mode UI Toggle & Zero-OAuth .ICS Sync Check
         // ---------------------------------------------------------------------
+        function onSchedulingModeChange() {
+            const mode = document.getElementById('settingsSchedulingType')?.value || 'google_calendar';
+            const builtInBox = document.getElementById('portalBuiltInScheduleBox');
+            const extBox = document.getElementById('portalExternalUrlBox');
+            if (builtInBox) builtInBox.classList.toggle('hidden', mode === 'external_link');
+            if (extBox) extBox.classList.toggle('hidden', mode !== 'external_link');
+        }
+
+        async function testPartnerIcsFeed() {
+            const url = (document.getElementById('settingsIcsUrl')?.value || '').trim();
+            const statusEl = document.getElementById('icsTestStatus');
+            const btn = document.getElementById('testIcsBtn');
+            if (!url) {
+                if (statusEl) {
+                    statusEl.textContent = '⚠️ Paste your private .ics calendar URL first.';
+                    statusEl.className = 'text-[11px] text-amber-400 mt-1.5';
+                }
+                return;
+            }
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = '⏳ Testing...';
+            }
+            try {
+                const res = await fetch('/api/portal/test-ics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ics_feed_url: url })
+                });
+                const data = await res.json();
+                if (res.ok && (data.ok || data.status === 'success' || data.checked)) {
+                    const msg = data.message || `Connected! Found ${data.busy_count ?? data.event_count ?? 0} upcoming busy block(s).`;
+                    if (statusEl) {
+                        statusEl.textContent = `✅ ${msg}`;
+                        statusEl.className = 'text-[11px] text-emerald-400 font-semibold mt-1.5';
+                    }
+                    showPortalToast('ICS calendar feed connected!');
+                } else {
+                    const msg = data.detail || data.error || 'Could not parse .ics feed.';
+                    if (statusEl) {
+                        statusEl.textContent = `❌ ${msg}`;
+                        statusEl.className = 'text-[11px] text-rose-400 mt-1.5';
+                    }
+                    showPortalToast('ICS feed test failed.');
+                }
+            } catch (err) {
+                if (statusEl) {
+                    statusEl.textContent = '❌ Network error testing .ics feed.';
+                    statusEl.className = 'text-[11px] text-rose-400 mt-1.5';
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = '🔄 Test Sync';
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Booking & Calendar Settings Save (POST /api/portal/settings)
+        // ---------------------------------------------------------------------
+        function onEmergencyToggleChange() {
+            const enabled = Boolean(document.getElementById('settingsEmergencyEnabled')?.checked);
+            const detailsEl = document.getElementById('settingsEmergencyDetails');
+            if (detailsEl) {
+                detailsEl.classList.toggle('hidden', !enabled);
+            }
+        }
+
         async function savePartnerCalendarSettings(e) {
             e.preventDefault();
             const btn = document.getElementById('savePartnerSettingsBtn');
@@ -1427,6 +1652,14 @@
                 btn.disabled = true;
                 btn.innerText = '⏳ Saving Configuration...';
             }
+
+            const selectedDays = Array.from(document.querySelectorAll('input[name="availDay"]:checked')).map(el => el.value);
+            const selectedWins = Array.from(document.querySelectorAll('input[name="availWin"]:checked')).map(el => el.value);
+            const blackoutRaw = (document.getElementById('settingsBlackoutDates')?.value || '')
+                .split(',')
+                .map(s => s.trim())
+                .filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s));
+
             const payload = {
                 tenant_id: document.getElementById('settingsTenantId')?.value || window.PORTAL_STATE.tenantId,
                 company_name: document.getElementById('settingsCompanyName')?.value || '',
@@ -1434,11 +1667,27 @@
                 scheduling_type: document.getElementById('settingsSchedulingType')?.value || 'google_calendar',
                 booking_url: document.getElementById('settingsBookingUrl')?.value || '',
                 dispatch_phone: document.getElementById('settingsDispatchPhone')?.value || '',
-                email: document.getElementById('settingsEmail')?.value || ''
+                email: document.getElementById('settingsEmail')?.value || '',
+                ics_feed_url: (document.getElementById('settingsIcsUrl')?.value || '').trim(),
+                availability: {
+                    days_of_week: selectedDays.length > 0 ? selectedDays : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                    windows: selectedWins.length > 0 ? selectedWins : ['9:00 AM', '11:30 AM', '2:00 PM', '4:30 PM'],
+                    min_notice: document.getElementById('settingsMinNotice')?.value || 'next_day',
+                    max_per_day: parseInt(document.getElementById('settingsMaxPerDay')?.value || '4', 10) || 4,
+                    blackout_dates: blackoutRaw
+                },
+                emergency_config: {
+                    emergency_enabled: Boolean(document.getElementById('settingsEmergencyEnabled')?.checked),
+                    emergency_mode: document.getElementById('settingsEmergencyMode')?.value || 'sms_callback',
+                    emergency_phone: (document.getElementById('settingsEmergencyPhone')?.value || '').trim(),
+                    emergency_hours: document.getElementById('settingsEmergencyHours')?.value || '24_7',
+                    max_response_eta_min: parseInt(document.getElementById('settingsMaxResponseEta')?.value || '30', 10) || 30,
+                    tarping_fee_note: (document.getElementById('settingsTarpingFeeNote')?.value || '').trim()
+                }
             };
 
             try {
-                const res = await fetch('/api/admin/tenants', {
+                const res = await fetch('/api/portal/settings', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(payload)
@@ -1447,7 +1696,8 @@
                     showPortalToast('Booking & Calendar settings saved to Cloud!');
                     await loadPortalCloudData(payload.tenant_id);
                 } else {
-                    showPortalToast('Could not save settings.');
+                    const errData = await res.json().catch(() => ({}));
+                    showPortalToast(errData.detail || errData.error || 'Could not save settings.');
                 }
             } catch (err) {
                 showPortalToast('Error saving settings.');
@@ -1464,6 +1714,7 @@
             if (localStorage.getItem('ocrp_portal_left_collapsed') === '1') {
                 toggleLeftSidebar();
             }
+            onSchedulingModeChange();
             loadPortalCloudData();
         });
     </script>

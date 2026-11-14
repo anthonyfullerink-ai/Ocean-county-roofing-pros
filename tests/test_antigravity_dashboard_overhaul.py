@@ -506,3 +506,22 @@ def test_sameas_citations_schema_and_indexnow():
     assert "sameAs" in biz
     assert "https://www.bing.com/maps?osid=123" in biz["sameAs"]
     assert "https://www.yelp.com/biz/pending" not in biz["sameAs"]
+
+
+def test_scalable_trust_strip_estimator_and_guides_render():
+    """Verify static build renders vendor-neutral trust badges, estimator, and guides on home and town pages."""
+    import subprocess
+    from pathlib import Path
+    res = subprocess.run(["python", "build_static.py"], capture_output=True, text=True, check=True)
+    assert res.returncode == 0
+
+    for rel in ("dist/index.html", "dist/roofing-toms-river-nj/index.html"):
+        html = Path(rel).read_text(encoding="utf-8")
+        assert "NJ Licensed &amp; Insured (HIC Verified)" in html
+        assert "GAF Timberline HDZ®" in html
+        assert "CertainTeed Landmark®" in html
+        assert "Owens Corning® Duration®" in html
+        assert 'id="estSqftRange"' in html
+        assert 'id="guidePanel-repair"' in html
+        assert "Magnetic Sweep &amp; Warranty" in html
+        assert "319 Webster" not in html

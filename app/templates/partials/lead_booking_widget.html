@@ -1,0 +1,330 @@
+<!-- Right Column: Capture-First + Live Google Calendar + Multi-Channel Booking Widget -->
+<div class="lg:col-span-5" id="quizSection" data-town="{{ town.town_name }}" data-phone="{{ brand.primary_phone }}">
+    <div class="bg-white rounded-3xl p-6 sm:p-8 text-slate-800 shadow-2xl border border-slate-100 relative">
+
+        <!-- Progress Bar -->
+        <div id="quizProgressWrapper" class="mb-5">
+            <div class="flex justify-between items-center text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2">
+                <span id="quizStepLabel">Step 1 of 4: Problem Triage</span>
+                <span id="quizStepPct" class="text-brand-blue font-black">25%</span>
+            </div>
+            <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div id="quizProgressBar" class="bg-gradient-to-r from-teal-500 to-brand-blue h-full w-1/4 transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <!-- Estimator Carryover Pill (shown when user clicks from mid-page #estimator) -->
+        <div id="estimatorContextBadge" class="hidden mb-4 px-3.5 py-2 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs font-bold flex items-center justify-between gap-2">
+            <span id="estimatorContextText">Cost Guide Applied</span>
+            <button type="button" onclick="clearEstimatorSelection()" class="text-[11px] text-teal-700 hover:text-teal-950 underline shrink-0">Reset</button>
+        </div>
+
+        <!-- Priority Emergency Banner (shown when Active Water Leak selected) -->
+        <div id="emergencyLeakBanner" class="hidden mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs flex items-center justify-between gap-3">
+            <div>
+                <div id="emergencyBannerTitle" class="font-black uppercase tracking-wide text-[11px] text-rose-700">Emergency Dispatch Available</div>
+                <div id="emergencyBannerBody" class="text-rose-800 mt-0.5">Need immediate tarping or leak triage today?</div>
+                <div id="emergencyFeeNoteText" class="text-[11px] text-rose-700/80 mt-0.5 hidden"></div>
+            </div>
+            <a id="emergencyBannerCta" href="tel:{{ brand.primary_phone }}" class="bg-rose-600 hover:bg-rose-700 text-white font-black px-3.5 py-2 rounded-xl whitespace-nowrap shadow-sm transition text-xs">
+                Call Now
+            </a>
+        </div>
+
+        <!-- STEP 1: Problem Situation Triage -->
+        <div id="quizStep1" class="space-y-4">
+            <div class="text-center">
+                <span class="inline-block bg-teal-100 text-teal-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                    Free 21-Point Roof Inspection
+                </span>
+                <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">What is your roofing situation?</h3>
+                <p class="text-xs text-slate-500 mt-1">Select an option to calibrate your inspection &amp; open arrival times:</p>
+            </div>
+
+            <div class="space-y-2.5 pt-2">
+                <button type="button" onclick="selectQuizStep1('Active Water Leak')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                    <span class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">💧</span>
+                    <div class="flex-1">
+                        <div class="font-extrabold text-sm text-slate-900">Active Water Leak (Emergency)</div>
+                        <div class="text-xs text-slate-500">Water penetrating ceiling or attic right now</div>
+                    </div>
+                    <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                </button>
+
+                <button type="button" onclick="selectQuizStep1('Storm & Wind Damage')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                    <span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">💨</span>
+                    <div class="flex-1">
+                        <div class="font-extrabold text-sm text-slate-900">Storm &amp; Nor'easter Wind Damage</div>
+                        <div class="text-xs text-slate-500">Lifted shingles, missing tabs, or flashing tears</div>
+                    </div>
+                    <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                </button>
+
+                <button type="button" onclick="selectQuizStep1('Aging Roof (15+ Years)')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                    <span class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">⏳</span>
+                    <div class="flex-1">
+                        <div class="font-extrabold text-sm text-slate-900">Aging Roof (15+ Years Old)</div>
+                        <div class="text-xs text-slate-500">Algae streaks, granule loss, worn shingles</div>
+                    </div>
+                    <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                </button>
+
+                <button type="button" onclick="selectQuizStep1('Full Replacement & Architectural Upgrade')" class="w-full text-left p-3.5 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl flex items-center gap-3 transition group">
+                    <span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition">🏡</span>
+                    <div class="flex-1">
+                        <div class="font-extrabold text-sm text-slate-900">Full Architectural Upgrade</div>
+                        <div class="text-xs text-slate-500">GAF, CertainTeed, Owens Corning &amp; Metal options</div>
+                    </div>
+                    <span class="text-slate-300 group-hover:text-brand-blue font-bold text-lg">→</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 2: Home Architecture -->
+        <div id="quizStep2" class="hidden space-y-4">
+            <div class="text-center">
+                <span class="inline-block bg-sky-100 text-sky-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                    Property Calibrate
+                </span>
+                <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Select your home architecture:</h3>
+                <p class="text-xs text-slate-500 mt-1">Helps estimate roof square footage and ladder access:</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button type="button" onclick="selectQuizStep2('1-Story Ranch')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                    <span class="text-3xl mb-1 group-hover:scale-110 transition">🏠</span>
+                    <span class="font-extrabold text-sm text-slate-900">Single Story Ranch</span>
+                    <span class="text-[11px] text-slate-500">Low pitch</span>
+                </button>
+
+                <button type="button" onclick="selectQuizStep2('2-Story Colonial')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                    <span class="text-3xl mb-1 group-hover:scale-110 transition">🏘️</span>
+                    <span class="font-extrabold text-sm text-slate-900">2-Story Colonial</span>
+                    <span class="text-[11px] text-slate-500">Standard gables</span>
+                </button>
+
+                <button type="button" onclick="selectQuizStep2('Coastal / Lagoon Home')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                    <span class="text-3xl mb-1 group-hover:scale-110 transition">🌊</span>
+                    <span class="font-extrabold text-sm text-slate-900">Coastal / Lagoon</span>
+                    <span class="text-[11px] text-slate-500">High wind exposure</span>
+                </button>
+
+                <button type="button" onclick="selectQuizStep2('Split-Level / Cape Cod')" class="text-center p-4 border-2 border-slate-200 hover:border-brand-blue hover:bg-sky-50/50 rounded-2xl transition group flex flex-col items-center">
+                    <span class="text-3xl mb-1 group-hover:scale-110 transition">📐</span>
+                    <span class="font-extrabold text-sm text-slate-900">Split-Level / Cape</span>
+                    <span class="text-[11px] text-slate-500">Multi-tier roofline</span>
+                </button>
+            </div>
+
+            <div class="pt-2">
+                <button type="button" onclick="goToQuizStep(1)" class="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 mx-auto">
+                    ← Back to situation
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 3: Capture-First Contact & Property Details -->
+        <div id="quizStep3" class="hidden space-y-4">
+            <div class="text-center">
+                <span class="inline-block bg-emerald-100 text-emerald-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                    Step 3 • Unlock Live Calendar
+                </span>
+                <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Where should we send your inspection details?</h3>
+                <p class="text-xs text-slate-500 mt-1">Enter your info below to view &amp; lock in live inspection dates:</p>
+            </div>
+
+            <div id="quizErrorAlert" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold"></div>
+
+            <form id="leadForm" class="space-y-3 pt-1">
+                <input type="hidden" id="service" name="service" value="Full Roof Replacement">
+                <input type="hidden" id="quizSituation" name="quizSituation" value="">
+                <input type="hidden" id="quizHomeType" name="quizHomeType" value="">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="first_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Your Full Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="first_name" name="first_name" required placeholder="John Smith" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label for="phone" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Mobile Phone <span class="text-rose-500">*</span></label>
+                        <input type="tel" id="phone" name="phone" required placeholder="(732) 555-0123" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="address" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ town.town_name }} Property Address <span class="text-rose-500">*</span></label>
+                    <input type="text" id="address" name="address" required placeholder="123 Main St, {{ town.town_name }}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email <span class="text-slate-400 font-semibold normal-case">(optional — for calendar invite &amp; photo report)</span></label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                </div>
+
+                <!-- TCPA & A2P Compliance Disclaimer -->
+                <div class="pt-0.5 text-[11px] text-slate-500 leading-normal">
+                    By continuing, you authorize Offgrid Media, LLC (d/b/a Ocean County Roofing Pros) to contact you regarding your free roof inspection and appointment updates via call or text. Consent is not a condition of purchase. Msg &amp; data rates may apply. Reply STOP to cancel. <a href="/privacy-policy" class="text-brand-blue underline" target="_blank">Privacy</a> &amp; <a href="/terms" class="text-brand-blue underline" target="_blank">Terms</a>.
+                </div>
+
+                <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-base py-4 rounded-xl shadow-lg transition-all hover:scale-[1.01] flex items-center justify-center gap-2">
+                    <span>📅 Continue to Live Calendar Times</span>
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                </button>
+
+                <button type="button" onclick="goToQuizStep(2)" class="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1 mx-auto pt-1">
+                    ← Back to home type
+                </button>
+            </form>
+        </div>
+
+        <!-- STEP 4: Live Google Calendar Booking & Gated NJ Cost Guide -->
+        <div id="quizStep4" class="hidden space-y-4">
+            <div class="text-center">
+                <span class="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                    <span>✓ Request Saved</span>
+                    <span id="step4LeadIdBadge" class="font-mono text-[11px] opacity-80"></span>
+                </span>
+                <h3 class="text-xl font-black text-slate-900 tracking-tight">Pick Your Preferred Inspection Day &amp; Window</h3>
+                <p class="text-xs text-slate-500 mt-1">Select an open arrival window synced directly with our dispatch calendar:</p>
+            </div>
+
+            <!-- Gated Instant-Gratification Ocean County Ballpark Summary -->
+            <div id="step4BallparkCard" class="p-3.5 rounded-2xl bg-slate-900 text-white border border-slate-700 flex items-center justify-between gap-3">
+                <div>
+                    <div id="step4BallparkTag" class="text-[10px] font-black uppercase tracking-wider text-teal-300">Ocean County NJ Guide</div>
+                    <div id="step4BallparkRange" class="text-base font-black text-white mt-0.5">$9,800 – $13,200</div>
+                    <div id="step4BallparkSub" class="text-[11px] text-slate-300">Exact written price locked free on-site</div>
+                </div>
+                <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-1 rounded-lg whitespace-nowrap">
+                    0% Intro Financing
+                </span>
+            </div>
+
+            <div id="calendarBookError" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold"></div>
+
+            <!-- External Partner Calendar Embed + Link (when active tenant uses scheduling_type = external_link) -->
+            <div id="externalBookingContainer" class="hidden space-y-3 text-center py-1">
+                <p class="text-xs text-slate-600">Select your inspection day &amp; window below on our {{ town.town_name }} partner's live calendar:</p>
+                <div id="externalEmbedWrapper" class="hidden rounded-2xl overflow-hidden border border-slate-200 bg-slate-50 shadow-inner">
+                    <iframe id="externalBookingIframe" title="Live Inspection Scheduler" class="w-full h-[380px] border-0" loading="lazy" allow="payment"></iframe>
+                </div>
+                <a id="externalBookingLink" href="#" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-2 bg-amber-400 text-slate-950 px-5 py-3 rounded-2xl font-black text-sm shadow hover:bg-amber-300 transition">
+                    📅 Open Full Partner Calendar in New Tab →
+                </a>
+            </div>
+
+            <!-- Native Google Calendar Slot Picker -->
+            <div id="calendarPickerContainer" class="space-y-3">
+                <div id="calendarLoading" class="text-center py-6 text-xs font-bold text-slate-500">
+                    Loading live open inspection windows...
+                </div>
+
+                <div id="calendarContent" class="hidden space-y-3">
+                    <div>
+                        <div class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">1. Choose a Day (Mon–Sat)</div>
+                        <div id="calendarDatePills" class="grid grid-cols-3 gap-2"></div>
+                    </div>
+
+                    <div>
+                        <div class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-1.5">2. Choose an Arrival Window (ET)</div>
+                        <div id="calendarTimeSlots" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+
+                    <button type="button" id="confirmSlotBtn" onclick="confirmCalendarBooking()" disabled class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 disabled:opacity-40 disabled:cursor-not-allowed hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm py-3.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                        <span>✓ Confirm Selected Date &amp; Time</span>
+                    </button>
+                </div>
+            </div>
+
+            <button type="button" onclick="skipCalendarStep()" class="w-full text-xs text-slate-500 hover:text-slate-800 font-bold underline underline-offset-2 pt-1">
+                Skip for now — have estimator call/text me to coordinate
+            </button>
+        </div>
+
+        <!-- IN-CARD QUICK EMAIL MODE -->
+        <div id="emailInquiryMode" class="hidden space-y-4">
+            <div class="text-center">
+                <span class="inline-block bg-sky-100 text-sky-900 text-xs font-black uppercase px-3 py-1 rounded-full mb-1">
+                    Direct Email Desk
+                </span>
+                <h3 class="text-xl font-black text-slate-900 tracking-tight">Send an Email Question or Estimate Request</h3>
+                <p class="text-xs text-slate-500 mt-1">Scheduling coordinator Riley Davis replies directly to your inbox.</p>
+            </div>
+
+            <div id="emailModeError" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold"></div>
+
+            <form id="emailInquiryForm" class="space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="emailModeName" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Your Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="emailModeName" required placeholder="John Smith" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                    </div>
+                    <div>
+                        <label for="emailModeEmail" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address <span class="text-rose-500">*</span></label>
+                        <input type="email" id="emailModeEmail" required placeholder="you@example.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                    </div>
+                </div>
+                <div>
+                    <label for="emailModeAddress" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">{{ town.town_name }} Address <span class="text-slate-400 font-semibold normal-case">(optional)</span></label>
+                    <input type="text" id="emailModeAddress" placeholder="Street &amp; Town" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
+                </div>
+                <div>
+                    <label for="emailModeMessage" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">How can we help? <span class="text-rose-500">*</span></label>
+                    <textarea id="emailModeMessage" rows="3" required placeholder="Ask about roof replacement pricing, leak repairs, or preferred dates..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition"></textarea>
+                </div>
+
+                <button type="submit" id="emailModeSubmitBtn" class="w-full bg-brand-navy hover:bg-slate-900 text-white font-black text-sm py-3.5 rounded-xl shadow-lg transition">
+                    ✉️ Send Email to Scheduling Desk
+                </button>
+            </form>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                <button type="button" onclick="toggleEmailMode(false)" class="text-slate-600 hover:text-slate-900 font-bold">
+                    ← Back to Calendar Quiz
+                </button>
+                <a href="mailto:riley@oceancountyroofingpros.com?subject=Roof%20Inspection%20Inquiry%20-%20{{ town.town_name | urlencode }}" class="text-brand-blue hover:underline font-semibold">
+                    Open in Mail App ↗
+                </a>
+            </div>
+        </div>
+
+        <!-- FINAL SUCCESS STATE -->
+        <div id="formSuccess" class="hidden text-center py-5 space-y-3">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-black">✓</div>
+            <h3 id="successTitle" class="text-2xl font-black text-slate-900">21-Point Inspection Confirmed!</h3>
+            <p id="successSubtitle" class="text-sm text-slate-600">Our estimator for <strong>{{ town.town_name }}</strong> has your diagnostic file ready.</p>
+
+            <div id="confirmedSlotBanner" class="hidden p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-sm font-black"></div>
+
+            <div class="p-3.5 bg-slate-50 rounded-2xl text-xs text-slate-600 text-left border border-slate-200">
+                <strong>What happens next:</strong>
+                <ul class="list-disc list-inside mt-1 space-y-0.5 text-slate-500">
+                    <li>Lead Reference: <span id="successLeadRef" class="font-mono font-bold text-slate-700">Saved</span></li>
+                    <li>No surprise knocking — arrives only during your confirmed window.</li>
+                    <li>Full 21-point photo scan &amp; itemized quote reviewed on-site.</li>
+                </ul>
+            </div>
+
+            <div id="addToGcalContainer" class="hidden pt-1">
+                <a id="addToGcalLink" href="#" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-2 bg-sky-50 hover:bg-sky-100 text-brand-navy border border-sky-200 px-4 py-2.5 rounded-xl font-bold text-xs transition">
+                    📆 Save Appointment to Your Google Calendar →
+                </a>
+            </div>
+        </div>
+
+        <!-- MULTI-CHANNEL ESCAPE HATCH FOOTER (Call / Email) -->
+        <div id="quizAltChannels" class="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+            <span class="text-slate-400 font-semibold hidden sm:inline">Prefer direct contact?</span>
+            <div class="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
+                <a href="tel:{{ brand.primary_phone }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 transition">
+                    <span>📞 Call</span>
+                    <span class="live-dispatch-phone">{{ brand.formatted_phone or '(732) 660-9121' }}</span>
+                </a>
+                <button type="button" onclick="toggleEmailMode(true)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-200 transition">
+                    <span>✉️ Email Us</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>

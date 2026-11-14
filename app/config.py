@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     VAPI_API_KEY: Optional[str] = None
     VAPI_PHONE_NUMBER_ID: Optional[str] = None
     VAPI_OUTBOUND_ASSISTANT_ID: Optional[str] = None
+    VAPI_SERVER_SECRET: Optional[str] = None
 
     # Twilio
     TWILIO_ACCOUNT_SID: Optional[str] = None

@@ -21,6 +21,8 @@ from app.services.db import (
     list_reviews,
     get_setting,
     get_bool_setting,
+    list_blog_posts,
+    get_blog_post,
 )
 from app.agents.gbp_seo_agent import build_dynamic_town_json_ld
 
@@ -180,6 +182,27 @@ async def get_sitemap_xml():
 
     urls.append(
         f"""  <url>
+    <loc>{base_url}/blog</loc>
+    <lastmod>{today_iso}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>"""
+    )
+    for post in list_blog_posts(status="published"):
+        pslug = post.get("slug")
+        if pslug:
+            lastmod = (post.get("updated_at") or post.get("published_at") or today_iso)[:10]
+            urls.append(
+                f"""  <url>
+    <loc>{base_url}/blog/{pslug}</loc>
+    <lastmod>{lastmod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>"""
+            )
+
+    urls.append(
+        f"""  <url>
     <loc>{base_url}/privacy-policy</loc>
     <lastmod>{today_iso}</lastmod>
     <changefreq>monthly</changefreq>
@@ -239,6 +262,64 @@ async def switch_tenant_admin(body: TenantSwitchRequest):
         "message": f"Successfully switched active contractor to: {new_active.company_name}",
         "active_tenant": new_active.model_dump(),
     }
+
+
+# ------------------------------------------------------------------------------
+# SEO BLOG HUB & ARTICLE ROUTES (/blog & /blog/{post_slug})
+# ------------------------------------------------------------------------------
+
+def _build_blog_shared_context() -> Dict[str, Any]:
+    brand = load_brand_config()
+    all_towns = load_towns_data()
+    storm_alert_active = get_bool_setting("storm_alert_active", False) and get_bool_setting(
+        "enable_weather_storm_banner", True
+    )
+    storm_alert_headline = get_setting(
+        "storm_alert_headline",
+        "🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily",
+    )
+    raw_ticker = get_setting("dispatch_ticker_json", "[]")
+    try:
+        ticker_list = json.loads(raw_ticker)
+    except Exception:
+        ticker_list = []
+    return {
+        "brand": brand,
+        "all_towns": all_towns,
+        "storm_alert_active": storm_alert_active,
+        "storm_alert_headline": storm_alert_headline,
+        "dispatch_ticker_messages": ticker_list,
+    }
+
+
+@router.get("/blog", response_class=HTMLResponse)
+async def render_blog_index(request: Request):
+    posts = list_blog_posts(status="published")
+    categories = []
+    for p in posts:
+        cat = p.get("category")
+        if cat and cat not in categories:
+            categories.append(cat)
+    ctx = {
+        **_build_blog_shared_context(),
+        "posts": posts,
+        "categories": categories,
+    }
+    return templates.TemplateResponse(request, "blog_index.html", ctx)
+
+
+@router.get("/blog/{post_slug}", response_class=HTMLResponse)
+async def render_blog_post(request: Request, post_slug: str):
+    post = get_blog_post(post_slug)
+    if not post or post.get("status") != "published":
+        raise HTTPException(status_code=404, detail=f"Guide '{post_slug}' not found.")
+    related = [p for p in list_blog_posts(status="published") if p.get("slug") != post.get("slug")][:2]
+    ctx = {
+        **_build_blog_shared_context(),
+        "post": post,
+        "related_posts": related,
+    }
+    return templates.TemplateResponse(request, "blog_post.html", ctx)
 
 
 # ------------------------------------------------------------------------------

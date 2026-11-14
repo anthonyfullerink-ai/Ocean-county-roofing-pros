@@ -7,6 +7,8 @@
  * 3. Triggers `netlify_build_hook_url` only when new proof/reviews are promoted so `dist/`
  *    and `sitemap.xml` <lastmod> dates stay fresh for Googlebot without wasting build minutes.
  */
+import { MetaSocialService } from "./services/meta-social-service.mjs";
+
 export const config = {
   schedule: "0 11 * * *"
 };
@@ -45,12 +47,13 @@ export default async (req, context) => {
     const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     let promotedCount = 0;
 
-    // 2. Promote expired 24h pending job photos
+    // 2. Promote expired 24h pending job photos & cross-post to Meta (FB + IG)
     const projRes = await fetch(
       `${supabaseUrl}/rest/v1/job_projects?status=eq.pending_auto_24h&created_at=lt.${encodeURIComponent(cutoffIso)}`,
       { headers }
     );
     const pendingProjects = projRes.ok ? await projRes.json() : [];
+    const metaResults = [];
     for (const p of pendingProjects) {
       await fetch(`${supabaseUrl}/rest/v1/job_projects?id=eq.${encodeURIComponent(p.id)}`, {
         method: "PATCH",
@@ -58,6 +61,20 @@ export default async (req, context) => {
         body: JSON.stringify({ status: "approved" })
       });
       promotedCount++;
+
+      const town = p.town || "Ocean County, NJ";
+      const caption = p.caption || p.title || `Completed roofing project in ${town} by Ocean County Roofing Pros! Need a free 21-point drone & attic inspection? Call (732) 660-9121 or visit https://oceancountyroofingpros.com`;
+      const imageUrl = p.image_url || p.photo_url || "";
+      if (MetaSocialService.isPublicHttpsUrl(imageUrl)) {
+        try {
+          const metaRes = await MetaSocialService.publishPost({
+            caption,
+            imageUrl,
+            linkUrl: "https://oceancountyroofingpros.com"
+          });
+          metaResults.push({ type: "project", id: p.id, ...metaRes });
+        } catch (e) {}
+      }
     }
 
     // 3. Promote expired 24h pending review replies
@@ -103,9 +120,83 @@ export default async (req, context) => {
         })
       });
       promotedCount++;
+
+      try {
+        const metaRes = await MetaSocialService.publishPost({
+          caption: post.summary || post.content || post.title || "Ocean County Roofing Pros Update — (732) 660-9121",
+          imageUrl: post.image_url || "",
+          linkUrl: post.cta_url || "https://oceancountyroofingpros.com"
+        });
+        metaResults.push({ type: "gbp_post", id: post.id, ...metaRes });
+      } catch (e) {}
     }
 
-    // 5. Trigger Netlify Build Hook & IndexNow Ping only when new proof/reviews published
+    // 4B. Promote expired 24h blog_posts drafts -> published + Meta teaser + IndexNow
+    const promotedBlogUrls = [];
+    try {
+      const blogRes = await fetch(
+        `${supabaseUrl}/rest/v1/blog_posts?status=eq.draft_auto_24h`,
+        { headers }
+      );
+      const blogDrafts = blogRes.ok ? await blogRes.json() : [];
+      const nowMs = Date.now();
+      const cutoffMs = Date.parse(cutoffIso);
+      const nowIso = new Date(nowMs).toISOString();
+      for (const article of blogDrafts) {
+        const autoPublishMs = article.auto_publish_at ? Date.parse(article.auto_publish_at) : NaN;
+        const createdMs = article.created_at ? Date.parse(article.created_at) : NaN;
+        const isReady = Number.isFinite(autoPublishMs)
+          ? autoPublishMs <= nowMs
+          : Number.isFinite(createdMs)
+            ? createdMs < cutoffMs
+            : true;
+        if (!isReady) continue;
+
+        const patchBlog = await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(article.id)}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({
+            status: "published",
+            published_at: article.published_at || nowIso,
+            auto_publish_at: null,
+            updated_at: nowIso
+          })
+        });
+        if (!patchBlog.ok) continue;
+        promotedCount++;
+        const articleUrl = `https://oceancountyroofingpros.com/blog/${article.slug}`;
+        promotedBlogUrls.push(articleUrl);
+
+        if (!article.meta_shared) {
+          try {
+            const relImg = (article.hero_image_url || "").trim();
+            const publicImageUrl = /^https?:\/\//i.test(relImg)
+              ? relImg.replace(/^http:\/\//i, "https://").replace(/\.webp$/i, ".jpg")
+              : relImg
+                ? `https://oceancountyroofingpros.com${relImg.startsWith("/") ? "" : "/"}${relImg.replace(/\.webp$/i, ".jpg")}`
+                : "";
+            const metaRes = await MetaSocialService.publishPost({
+              caption: article.social_caption || `${article.title} — ${article.excerpt || "Ocean County Roofing Pros Local Guide"}`,
+              imageUrl: publicImageUrl,
+              linkUrl: articleUrl,
+              pageId: sys.meta_page_id,
+              igUserId: sys.meta_ig_user_id,
+              pageToken: sys.meta_page_access_token
+            });
+            metaResults.push({ type: "blog_post", id: article.id, slug: article.slug, ...metaRes });
+            if (metaRes?.facebook?.status === "published" || metaRes?.instagram?.status === "published" || metaRes?.status === "published") {
+              await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(article.id)}`, {
+                method: "PATCH",
+                headers,
+                body: JSON.stringify({ meta_shared: true, updated_at: new Date().toISOString() })
+              });
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    // 5. Trigger Netlify Build Hook & IndexNow Ping only when new proof/reviews/blog posts published
     let rebuildTriggered = false;
     let indexNowPinged = false;
     const buildHook = (sys.netlify_build_hook_url || "").trim();
@@ -118,6 +209,21 @@ export default async (req, context) => {
 
     if (promotedCount > 0) {
       try {
+        const indexNowUrls = [
+          "https://oceancountyroofingpros.com/",
+          "https://oceancountyroofingpros.com/blog",
+          "https://oceancountyroofingpros.com/roofing-toms-river-nj",
+          "https://oceancountyroofingpros.com/roofing-brick-nj",
+          "https://oceancountyroofingpros.com/roofing-point-pleasant-nj",
+          "https://oceancountyroofingpros.com/roofing-jackson-nj",
+          "https://oceancountyroofingpros.com/roofing-lacey-nj",
+          "https://oceancountyroofingpros.com/roofing-lakewood-nj",
+          "https://oceancountyroofingpros.com/roofing-barnegat-nj",
+          "https://oceancountyroofingpros.com/roofing-manahawkin-nj",
+          "https://oceancountyroofingpros.com/roofing-howell-nj",
+          "https://oceancountyroofingpros.com/roofing-freehold-nj",
+          ...promotedBlogUrls
+        ];
         const idxRes = await fetch("https://api.indexnow.org/indexnow", {
           method: "POST",
           headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -125,19 +231,7 @@ export default async (req, context) => {
             host: "oceancountyroofingpros.com",
             key: "ocrp2026indexnow84eb54d7",
             keyLocation: "https://oceancountyroofingpros.com/ocrp2026indexnow84eb54d7.txt",
-            urlList: [
-              "https://oceancountyroofingpros.com/",
-              "https://oceancountyroofingpros.com/roofing-toms-river-nj",
-              "https://oceancountyroofingpros.com/roofing-brick-nj",
-              "https://oceancountyroofingpros.com/roofing-point-pleasant-nj",
-              "https://oceancountyroofingpros.com/roofing-jackson-nj",
-              "https://oceancountyroofingpros.com/roofing-lacey-nj",
-              "https://oceancountyroofingpros.com/roofing-lakewood-nj",
-              "https://oceancountyroofingpros.com/roofing-barnegat-nj",
-              "https://oceancountyroofingpros.com/roofing-manahawkin-nj",
-              "https://oceancountyroofingpros.com/roofing-howell-nj",
-              "https://oceancountyroofingpros.com/roofing-freehold-nj"
-            ]
+            urlList: indexNowUrls
           })
         });
         indexNowPinged = idxRes.ok;

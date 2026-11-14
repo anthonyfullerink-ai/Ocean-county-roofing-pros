@@ -10,6 +10,17 @@ export default async (req, context) => {
     });
   }
 
+  const expectedSecret = (process.env.VAPI_SERVER_SECRET || "").trim();
+  if (expectedSecret) {
+    const providedSecret = (req.headers.get("x-vapi-secret") || "").trim();
+    if (providedSecret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized webhook request" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+  }
+
   try {
     const body = await req.json();
     const message = body.message || body;

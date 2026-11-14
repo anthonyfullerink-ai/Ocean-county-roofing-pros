@@ -20,6 +20,7 @@ const STATE = {
     projects: [],
     reviews: [],
     gbp_posts: [],
+    blog_posts: [],
     agent_runs: [],
     sys_settings: {},
     territory_routing: {},
@@ -279,9 +280,11 @@ async function hydrateAdminBootstrap() {
         STATE.projects = data.projects || [];
         STATE.reviews = data.reviews || [];
         STATE.gbp_posts = data.gbp_posts || [];
+        STATE.blog_posts = data.blog_posts || [];
         STATE.agent_runs = data.agent_runs || [];
         STATE.sys_settings = data.sys_settings || {};
         STATE.territory_routing = data.territory_routing || {};
+        STATE.emergency_dispatch_policy = data.emergency_dispatch_policy || { overflow_tenant_id: '' };
         STATE.kpis = data.kpis || {};
 
         updateKpiCards(STATE.kpis);
@@ -289,6 +292,7 @@ async function hydrateAdminBootstrap() {
         renderCrmLeadsTable();
         renderTenantsCards();
         renderTerritoryMatrix();
+        renderBlogPostsManager();
         hydrateSettingsInputs();
         if (data.latest_report?.markdown_content) {
             const briefEl = document.getElementById('executiveBriefingBox');
@@ -849,26 +853,48 @@ async function saveSmsAlertSettings(e) {
 function renderTenantsCards() {
     const grid = document.getElementById('tenantsCardGrid');
     if (!grid || !STATE.tenants.length) return;
-    grid.innerHTML = STATE.tenants.map(t => `
+    grid.innerHTML = STATE.tenants.map(t => {
+        const em = t.emergency_config || {};
+        const emOn = Boolean(em.emergency_enabled);
+        const emModeLabel = em.emergency_mode === 'live_transfer' ? 'Live Transfer' : 'Urgent SMS';
+        const emHoursLabel = em.emergency_hours === 'extended_7am_9pm' ? '7am–9pm' : '24/7';
+        const emBadge = emOn
+            ? `<span class="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">🚨 ${emHoursLabel} EMERGENCY ON (${emModeLabel})</span>`
+            : `<span class="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">☀️ DAYTIME ONLY</span>`;
+        return `
         <div class="bg-[#14161c] border-2 ${t.is_active ? 'border-teal-500' : 'border-[#1f222a]'} rounded-2xl p-5 space-y-3">
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-start gap-2">
                 <div>
-                    <span class="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${t.is_active ? 'bg-teal-500/20 text-teal-300' : 'bg-[#0a0a0c] text-[#8b92a5]'}">${t.is_active ? '🟢 PRIMARY DEFAULT PARTNER' : '⚪ TERRITORY / STANDBY PARTNER'}</span>
-                    <h4 class="text-lg font-black text-white mt-1">${escapeHtml(t.company_name)}</h4>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${t.is_active ? 'bg-teal-500/20 text-teal-300' : 'bg-[#0a0a0c] text-[#8b92a5]'}">${t.is_active ? '🟢 PRIMARY DEFAULT PARTNER' : '⚪ TERRITORY / STANDBY PARTNER'}</span>
+                        ${emBadge}
+                    </div>
+                    <h4 class="text-lg font-black text-white mt-1.5">${escapeHtml(t.company_name)}</h4>
                     <p class="text-xs text-[#8b92a5]">ID: <code>${escapeHtml(t.tenant_id)}</code> • Estimator: <strong class="text-white">${escapeHtml(t.estimator_name)}</strong></p>
                 </div>
-                ${!t.is_active ? `<button onclick="switchActiveTenant('${escapeHtml(t.tenant_id)}')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-3 py-1.5 rounded-xl">⚡ Set Primary</button>` : ''}
+                ${!t.is_active ? `<button onclick="switchActiveTenant('${escapeHtml(t.tenant_id)}')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-3 py-1.5 rounded-xl shrink-0">⚡ Set Primary</button>` : ''}
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs bg-[#0a0a0c] p-3 rounded-xl border border-[#1f222a]">
                 <div><span class="text-[#8b92a5] block text-[10px]">Dispatch Phone</span><strong class="text-white font-mono">${escapeHtml(t.dispatch_phone)}</strong></div>
                 <div><span class="text-[#8b92a5] block text-[10px]">Partner Email</span><strong class="text-white">${escapeHtml(t.email || '—')}</strong></div>
                 <div><span class="text-[#8b92a5] block text-[10px]">Monthly Retainer</span><strong class="text-emerald-400 font-mono">$${Number(t.monthly_retainer || 1500).toLocaleString()}/mo</strong></div>
-                <div><span class="text-[#8b92a5] block text-[10px]">Portal PIN</span><strong class="text-amber-300 font-mono">${escapeHtml(t.portal_pin)}</strong></div>
+                <div><span class="text-[#8b92a5] block text-[10px]">Emergency Line / PIN</span><strong class="text-amber-300 font-mono">${emOn && em.emergency_phone ? escapeHtml(em.emergency_phone) : escapeHtml(t.portal_pin)}</strong></div>
             </div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
 }
 
 function renderTerritoryMatrix() {
+    const overflowSel = document.getElementById('emergencyOverflowSelect');
+    if (overflowSel) {
+        const currentOverflow = (STATE.emergency_dispatch_policy && STATE.emergency_dispatch_policy.overflow_tenant_id) || '';
+        overflowSel.innerHTML = `<option value="">None (Fallback to Next-Morning 9:00 AM Priority)</option>` +
+            STATE.tenants.map(t => {
+                const em = t.emergency_config || {};
+                const tag = em.emergency_enabled ? '[24/7 ON]' : '[Opt-In OFF]';
+                return `<option value="${escapeHtml(t.tenant_id)}" ${currentOverflow === t.tenant_id ? 'selected' : ''}>${escapeHtml(t.company_name)} ${tag}</option>`;
+            }).join('');
+    }
     const container = document.getElementById('territoryMatrixGrid');
     if (!container) return;
     container.innerHTML = OCEAN_MONMOUTH_TOWNS.map(town => {
@@ -890,14 +916,22 @@ async function saveTerritoryRouting(e) {
         const town = sel.getAttribute('data-town');
         if (sel.value && sel.value !== 'DEFAULT') map[town] = sel.value;
     });
+    const overflowSel = document.getElementById('emergencyOverflowSelect');
+    const emergencyDispatchPolicy = {
+        overflow_tenant_id: overflowSel ? overflowSel.value : ''
+    };
     const res = await fetch('/api/admin/routing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ territory_routing: map })
+        body: JSON.stringify({
+            territory_routing: map,
+            emergency_dispatch_policy: emergencyDispatchPolicy
+        })
     });
     if (res.ok) {
         STATE.territory_routing = map;
-        showToast('Hybrid Town Territory Routing saved to Supabase!');
+        STATE.emergency_dispatch_policy = emergencyDispatchPolicy;
+        showToast('Territory Routing & Emergency Overflow saved!');
     }
 }
 
@@ -1061,12 +1095,86 @@ function previewWebsiteInRightPane(url = '/') {
 
 function loadPreviewUrl(url) {
     const iframe = document.getElementById('livePreviewIframe');
-    if (iframe) iframe.src = url;
+    if (iframe) {
+        iframe.removeAttribute('srcdoc');
+        iframe.src = url;
+    }
 }
 
 function refreshPreviewFrame() {
     const iframe = document.getElementById('livePreviewIframe');
-    if (iframe && iframe.src) iframe.src = iframe.src;
+    if (!iframe) return;
+    if (iframe.hasAttribute('srcdoc')) {
+        iframe.srcdoc = iframe.srcdoc;
+    } else if (iframe.src) {
+        iframe.src = iframe.src;
+    }
+}
+
+function parseBlogJsonList(val, fallbackVal) {
+    if (Array.isArray(val)) return val;
+    if (typeof fallbackVal === 'string' && fallbackVal.trim()) {
+        try { const p = JSON.parse(fallbackVal); return Array.isArray(p) ? p : []; } catch (_) { return []; }
+    }
+    return [];
+}
+
+function previewBlogPost(postId, fallbackUrl = '/blog') {
+    const posts = Array.isArray(STATE.blog_posts) ? STATE.blog_posts : [];
+    const post = posts.find(p => p.id === postId || p.slug === postId);
+    if (!post) {
+        previewWebsiteInRightPane(fallbackUrl);
+        return;
+    }
+    if (post.status === 'published') {
+        previewWebsiteInRightPane(`/blog/${post.slug}`);
+        return;
+    }
+    switchRightTab('preview');
+    const iframe = document.getElementById('livePreviewIframe');
+    if (!iframe) return;
+
+    const sections = parseBlogJsonList(post.sections, post.sections_json);
+    const faqs = parseBlogJsonList(post.faqs, post.faqs_json);
+    const townsText = formatBlogTowns(post);
+    const heroHtml = post.hero_image_url
+        ? `<img src="${escapeHtmlBlog(post.hero_image_url)}" alt="${escapeHtmlBlog(post.hero_image_alt || post.title)}" style="width:100%;max-height:240px;object-fit:cover;border-radius:12px;margin:16px 0;" />`
+        : '';
+    const videoHtml = post.veo_video_url
+        ? `<video controls playsinline preload="metadata" poster="${escapeHtmlBlog(post.veo_video_poster_url || post.hero_image_url || '')}" style="width:100%;border-radius:12px;margin:16px 0;"><source src="${escapeHtmlBlog(post.veo_video_url)}" type="video/mp4" /></video>`
+        : '';
+    const sectionsHtml = sections.filter(s => s && typeof s === 'object').map(s => {
+        const paras = (Array.isArray(s.paragraphs) ? s.paragraphs : []).map(p => `<p style="color:#cbd5e1;line-height:1.65;margin:10px 0;">${escapeHtmlBlog(p)}</p>`).join('');
+        const bullets = (Array.isArray(s.bullets) && s.bullets.length)
+            ? `<ul style="padding-left:18px;color:#94a3b8;line-height:1.6;">${s.bullets.map(b => `<li>${escapeHtmlBlog(b)}</li>`).join('')}</ul>`
+            : '';
+        const headers = Array.isArray(s.table?.headers) ? s.table.headers : [];
+        const rows = Array.isArray(s.table?.rows) ? s.table.rows : [];
+        const tableHtml = (headers.length || rows.length)
+            ? `<div style="overflow-x:auto;margin-top:12px;border:1px solid #1e293b;border-radius:10px;"><table style="width:100%;border-collapse:collapse;font-size:12px;text-align:left;">${headers.length ? `<thead style="background:#0f172a;color:#2dd4bf;"><tr>${headers.map(th => `<th style="padding:8px 10px;border-bottom:1px solid #1e293b;">${escapeHtmlBlog(th)}</th>`).join('')}</tr></thead>` : ''}<tbody>${rows.map(r => `<tr>${(Array.isArray(r) ? r : []).map(cell => `<td style="padding:8px 10px;border-bottom:1px solid #1e293b;color:#cbd5e1;">${escapeHtmlBlog(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`
+            : '';
+        const calloutObj = typeof s.callout === 'string' ? { body: s.callout } : (s.callout && typeof s.callout === 'object' ? s.callout : null);
+        const calloutTitle = calloutObj ? String(calloutObj.title || '').trim() : '';
+        const calloutBody = calloutObj ? String(calloutObj.body || '').trim() : '';
+        const calloutHtml = (calloutTitle || calloutBody)
+            ? `<div style="margin-top:12px;background:#0f172a;border-left:3px solid #2dd4bf;padding:10px 12px;border-radius:0 8px 8px 0;">${calloutTitle ? `<div style="font-size:11px;font-weight:800;color:#2dd4bf;text-transform:uppercase;margin-bottom:4px;">${escapeHtmlBlog(calloutTitle)}</div>` : ''}${calloutBody ? `<p style="color:#cbd5e1;margin:0;font-size:13px;line-height:1.55;">${escapeHtmlBlog(calloutBody)}</p>` : ''}</div>`
+            : '';
+        return `<section style="margin-top:20px;"><h2 style="font-size:18px;color:#fff;margin-bottom:8px;">${escapeHtmlBlog(s.heading || '')}</h2>${paras}${bullets}${tableHtml}${calloutHtml}</section>`;
+    }).join('');
+    const validFaqs = faqs.filter(f => f && typeof f === 'object' && (f.question || f.q || f.answer || f.a));
+    const faqsHtml = validFaqs.length
+        ? `<section style="margin-top:24px;border-top:1px solid #1e293b;padding-top:16px;"><h3 style="font-size:16px;color:#2dd4bf;">FAQs</h3>${validFaqs.map(f => `<div style="margin:10px 0;"><strong style="color:#fff;">${escapeHtmlBlog(f.question || f.q)}</strong><p style="color:#94a3b8;margin:4px 0;">${escapeHtmlBlog(f.answer || f.a)}</p></div>`).join('')}</section>`
+        : '';
+
+    iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;font-family:Inter,system-ui,sans-serif;background:#020617;color:#e2e8f0;padding:24px;}</style></head><body>
+        <div style="background:#451a03;border:1px solid #f59e0b;color:#fde68a;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:700;margin-bottom:16px;">
+            PREVIEW ONLY (${escapeHtmlBlog(post.status)}) — Not live at /blog/${escapeHtmlBlog(post.slug)} until published
+        </div>
+        <div style="font-size:11px;color:#2dd4bf;font-weight:700;text-transform:uppercase;">${escapeHtmlBlog(post.category || 'Coastal Materials')}${townsText ? ' · ' + escapeHtmlBlog(townsText) : ''}</div>
+        <h1 style="font-size:24px;color:#fff;margin:8px 0 10px;">${escapeHtmlBlog(post.title)}</h1>
+        <p style="color:#94a3b8;font-size:14px;line-height:1.6;">${escapeHtmlBlog(post.excerpt || '')}</p>
+        ${heroHtml}${videoHtml}${sectionsHtml}${faqsHtml}
+    </body></html>`;
 }
 
 function setPreviewViewport(vp) {
@@ -1095,6 +1203,136 @@ async function projectAction(id, action) {
 async function gbpAction(id, action) {
     await fetch(`/api/admin/gbp/${id}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
     showToast(`GBP Post #${id} ${action}d`);
+}
+
+function escapeHtmlBlog(str) {
+    return String(str || '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+}
+
+function formatBlogTowns(b) {
+    let raw = b.target_towns;
+    if (!raw && b.target_towns_json) {
+        try { raw = JSON.parse(b.target_towns_json); } catch (_) { raw = []; }
+    }
+    if (Array.isArray(raw)) {
+        return raw.map(t => (typeof t === 'string' ? t : (t.label || t.slug || ''))).filter(Boolean).join(', ');
+    }
+    return String(raw || '');
+}
+
+function renderBlogPostsManager() {
+    const el = document.getElementById('adminBlogPostsList');
+    if (!el || !Array.isArray(STATE.blog_posts)) return;
+    if (!STATE.blog_posts.length) {
+        el.innerHTML = '<div class="text-xs text-[#8b92a5] p-4 bg-[#0a0a0c] rounded-xl border border-[#1f222a]">No blog guides yet. Create one above or run scripts/generate_blog_post.py.</div>';
+        return;
+    }
+    el.innerHTML = STATE.blog_posts.map(b => {
+        const isPub = b.status === 'published';
+        const badgeCls = isPub ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300';
+        const townsText = formatBlogTowns(b);
+        return `
+            <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-4 space-y-2.5 text-xs">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="px-2 py-0.5 rounded-full font-bold text-[10px] ${badgeCls}">${escapeHtmlBlog(b.status)}</span>
+                    <span class="text-[#8b92a5] font-mono">${escapeHtmlBlog(b.category)}</span>
+                </div>
+                <div class="font-bold text-white text-sm">${escapeHtmlBlog(b.title)}</div>
+                <p class="text-[#8b92a5] line-clamp-2">${escapeHtmlBlog(b.excerpt)}</p>
+                <div class="text-[11px] text-teal-400 font-mono">/blog/${escapeHtmlBlog(b.slug)}${townsText ? ' · ' + escapeHtmlBlog(townsText) : ''}</div>
+                <div class="flex flex-wrap gap-2 pt-1">
+                    <button data-post-id="${escapeHtmlBlog(b.id)}" data-post-slug="${escapeHtmlBlog(b.slug)}" onclick="previewBlogPost(this.dataset.postId, '/blog/' + this.dataset.postSlug)" class="bg-[#14161c] border border-[#1f222a] text-sky-300 px-2.5 py-1 rounded-lg font-bold">◨ Preview</button>
+                    ${!isPub
+                        ? `<button data-post-id="${escapeHtmlBlog(b.id)}" onclick="blogAction(this.dataset.postId, 'publish', true)" class="bg-teal-600 text-white px-2.5 py-1 rounded-lg font-bold">🚀 Publish + Meta</button>`
+                        : `<button data-post-id="${escapeHtmlBlog(b.id)}" onclick="blogAction(this.dataset.postId, 'draft', false)" class="bg-amber-600/30 border border-amber-500/40 text-amber-200 px-2.5 py-1 rounded-lg font-bold">⏸ Move to 24h Queue</button>`}
+                    <button data-post-id="${escapeHtmlBlog(b.id)}" onclick="deleteAdminBlogPost(this.dataset.postId)" class="bg-rose-500/15 border border-rose-500/30 text-rose-300 px-2.5 py-1 rounded-lg font-bold">🗑 Delete</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function saveAdminBlogPost(e) {
+    e.preventDefault();
+    const title = (document.getElementById('blogTitleInput')?.value || '').trim();
+    const category = (document.getElementById('blogCategoryInput')?.value || 'Coastal Materials').trim();
+    const townsRaw = (document.getElementById('blogTownsInput')?.value || 'Toms River, Brick, Point Pleasant').trim();
+    const cta_service = (document.getElementById('blogCtaInput')?.value || 'Free 21-Point Roof & Attic Inspection').trim();
+    const hero_image_url = (document.getElementById('blogHeroInput')?.value || '/static/images/shingle-restored-after.webp').trim();
+    const status = (document.getElementById('blogStatusInput')?.value || 'draft_auto_24h').trim();
+    const excerpt = (document.getElementById('blogExcerptInput')?.value || '').trim();
+    if (!title) return;
+
+    const target_towns = townsRaw.split(',').map(t => t.trim()).filter(Boolean).map(t => ({
+        label: t,
+        slug: `roofing-${t.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-nj`
+    }));
+
+    const payload = {
+        title,
+        category,
+        target_towns,
+        cta_service,
+        hero_image_url,
+        reading_time_min: 6,
+        status,
+        excerpt,
+        sections: [
+            {
+                heading: `Ocean County Guide: ${title}`,
+                paragraphs: [excerpt || `${title} for homeowners across ${townsRaw}.`],
+                bullets: [
+                    'Material comparison spans GAF, CertainTeed, Owens Corning, Standing Seam Metal, Flat/TPO, and VELUX systems.',
+                    'Built for Ocean County coastal wind-uplift zones, salt air exposure, and NJ Building Code requirements.'
+                ],
+                callout: {
+                    title: 'Contractor-Agnostic Specification Note',
+                    body: `Homeowners across ${townsRaw} can compare factory-backed assemblies objectively with a free 21-point drone & attic evaluation.`
+                }
+            }
+        ],
+        faqs: [
+            {
+                question: `Who should Ocean County homeowners consult for ${title.toLowerCase()}?`,
+                answer: `Request a 100% free drone & attic roof diagnostic with zero obligation to compare licensed, factory-certified local specialists in ${townsRaw}.`
+            }
+        ]
+    };
+
+    const res = await fetch('/api/admin/blog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+        showToast('Blog guide saved to Supabase!');
+        document.getElementById('blogTitleInput').value = '';
+        document.getElementById('blogExcerptInput').value = '';
+        await hydrateAdminBootstrap();
+    } else {
+        showToast('Failed to save blog guide', true);
+    }
+}
+
+async function blogAction(id, action, shareMeta = false) {
+    const res = await fetch(`/api/admin/blog/${encodeURIComponent(id)}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, share_meta: shareMeta })
+    });
+    if (res.ok) {
+        showToast(`Guide ${id} updated (${action})`);
+        await hydrateAdminBootstrap();
+    }
+}
+
+async function deleteAdminBlogPost(id) {
+    if (!confirm(`Delete blog guide ${id}?`)) return;
+    const res = await fetch(`/api/admin/blog/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (res.ok) {
+        showToast(`Guide ${id} deleted`);
+        await hydrateAdminBootstrap();
+    }
 }
 
 async function reviewAction(id, action) {
@@ -1158,8 +1396,19 @@ async function runLiveDiagnostics() {
             const c = data.checks[svc] || {};
             const badge = document.querySelectorAll(`.diag-badge-${svc}`);
             badge.forEach(el => {
-                el.innerText = c.status === 'online' ? '🟢 ONLINE' : (c.configured ? '🟡 CHECK' : '⚪ UNSET');
-                el.className = `diag-badge-${svc} text-[10px] font-mono font-bold px-2 py-0.5 rounded ${c.status === 'online' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`;
+                let label = c.status === 'online' ? '🟢 ONLINE' : (c.configured ? '🟡 CHECK' : '⚪ UNSET');
+                let okTone = c.status === 'online';
+                if (svc === 'twilio' && c.status === 'online' && c.tollfree_status) {
+                    if (c.sms_approved) {
+                        label = '🟢 SMS APPROVED';
+                        okTone = true;
+                    } else {
+                        label = `🟡 TF ${c.tollfree_status}`;
+                        okTone = false;
+                    }
+                }
+                el.innerText = label;
+                el.className = `diag-badge-${svc} text-[10px] font-mono font-bold px-2 py-0.5 rounded ${okTone ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`;
             });
         });
     } catch (e) { console.warn('Diagnostics check failed:', e); }

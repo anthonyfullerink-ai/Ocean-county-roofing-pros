@@ -5,6 +5,10 @@
 import crypto from "crypto";
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
+import { MetaSocialService } from "./services/meta-social-service.mjs";
+import { normalizeAvailabilityConfig } from "./services/gcal-service.mjs";
+import { fetchIcsBusyIntervals } from "./services/ics-parser.mjs";
+import { normalizeEmergencyConfig, getTenantEmergencyConfig, parseEmergencyPolicy } from "./services/emergency-router.mjs";
 
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || "ocrp_admin_secret_key_2026_offgrid_media";
 const SARAH_ASSISTANT_ID = process.env.VAPI_RECEPTIONIST_ID || "dbc59b3f-85a6-4fad-9dab-b5a36b16125b";
@@ -196,13 +200,14 @@ export default async (req, context) => {
         });
       }
 
-      const [leadsRes, tenantsRes, settingsRes, projectsRes, reviewsRes, gbpRes, runsRes, reportsRes] = await Promise.all([
+      const [leadsRes, tenantsRes, settingsRes, projectsRes, reviewsRes, gbpRes, blogRes, runsRes, reportsRes] = await Promise.all([
         fetch(`${supabaseUrl}/rest/v1/leads?order=created_at.desc&limit=250`, { headers }).catch(() => null),
         fetch(`${supabaseUrl}/rest/v1/tenants?order=is_active.desc,company_name.asc`, { headers }).catch(() => null),
         fetch(`${supabaseUrl}/rest/v1/system_settings`, { headers }).catch(() => null),
         fetch(`${supabaseUrl}/rest/v1/job_projects?order=created_at.desc&limit=100`, { headers }).catch(() => null),
         fetch(`${supabaseUrl}/rest/v1/reviews?order=created_at.desc&limit=100`, { headers }).catch(() => null),
         fetch(`${supabaseUrl}/rest/v1/gbp_posts?order=created_at.desc&limit=50`, { headers }).catch(() => null),
+        fetch(`${supabaseUrl}/rest/v1/blog_posts?order=created_at.desc&limit=100`, { headers }).catch(() => null),
         fetch(`${supabaseUrl}/rest/v1/agent_runs?order=created_at.desc&limit=40`, { headers }).catch(() => null),
         fetch(`${supabaseUrl}/rest/v1/daily_reports?order=created_at.desc&limit=1`, { headers }).catch(() => null)
       ]);
@@ -213,6 +218,7 @@ export default async (req, context) => {
       const projects = projectsRes && projectsRes.ok ? await projectsRes.json() : [];
       const reviews = reviewsRes && reviewsRes.ok ? await reviewsRes.json() : [];
       const gbp_posts = gbpRes && gbpRes.ok ? await gbpRes.json() : [];
+      const blog_posts = blogRes && blogRes.ok ? await blogRes.json() : [];
       const agent_runs = runsRes && runsRes.ok ? await runsRes.json() : [];
       const reports = reportsRes && reportsRes.ok ? await reportsRes.json() : [];
 
@@ -230,9 +236,15 @@ export default async (req, context) => {
         }
       }
 
+      const emergency_dispatch_policy = parseEmergencyPolicy(sys_settings);
+      const hydratedTenants = tenants.map(t => ({
+        ...t,
+        emergency_config: getTenantEmergencyConfig(t, sys_settings)
+      }));
+
       const kpis = computeKpis({
         leads,
-        tenants,
+        tenants: hydratedTenants,
         projects,
         reviews,
         supabaseConnected: true
@@ -243,15 +255,261 @@ export default async (req, context) => {
         supabase_connected: true,
         kpis,
         leads,
-        tenants,
+        tenants: hydratedTenants,
         sys_settings,
         territory_routing,
+        emergency_dispatch_policy,
         projects,
         reviews,
         gbp_posts,
+        blog_posts,
         agent_runs,
         latest_report: reports[0] || null
       });
+    }
+
+    // =========================================================================
+    // 1B. BLOG POSTS CRUD & PUBLISHING (/api/admin/blog)
+    // Placed before substring-matched routes (/leads, /tenants, /settings, etc.)
+    // =========================================================================
+    const isBlogCollection = /\/blog\/?$/.test(path);
+    const blogActionMatch = path.match(/\/blog\/([^/]+)\/action\/?$/);
+    const blogItemMatch = !blogActionMatch ? path.match(/\/blog\/([^/]+)\/?$/) : null;
+
+    if (isBlogCollection && req.method === "GET") {
+      if (!supabaseUrl || !supabaseKey) return jsonResponse({ status: "success", posts: [] });
+      const bRes = await fetch(`${supabaseUrl}/rest/v1/blog_posts?order=created_at.desc&limit=100`, { headers });
+      const posts = bRes.ok ? await bRes.json() : [];
+      return jsonResponse({ status: "success", posts });
+    }
+
+    if (isBlogCollection && req.method === "POST") {
+      const body = await req.json();
+      const nowIso = new Date().toISOString();
+      const autoPublishIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const rawTitle = (body.title || "Ocean County Roofing Guide").trim();
+      const rawSlug = (body.slug || rawTitle)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || `guide-${Date.now()}`;
+      const id = (body.id || `BLOG-${Date.now().toString(36).toUpperCase()}`).trim();
+      const status = (body.status || "draft_auto_24h").trim();
+      const rawTowns = body.target_towns;
+      let targetTownsList = [];
+      if (Array.isArray(rawTowns)) {
+        targetTownsList = rawTowns.map(t =>
+          typeof t === "string"
+            ? { label: t.trim(), slug: `roofing-${t.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}-nj` }
+            : t
+        );
+      } else if (typeof rawTowns === "string" && rawTowns.trim()) {
+        targetTownsList = rawTowns.split(",").map(t => t.trim()).filter(Boolean).map(t => ({
+          label: t,
+          slug: `roofing-${t.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-nj`
+        }));
+      }
+      const targetTownsJson = typeof body.target_towns_json === "string"
+        ? body.target_towns_json
+        : JSON.stringify(targetTownsList);
+      const sectionsJson = typeof body.sections_json === "string"
+        ? body.sections_json
+        : JSON.stringify(Array.isArray(body.sections) ? body.sections : []);
+      const faqsJson = typeof body.faqs_json === "string"
+        ? body.faqs_json
+        : JSON.stringify(Array.isArray(body.faqs) ? body.faqs : []);
+      const heroUrl = (body.hero_image_url || "/static/images/shingle-restored-after.webp").trim();
+      const rawAutoPublish = typeof body.auto_publish_at === "string" ? body.auto_publish_at.trim() : "";
+      const rawPublishedAt = typeof body.published_at === "string" ? body.published_at.trim() : "";
+      const rawCreatedAt = typeof body.created_at === "string" ? body.created_at.trim() : "";
+      const row = {
+        id,
+        slug: rawSlug,
+        title: rawTitle,
+        meta_title: (body.meta_title || `${rawTitle} | Ocean County Roofing Pros`).trim(),
+        meta_description: (body.meta_description || body.excerpt || "").trim(),
+        category: (body.category || "Coastal Materials").trim(),
+        excerpt: (body.excerpt || "").trim(),
+        target_towns_json: targetTownsJson,
+        sections_json: sectionsJson,
+        faqs_json: faqsJson,
+        hero_image_url: heroUrl,
+        hero_image_alt: (body.hero_image_alt || rawTitle).trim(),
+        veo_video_url: (body.veo_video_url || "").trim(),
+        veo_video_poster_url: (body.veo_video_poster_url || heroUrl).trim(),
+        reading_time_min: Number(body.reading_time_min || 6),
+        cta_service: (body.cta_service || "Free 21-Point Roof & Attic Inspection").trim(),
+        author_name: (body.author_name || "Ocean County Roofing Pros Editorial Team").trim(),
+        status,
+        auto_publish_at: rawAutoPublish || (status === "draft_auto_24h" ? autoPublishIso : null),
+        published_at: rawPublishedAt || (status === "published" ? nowIso : null),
+        meta_shared: Boolean(body.meta_shared),
+        created_at: rawCreatedAt || nowIso,
+        updated_at: nowIso
+      };
+
+      if (supabaseUrl && supabaseKey) {
+        const upRes = await fetch(`${supabaseUrl}/rest/v1/blog_posts?on_conflict=slug`, {
+          method: "POST",
+          headers: { ...headers, "Prefer": "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify(row)
+        });
+        if (!upRes.ok) {
+          const errText = await upRes.text();
+          return jsonResponse({ status: "error", message: errText }, 502);
+        }
+        const rows = await upRes.json();
+        return jsonResponse({ status: "success", post: rows[0] || row });
+      }
+      return jsonResponse({ status: "success", post: row });
+    }
+
+    if (blogActionMatch && req.method === "POST") {
+      const postId = decodeURIComponent(blogActionMatch[1] || "");
+      const body = await req.json();
+      const action = (body.action || "publish").toLowerCase();
+      const nowIso = new Date().toISOString();
+      const updates = { updated_at: nowIso };
+      if (action === "publish") {
+        updates.status = "published";
+        updates.published_at = nowIso;
+        updates.auto_publish_at = null;
+      } else if (action === "draft") {
+        updates.status = "draft_auto_24h";
+        updates.auto_publish_at = (typeof body.auto_publish_at === "string" && body.auto_publish_at.trim())
+          || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      } else if (action === "archive") {
+        updates.status = "archived";
+      } else {
+        return jsonResponse({ status: "error", message: `Unsupported blog action: ${action}` }, 400);
+      }
+
+      let currentPost = null;
+      if (supabaseUrl && supabaseKey) {
+        const patchRes = await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(postId)}`, {
+          method: "PATCH",
+          headers: { ...headers, "Prefer": "return=representation" },
+          body: JSON.stringify(updates)
+        });
+        if (!patchRes.ok) {
+          const errText = await patchRes.text();
+          return jsonResponse({ status: "error", message: errText }, 502);
+        }
+        const rows = await patchRes.json();
+        currentPost = rows[0] || null;
+        if (!currentPost) {
+          return jsonResponse({ status: "error", message: `Blog post not found: ${postId}` }, 404);
+        }
+      }
+
+      let metaResult = null;
+      if (action === "publish" && body.share_meta && currentPost) {
+        try {
+          const setRes = await fetch(`${supabaseUrl}/rest/v1/system_settings?select=key,value`, { headers }).catch(() => null);
+          const setRows = setRes && setRes.ok ? await setRes.json() : [];
+          const sys = {};
+          for (const r of setRows) sys[r.key] = r.value;
+          const relImg = (currentPost.hero_image_url || "").trim();
+          const publicImageUrl = /^https?:\/\//i.test(relImg)
+            ? relImg.replace(/^http:\/\//i, "https://").replace(/\.webp$/i, ".jpg")
+            : relImg
+              ? `https://oceancountyroofingpros.com${relImg.startsWith("/") ? "" : "/"}${relImg.replace(/\.webp$/i, ".jpg")}`
+              : "";
+          metaResult = await MetaSocialService.publishPost({
+            caption: currentPost.social_caption || `${currentPost.title} — ${currentPost.excerpt}`,
+            imageUrl: publicImageUrl,
+            linkUrl: `https://oceancountyroofingpros.com/blog/${currentPost.slug}`,
+            pageId: sys.meta_page_id,
+            igUserId: sys.meta_ig_user_id,
+            pageToken: sys.meta_page_access_token
+          });
+          if ((metaResult?.facebook?.status === "published" || metaResult?.instagram?.status === "published" || metaResult?.status === "published") && supabaseUrl && supabaseKey) {
+            await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(postId)}`, {
+              method: "PATCH",
+              headers,
+              body: JSON.stringify({ meta_shared: true, updated_at: new Date().toISOString() })
+            });
+          }
+        } catch (e) {
+          metaResult = { status: "error", message: String(e) };
+        }
+      }
+      return jsonResponse({ status: "success", post: currentPost || { id: postId, ...updates }, meta: metaResult });
+    }
+
+    if (blogItemMatch && req.method === "PATCH") {
+      const postId = decodeURIComponent(blogItemMatch[1] || "");
+      const body = await req.json();
+      const updates = { ...body, updated_at: new Date().toISOString() };
+      delete updates.id;
+
+      if (Array.isArray(updates.target_towns)) {
+        updates.target_towns_json = JSON.stringify(
+          updates.target_towns.map(t =>
+            typeof t === "string"
+              ? { label: t.trim(), slug: `roofing-${t.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}-nj` }
+              : t
+          )
+        );
+        delete updates.target_towns;
+      } else if (typeof updates.target_towns === "string") {
+        updates.target_towns_json = JSON.stringify(
+          updates.target_towns.split(",").map(t => t.trim()).filter(Boolean).map(t => ({
+            label: t,
+            slug: `roofing-${t.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-nj`
+          }))
+        );
+        delete updates.target_towns;
+      }
+      if (Array.isArray(updates.sections)) {
+        updates.sections_json = JSON.stringify(updates.sections);
+        delete updates.sections;
+      }
+      if (Array.isArray(updates.faqs)) {
+        updates.faqs_json = JSON.stringify(updates.faqs);
+        delete updates.faqs;
+      }
+      if (updates.auto_publish_at === "") updates.auto_publish_at = null;
+      if (updates.published_at === "") updates.published_at = null;
+      if (updates.created_at === "") delete updates.created_at;
+      if (updates.status === "published") {
+        if (!updates.published_at) updates.published_at = updates.updated_at;
+        if (updates.auto_publish_at === undefined) updates.auto_publish_at = null;
+      }
+      if (updates.status === "draft_auto_24h" && !updates.auto_publish_at) {
+        updates.auto_publish_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      }
+      if (supabaseUrl && supabaseKey) {
+        const patchRes = await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(postId)}`, {
+          method: "PATCH",
+          headers: { ...headers, "Prefer": "return=representation" },
+          body: JSON.stringify(updates)
+        });
+        if (!patchRes.ok) {
+          const errText = await patchRes.text();
+          return jsonResponse({ status: "error", message: errText }, 502);
+        }
+        const rows = await patchRes.json();
+        if (!rows.length) {
+          return jsonResponse({ status: "error", message: `Blog post not found: ${postId}` }, 404);
+        }
+        return jsonResponse({ status: "success", post: rows[0] });
+      }
+      return jsonResponse({ status: "success", post: { id: postId, ...updates } });
+    }
+
+    if (blogItemMatch && req.method === "DELETE") {
+      const postId = decodeURIComponent(blogItemMatch[1] || "");
+      if (supabaseUrl && supabaseKey) {
+        const delRes = await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(postId)}`, {
+          method: "DELETE",
+          headers
+        });
+        if (!delRes.ok) {
+          const errText = await delRes.text();
+          return jsonResponse({ status: "error", message: errText }, 502);
+        }
+      }
+      return jsonResponse({ status: "success", deleted_id: postId });
     }
 
     // =========================================================================
@@ -464,19 +722,40 @@ export default async (req, context) => {
         return jsonResponse({ status: "local_only", leads: [], projects: [] });
       }
 
-      const [leadsRes, tenantsRes, projectsRes, reviewsRes] = await Promise.all([
+      const [leadsRes, tenantsRes, projectsRes, reviewsRes, settingsRes] = await Promise.all([
         fetch(`${supabaseUrl}/rest/v1/leads?assigned_tenant_id=eq.${encodeURIComponent(tenantId)}&order=created_at.desc`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/tenants`, { headers }),
         fetch(`${supabaseUrl}/rest/v1/job_projects?tenant_id=eq.${encodeURIComponent(tenantId)}&order=created_at.desc`, { headers }),
-        fetch(`${supabaseUrl}/rest/v1/reviews?order=created_at.desc`, { headers })
+        fetch(`${supabaseUrl}/rest/v1/reviews?order=created_at.desc`, { headers }),
+        fetch(
+          `${supabaseUrl}/rest/v1/system_settings?key=in.(${encodeURIComponent(`tenant_schedule_${tenantId}`)},${encodeURIComponent(`tenant_emergency_${tenantId}`)})`,
+          { headers }
+        )
       ]);
 
       const leads = leadsRes.ok ? await leadsRes.json() : [];
       const tenants = tenantsRes.ok ? await tenantsRes.json() : [];
       const projects = projectsRes.ok ? await projectsRes.json() : [];
       const reviews = reviewsRes.ok ? await reviewsRes.json() : [];
+      const settingsRows = settingsRes.ok ? await settingsRes.json() : [];
 
-      const tenant = tenants.find(t => t.tenant_id === tenantId) || tenants.find(t => t.is_active) || tenants[0] || {};
+      const portalSettingsMap = {};
+      for (const row of settingsRows) {
+        if (row && row.key) portalSettingsMap[row.key] = row.value;
+      }
+
+      const tenant = { ...(tenants.find(t => t.tenant_id === tenantId) || tenants.find(t => t.is_active) || tenants[0] || {}) };
+      let scheduleExtras = {};
+      const schedRaw = portalSettingsMap[`tenant_schedule_${tenantId}`];
+      if (schedRaw) {
+        try {
+          scheduleExtras = JSON.parse(schedRaw);
+        } catch {}
+      }
+      tenant.ics_feed_url = tenant.ics_feed_url || scheduleExtras.ics_feed_url || "";
+      tenant.availability = normalizeAvailabilityConfig(tenant.availability_json || scheduleExtras.availability || null);
+      tenant.emergency_config = getTenantEmergencyConfig(tenant, portalSettingsMap);
+
       const kpis = computeKpis({
         leads,
         tenants,
@@ -493,6 +772,114 @@ export default async (req, context) => {
         kpis,
         leads,
         projects
+      });
+    }
+
+    if (path.includes("/portal/test-ics") && req.method === "POST") {
+      const body = await req.json();
+      const icsUrl = String(body.ics_feed_url || "").trim();
+      if (!icsUrl) {
+        return jsonResponse({ status: "error", message: "Please paste an .ics calendar feed URL first." }, 400);
+      }
+      const now = new Date();
+      const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const res = await fetchIcsBusyIntervals(icsUrl, now, end);
+      if (!res.checked) {
+        return jsonResponse({ status: "error", checked: false, message: res.error || "Could not read .ics feed." }, 400);
+      }
+      return jsonResponse({
+        status: "success",
+        checked: true,
+        busy_count: res.busy.length,
+        message: `Connected! Found ${res.busy.length} busy block(s) in the next 7 days.`
+      });
+    }
+
+    if (path.includes("/portal/settings") && req.method === "POST") {
+      const body = await req.json();
+      const tenantId = String(body.tenant_id || "").trim();
+      if (!tenantId) {
+        return jsonResponse({ error: "tenant_id is required" }, 400);
+      }
+
+      let existing = {};
+      if (supabaseUrl && supabaseKey) {
+        const exRes = await fetch(`${supabaseUrl}/rest/v1/tenants?tenant_id=eq.${encodeURIComponent(tenantId)}&limit=1`, { headers });
+        if (exRes.ok) {
+          const rows = await exRes.json();
+          if (rows.length > 0) existing = rows[0];
+        }
+      }
+
+      const cleanIcs = String(
+        body.ics_feed_url !== undefined ? body.ics_feed_url : (existing.ics_feed_url || "")
+      ).trim();
+      const normalizedAvail = normalizeAvailabilityConfig(
+        body.availability || body.availability_json || existing.availability_json || null
+      );
+      const rawEmergInput = body.emergency_config || body.emergency_config_json || existing.emergency_config_json || null;
+      const normalizedEmergency = rawEmergInput
+        ? normalizeEmergencyConfig(rawEmergInput, body.dispatch_phone ?? existing.dispatch_phone ?? "+17326609121")
+        : null;
+
+      // Safely merge ONLY self-service contractor fields; preserve portal_pin, calendar_id, monthly_retainer & is_active
+      const updatedTenant = {
+        tenant_id: tenantId,
+        company_name: body.company_name ?? existing.company_name ?? "Roofing Partner LLC",
+        contact_name: existing.contact_name ?? body.estimator_name ?? "Manager",
+        estimator_name: body.estimator_name ?? existing.estimator_name ?? "Riley",
+        dispatch_phone: body.dispatch_phone ?? existing.dispatch_phone ?? "+17326609121",
+        email: body.email ?? existing.email ?? "",
+        portal_pin: existing.portal_pin || "732100",
+        scheduling_type: body.scheduling_type ?? existing.scheduling_type ?? "google_calendar",
+        booking_url: body.booking_url ?? existing.booking_url ?? "",
+        calendar_id: (body.calendar_id !== undefined && body.calendar_id !== "")
+          ? body.calendar_id
+          : (existing.calendar_id || "primary"),
+        ics_feed_url: cleanIcs,
+        availability_json: JSON.stringify(normalizedAvail),
+        emergency_config_json: JSON.stringify(normalizedEmergency || {}),
+        monthly_retainer: existing.monthly_retainer ?? 1500.0,
+        is_active: existing.is_active ?? false,
+        notes: existing.notes ?? ""
+      };
+
+      if (supabaseUrl && supabaseKey) {
+        await fetch(`${supabaseUrl}/rest/v1/tenants`, {
+          method: "POST",
+          headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
+          body: JSON.stringify(updatedTenant)
+        });
+        await fetch(`${supabaseUrl}/rest/v1/system_settings`, {
+          method: "POST",
+          headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
+          body: JSON.stringify({
+            key: `tenant_schedule_${tenantId}`,
+            value: JSON.stringify({ ics_feed_url: cleanIcs, availability: normalizedAvail }),
+            updated_at: new Date().toISOString()
+          })
+        });
+        if (normalizedEmergency) {
+          await fetch(`${supabaseUrl}/rest/v1/system_settings`, {
+            method: "POST",
+            headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({
+              key: `tenant_emergency_${tenantId}`,
+              value: JSON.stringify(normalizedEmergency),
+              updated_at: new Date().toISOString()
+            })
+          });
+        }
+      }
+
+      return jsonResponse({
+        status: "success",
+        tenant: {
+          ...updatedTenant,
+          ics_feed_url: cleanIcs,
+          availability: normalizedAvail,
+          ...(normalizedEmergency ? { emergency_config: normalizedEmergency } : {})
+        }
       });
     }
 
@@ -541,27 +928,48 @@ export default async (req, context) => {
         } catch (e) {
           routing = {};
         }
-        return jsonResponse({ status: "success", territory_routing: routing });
+        return jsonResponse({
+          status: "success",
+          territory_routing: routing,
+          emergency_dispatch_policy: parseEmergencyPolicy(sysSettings)
+        });
       }
 
       if (req.method === "POST") {
         const body = await req.json();
-        const routingMap = body.territory_routing || body;
+        const routingMap = body.territory_routing !== undefined ? body.territory_routing : body;
+        const emergencyPolicy = body.emergency_dispatch_policy || null;
         if (supabaseUrl && supabaseKey) {
-          await fetch(`${supabaseUrl}/rest/v1/system_settings`, {
-            method: "POST",
-            headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
-            body: JSON.stringify({
-              key: "territory_routing_json",
-              value: JSON.stringify(routingMap),
-              updated_at: new Date().toISOString()
-            })
-          });
+          if (body.territory_routing !== undefined || !emergencyPolicy) {
+            await fetch(`${supabaseUrl}/rest/v1/system_settings`, {
+              method: "POST",
+              headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
+              body: JSON.stringify({
+                key: "territory_routing_json",
+                value: JSON.stringify(routingMap),
+                updated_at: new Date().toISOString()
+              })
+            });
+          }
+          if (emergencyPolicy) {
+            await fetch(`${supabaseUrl}/rest/v1/system_settings`, {
+              method: "POST",
+              headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
+              body: JSON.stringify({
+                key: "emergency_dispatch_policy",
+                value: JSON.stringify({
+                  overflow_tenant_id: String(emergencyPolicy.overflow_tenant_id || "").trim()
+                }),
+                updated_at: new Date().toISOString()
+              })
+            });
+          }
         }
         return jsonResponse({
           status: "success",
           territory_routing: routingMap,
-          message: "Hybrid town territory routing rules saved to Supabase Cloud"
+          ...(emergencyPolicy ? { emergency_dispatch_policy: emergencyPolicy } : {}),
+          message: "Hybrid town territory & emergency routing rules saved to Supabase Cloud"
         });
       }
     }
@@ -582,21 +990,36 @@ export default async (req, context) => {
       } else if (req.method === "POST") {
         const body = await req.json();
         const tenantId = body.tenant_id || `client_${(body.company_name || "partner").toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
+        let existing = {};
+        if (supabaseUrl && supabaseKey) {
+          const exRes = await fetch(`${supabaseUrl}/rest/v1/tenants?tenant_id=eq.${encodeURIComponent(tenantId)}&limit=1`, { headers });
+          if (exRes.ok) {
+            const rows = await exRes.json();
+            if (rows.length > 0) existing = rows[0];
+          }
+        }
         const record = {
           tenant_id: tenantId,
-          company_name: body.company_name,
-          contact_name: body.contact_name || body.estimator_name || "Manager",
-          estimator_name: body.estimator_name || "Riley",
-          dispatch_phone: body.dispatch_phone || "+17326609121",
-          email: body.email || "",
-          portal_pin: body.portal_pin || "732100",
-          scheduling_type: body.scheduling_type || "google_calendar",
-          booking_url: body.booking_url || "",
-          calendar_id: body.calendar_id || "",
-          monthly_retainer: parseFloat(body.monthly_retainer || 1500.0)
+          company_name: body.company_name ?? existing.company_name ?? "Roofing Partner LLC",
+          contact_name: body.contact_name ?? body.estimator_name ?? existing.contact_name ?? "Manager",
+          estimator_name: body.estimator_name ?? existing.estimator_name ?? "Riley",
+          dispatch_phone: body.dispatch_phone ?? existing.dispatch_phone ?? "+17326609121",
+          email: body.email ?? existing.email ?? "",
+          portal_pin: body.portal_pin ?? existing.portal_pin ?? "732100",
+          scheduling_type: body.scheduling_type ?? existing.scheduling_type ?? "google_calendar",
+          booking_url: body.booking_url ?? existing.booking_url ?? "",
+          calendar_id: body.calendar_id ?? existing.calendar_id ?? "primary",
+          ics_feed_url: String(
+            body.ics_feed_url !== undefined ? body.ics_feed_url : (existing.ics_feed_url || "")
+          ).trim(),
+          availability_json: body.availability_json ?? existing.availability_json ?? "{}",
+          emergency_config_json: body.emergency_config_json ?? existing.emergency_config_json ?? "{}",
+          monthly_retainer: parseFloat(body.monthly_retainer ?? existing.monthly_retainer ?? 1500.0)
         };
         if (body.is_active !== undefined) {
           record.is_active = Boolean(body.is_active);
+        } else if (existing.is_active !== undefined) {
+          record.is_active = Boolean(existing.is_active);
         }
 
         if (supabaseUrl && supabaseKey) {
@@ -1059,12 +1482,17 @@ export default async (req, context) => {
 
       let emailRes = { status: "skipped" };
       if (email && email.includes("@")) {
+        const signatureHtml = EmailService.buildSignatureHtml({
+          senderName: "Riley Davis",
+          senderTitle: "Lead Scheduling Coordinator",
+          senderEmail: "riley@oceancountyroofingpros.com"
+        });
         emailRes = await EmailService.sendEmail({
           from: EmailService.getFromAddress("riley@oceancountyroofingpros.com"),
           to: [email],
           reply_to: EmailService.getReplyToAddress("riley@oceancountyroofingpros.com"),
           subject: `Quick 20-second feedback on your Ocean County roof service`,
-          html: `<p>Hi ${firstName},</p><p>Thank you for trusting <strong>Ocean County Roofing Pros</strong> with your home! Your feedback helps local Ocean County homeowners find reliable roofing care.</p><p><a href="${feedbackUrl}" style="display:inline-block;background:#0A486D;color:#ffffff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold;">Share Your 20-Second Feedback →</a></p><p>Warm regards,<br>Riley Davis • Ocean County Roofing Pros</p>`
+          html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;color:#1e293b;line-height:1.6;"><p>Hi ${firstName},</p><p>Thank you for trusting <strong>Ocean County Roofing Pros</strong> with your home! Your feedback helps local Ocean County homeowners find reliable roofing care.</p><p><a href="${feedbackUrl}" style="display:inline-block;background:#0A486D;color:#ffffff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:bold;">Share Your 20-Second Feedback &rarr;</a></p>${signatureHtml}</div>`
         });
       }
 
@@ -1116,6 +1544,22 @@ export default async (req, context) => {
             headers: { "Authorization": `Basic ${auth}` }
           }).catch(() => null);
           checks.twilio.status = r && r.ok ? "online" : "error";
+          checks.twilio.from_number = process.env.TWILIO_PHONE_NUMBER || "";
+          try {
+            const tfRes = await fetch("https://messaging.twilio.com/v1/Tollfree/Verifications?PageSize=5", {
+              headers: { "Authorization": `Basic ${auth}` }
+            }).catch(() => null);
+            if (tfRes && tfRes.ok) {
+              const tfData = await tfRes.json().catch(() => ({}));
+              const list = Array.isArray(tfData?.verifications) ? tfData.verifications : [];
+              const target = list.find(v => v.tollfree_phone_number === checks.twilio.from_number) || list[0];
+              if (target) {
+                checks.twilio.tollfree_number = target.tollfree_phone_number || checks.twilio.from_number;
+                checks.twilio.tollfree_status = target.status || "UNKNOWN";
+                checks.twilio.sms_approved = target.status === "TWILIO_APPROVED";
+              }
+            }
+          } catch {}
         })()
       ]);
 

@@ -12,6 +12,12 @@
   to = "/.netlify/functions/api-webform"
   status = 200
 
+# Live Calendar Availability & Instant Booking
+[[redirects]]
+  from = "/api/calendar/*"
+  to = "/.netlify/functions/api-calendar"
+  status = 200
+
 # Vapi 2-Way Sync
 [[redirects]]
   from = "/api/vapi/sync/*"
@@ -52,6 +58,12 @@
 [[redirects]]
   from = "/api/email/*"
   to = "/.netlify/functions/api-email-inbound"
+  status = 200
+
+# Twilio Inbound SMS Webhook (+18669001221)
+[[redirects]]
+  from = "/api/twilio/sms-inbound"
+  to = "/.netlify/functions/api-twilio-sms"
   status = 200
 
 # Twilio 800/866 Voice Forwarding to Local Vapi AI Number

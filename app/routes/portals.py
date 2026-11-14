@@ -1,6 +1,6 @@
 import io
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 
 from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException, Response
@@ -34,10 +34,16 @@ from app.services.db import (
     update_review,
     list_gbp_posts,
     update_gbp_post,
+    list_blog_posts,
+    get_blog_post,
+    upsert_blog_post,
+    update_blog_post,
+    delete_blog_post,
     list_agent_runs,
     get_latest_daily_report,
     get_all_settings,
     get_setting,
+    set_setting,
     update_settings_bulk,
 )
 from app.services.tenant_manager import TenantManager
@@ -83,6 +89,7 @@ async def render_admin_command_center(request: Request, pin: Optional[str] = Non
     projects = list_job_projects()
     reviews = list_reviews()
     gbp_posts = list_gbp_posts()
+    blog_posts = list_blog_posts()
     agent_runs = list_agent_runs(limit=30)
     latest_report = get_latest_daily_report()
     sys_settings = get_all_settings()
@@ -105,6 +112,7 @@ async def render_admin_command_center(request: Request, pin: Optional[str] = Non
             "projects": projects,
             "reviews": reviews,
             "gbp_posts": gbp_posts,
+            "blog_posts": blog_posts,
             "agent_runs": agent_runs,
             "latest_report": latest_report,
             "sys_settings": sys_settings,
@@ -551,6 +559,61 @@ async def api_admin_review_action(review_id: str, request: Request):
     return {"status": "success", "review": updated}
 
 
+@router.get("/api/admin/blog")
+async def api_admin_list_blog_posts():
+    return {"status": "success", "posts": list_blog_posts()}
+
+
+@router.post("/api/admin/blog")
+async def api_admin_upsert_blog_post(request: Request):
+    body = await request.json()
+    post = upsert_blog_post(body)
+    return {"status": "success", "post": post}
+
+
+@router.patch("/api/admin/blog/{post_id}")
+async def api_admin_update_blog_post(post_id: str, request: Request):
+    body = await request.json()
+    updated = update_blog_post(post_id, body)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    return {"status": "success", "post": updated}
+
+
+@router.post("/api/admin/blog/{post_id}/action")
+async def api_admin_blog_post_action(post_id: str, request: Request):
+    body = await request.json()
+    action = (body.get("action") or "publish").lower()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updates: Dict[str, Any] = {"updated_at": now_iso}
+    if action == "publish":
+        updates["status"] = "published"
+        updates["published_at"] = now_iso
+        updates["auto_publish_at"] = ""
+    elif action == "draft":
+        updates["status"] = "draft_auto_24h"
+        updates["auto_publish_at"] = body.get("auto_publish_at") or (
+            datetime.now(timezone.utc) + timedelta(hours=24)
+        ).isoformat()
+    elif action == "archive":
+        updates["status"] = "archived"
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported blog action: {action}")
+
+    updated = update_blog_post(post_id, updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    return {"status": "success", "post": updated}
+
+
+@router.delete("/api/admin/blog/{post_id}")
+async def api_admin_delete_blog_post(post_id: str):
+    if not get_blog_post(post_id):
+        raise HTTPException(status_code=404, detail="Blog post not found")
+    delete_blog_post(post_id)
+    return {"status": "success", "deleted_id": post_id}
+
+
 # ==============================================================================
 # 5. 5-AGENT WORKFORCE RUNNERS, TENANT MANAGER & KILL-SWITCHES
 # ==============================================================================
@@ -580,6 +643,49 @@ async def api_get_agent_logs():
     }
 
 
+def _normalize_emergency_config_py(raw_cfg, fallback_phone: str = "") -> dict:
+    import json as _json
+    parsed = raw_cfg
+    if isinstance(raw_cfg, str) and raw_cfg.strip():
+        try:
+            parsed = _json.loads(raw_cfg)
+        except Exception:
+            parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+    mode = "live_transfer" if parsed.get("emergency_mode") == "live_transfer" else "sms_callback"
+    hours = "extended_7am_9pm" if parsed.get("emergency_hours") == "extended_7am_9pm" else "24_7"
+    phone = str(parsed.get("emergency_phone") or "").strip() or str(fallback_phone or "").strip()
+    fee_note = str(parsed.get("tarping_fee_note") or "").strip() or (
+        "Free daytime emergency inspection; after-hours tarping quote provided upfront before any work begins."
+    )
+    try:
+        eta = min(max(int(parsed.get("max_response_eta_min", 30)), 5), 180)
+    except Exception:
+        eta = 30
+    return {
+        "emergency_enabled": bool(parsed.get("emergency_enabled", False)),
+        "emergency_mode": mode,
+        "emergency_phone": phone,
+        "emergency_hours": hours,
+        "after_hours_behavior": "sms_and_first_slot",
+        "tarping_fee_note": fee_note,
+        "max_response_eta_min": eta,
+    }
+
+
+def _parse_emergency_policy_py(sys_settings: dict) -> dict:
+    import json as _json
+    raw = sys_settings.get("emergency_dispatch_policy", "{}")
+    try:
+        parsed = _json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+    return {"overflow_tenant_id": str(parsed.get("overflow_tenant_id") or "").strip()}
+
+
 @router.get("/api/admin/bootstrap")
 async def api_admin_bootstrap():
     sys_settings = get_all_settings()
@@ -588,17 +694,25 @@ async def api_admin_bootstrap():
         territory_routing = _json.loads(sys_settings.get("territory_routing_json", "{}"))
     except Exception:
         territory_routing = {}
+    hydrated_tenants = []
+    for t in list_tenants():
+        td = dict(t)
+        raw_em = sys_settings.get(f"tenant_emergency_{td.get('tenant_id')}") or td.get("emergency_config_json")
+        td["emergency_config"] = _normalize_emergency_config_py(raw_em, td.get("dispatch_phone", ""))
+        hydrated_tenants.append(td)
     return {
         "status": "success",
         "supabase_connected": True,
         "kpis": get_dashboard_kpis(),
         "leads": list_leads(),
-        "tenants": list_tenants(),
+        "tenants": hydrated_tenants,
         "sys_settings": sys_settings,
         "territory_routing": territory_routing,
+        "emergency_dispatch_policy": _parse_emergency_policy_py(sys_settings),
         "projects": list_job_projects(),
         "reviews": list_reviews(),
         "gbp_posts": list_gbp_posts(),
+        "blog_posts": list_blog_posts(),
         "agent_runs": list_agent_runs(limit=40),
         "latest_report": get_latest_daily_report(),
     }
@@ -606,8 +720,31 @@ async def api_admin_bootstrap():
 
 @router.get("/api/portal/data")
 async def api_portal_data(tenant_id: str = "client_joe_the_roofer"):
-    tenant = get_tenant(tenant_id) or get_active_tenant_record()
+    import json as _json
+    tenant = dict(get_tenant(tenant_id) or get_active_tenant_record() or {})
     tid = tenant.get("tenant_id", tenant_id)
+    sched_raw = get_setting(f"tenant_schedule_{tid}", "{}")
+    try:
+        sched_extras = _json.loads(sched_raw) if sched_raw else {}
+    except Exception:
+        sched_extras = {}
+    if not tenant.get("ics_feed_url") and sched_extras.get("ics_feed_url"):
+        tenant["ics_feed_url"] = sched_extras["ics_feed_url"]
+    avail = sched_extras.get("availability")
+    if not avail and tenant.get("availability_json"):
+        try:
+            avail = _json.loads(tenant["availability_json"])
+        except Exception:
+            avail = {}
+    tenant["availability"] = avail or {
+        "days_of_week": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+        "windows": ["9:00 AM", "11:30 AM", "2:00 PM", "4:30 PM"],
+        "min_notice": "next_day",
+        "max_per_day": 4,
+        "blackout_dates": [],
+    }
+    raw_emerg = get_setting(f"tenant_emergency_{tid}", "") or tenant.get("emergency_config_json", "{}")
+    tenant["emergency_config"] = _normalize_emergency_config_py(raw_emerg, tenant.get("dispatch_phone", ""))
     return {
         "status": "success",
         "tenant": tenant,
@@ -618,6 +755,67 @@ async def api_portal_data(tenant_id: str = "client_joe_the_roofer"):
     }
 
 
+@router.post("/api/portal/settings")
+async def api_portal_save_settings(request: Request):
+    import json as _json
+    body = await request.json()
+    tenant_id = str(body.get("tenant_id") or "").strip()
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="tenant_id is required.")
+    existing = get_tenant(tenant_id) or {}
+    dispatch_phone = body.get("dispatch_phone", existing.get("dispatch_phone", "+17326609121"))
+    raw_emerg = body.get("emergency_config") or body.get("emergency_config_json")
+    emerg_cfg = _normalize_emergency_config_py(raw_emerg, dispatch_phone) if raw_emerg is not None else None
+    payload = {
+        "tenant_id": tenant_id,
+        "company_name": body.get("company_name", existing.get("company_name", "Roofing Partner LLC")),
+        "estimator_name": body.get("estimator_name", existing.get("estimator_name", "Riley")),
+        "dispatch_phone": dispatch_phone,
+        "email": body.get("email", existing.get("email", "")),
+        "scheduling_type": body.get("scheduling_type", existing.get("scheduling_type", "google_calendar")),
+        "booking_url": body.get("booking_url", existing.get("booking_url", "")),
+        # Preserve protected owner fields
+        "portal_pin": existing.get("portal_pin", "732100"),
+        "calendar_id": body.get("calendar_id") or existing.get("calendar_id", "primary"),
+        "monthly_retainer": existing.get("monthly_retainer", 1500.0),
+        "is_active": existing.get("is_active", False),
+        "ics_feed_url": str(body.get("ics_feed_url") or "").strip(),
+        "availability_json": _json.dumps(body.get("availability") or body.get("availability_json") or {}),
+    }
+    if emerg_cfg is not None:
+        payload["emergency_config_json"] = _json.dumps(emerg_cfg)
+    saved = dict(upsert_tenant(payload) or payload)
+    if emerg_cfg is not None:
+        set_setting(f"tenant_emergency_{tenant_id}", _json.dumps(emerg_cfg))
+        saved["emergency_config"] = emerg_cfg
+    return {"status": "success", "tenant": saved}
+
+
+@router.post("/api/portal/test-ics")
+async def api_portal_test_ics(request: Request):
+    import httpx as _httpx
+    body = await request.json()
+    ics_url = str(body.get("ics_feed_url") or "").strip().replace("webcal://", "https://")
+    if not ics_url.startswith("https://") and not ics_url.startswith("http://"):
+        raise HTTPException(status_code=400, detail="Please enter a valid https:// .ics feed URL.")
+    try:
+        async with _httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(ics_url, headers={"Accept": "text/calendar, text/plain"})
+            if r.status_code != 200 or "BEGIN:VCALENDAR" not in r.text:
+                raise HTTPException(status_code=400, detail="URL did not return a valid iCalendar (.ics) feed.")
+            event_count = r.text.count("BEGIN:VEVENT")
+            return {
+                "status": "success",
+                "checked": True,
+                "busy_count": event_count,
+                "message": f"Connected! Valid iCalendar feed detected ({event_count} total event entries).",
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not connect to feed: {e}")
+
+
 @router.get("/api/admin/routing")
 async def api_get_routing():
     import json as _json
@@ -626,16 +824,36 @@ async def api_get_routing():
         routing = _json.loads(raw)
     except Exception:
         routing = {}
-    return {"status": "success", "territory_routing": routing}
+    return {
+        "status": "success",
+        "territory_routing": routing,
+        "emergency_dispatch_policy": _parse_emergency_policy_py(get_all_settings()),
+    }
 
 
 @router.post("/api/admin/routing")
 async def api_save_routing(request: Request):
     import json as _json
     body = await request.json()
-    routing = body.get("territory_routing", body)
-    update_settings_bulk({"territory_routing_json": _json.dumps(routing)})
-    return {"status": "success", "territory_routing": routing}
+    bulk = {}
+    routing = body.get("territory_routing")
+    if routing is not None:
+        bulk["territory_routing_json"] = _json.dumps(routing)
+    elif "emergency_dispatch_policy" not in body:
+        routing = body
+        bulk["territory_routing_json"] = _json.dumps(routing)
+    emerg_pol = body.get("emergency_dispatch_policy")
+    if isinstance(emerg_pol, dict):
+        bulk["emergency_dispatch_policy"] = _json.dumps({
+            "overflow_tenant_id": str(emerg_pol.get("overflow_tenant_id") or "").strip()
+        })
+    if bulk:
+        update_settings_bulk(bulk)
+    return {
+        "status": "success",
+        "territory_routing": routing or {},
+        **({"emergency_dispatch_policy": emerg_pol} if emerg_pol is not None else {}),
+    }
 
 
 @router.post("/api/admin/sms/send")

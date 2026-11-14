@@ -10,7 +10,9 @@
     "meta_title": "Top-Rated Roof Replacement in Toms River, NJ | CertainTeed Certified",
     "meta_description": "CertainTeed ShingleMaster certified roof replacements & emergency leak repairs in Toms River, NJ. Free 21-point roof & attic inspection & 50-year warranty.",
     "lat": 39.9537,
-    "lon": -74.1979
+    "lon": -74.1979,
+    "hero_image_url": "/static/images/heroes/hero-hub-toms-river.webp",
+    "hero_image_alt": "Golden-hour architectural charcoal shingle roof and copper flashing overlooking Barnegat Bay in Toms River, NJ"
   },
   {
     "slug": "roofing-brick-nj",
@@ -23,7 +25,9 @@
     "meta_title": "Premier Roofing Contractors in Brick, NJ | Free 21-Point Inspection",
     "meta_description": "Expert roof repairs and full architectural replacements in Brick Township, NJ. 50-year non-prorated warranties with guaranteed 1-day installation.",
     "lat": 40.0598,
-    "lon": -74.1399
+    "lon": -74.1399,
+    "hero_image_url": "/static/images/heroes/hero-coastal-bayfront.webp",
+    "hero_image_alt": "Jersey Shore coastal shingle and standing seam metal roof along waterfront lagoons in Brick Township, NJ"
   },
   {
     "slug": "roofing-point-pleasant-nj",
@@ -36,7 +40,9 @@
     "meta_title": "Coastal Roofing & Storm Repair in Point Pleasant, NJ | 160 MPH Rated",
     "meta_description": "Hurricane-rated 160 MPH architectural shingle systems engineered for Point Pleasant coastal homes. Emergency tarping and full replacements.",
     "lat": 40.0829,
-    "lon": -74.0682
+    "lon": -74.0682,
+    "hero_image_url": "/static/images/heroes/hero-coastal-bayfront.webp",
+    "hero_image_alt": "Storm-rated architectural shingle and standing seam metal coastal home in Point Pleasant, NJ"
   },
   {
     "slug": "roofing-jackson-nj",
@@ -49,7 +55,9 @@
     "meta_title": "Certified Roofing Specialists in Jackson, NJ | Free Estimates",
     "meta_description": "Complete architectural roof replacements in Jackson, NJ. CertainTeed ShingleMaster Premier craftsmanship with lifetime workmanship guarantee.",
     "lat": 40.1448,
-    "lon": -74.3674
+    "lon": -74.3674,
+    "hero_image_url": "/static/images/heroes/hero-inland-pine.webp",
+    "hero_image_alt": "Dimensional architectural shingle roof with copper valleys framed by pine trees in Jackson, NJ"
   },
   {
     "slug": "roofing-lacey-nj",
@@ -62,7 +70,9 @@
     "meta_title": "Forked River & Lacey Township Roofing Contractors | Free Inspections",
     "meta_description": "Premier roof replacements and emergency leak triage in Lacey Township & Forked River, NJ. CertainTeed 4-Star 50-year warranty protection.",
     "lat": 39.8665,
-    "lon": -74.1957
+    "lon": -74.1957,
+    "hero_image_url": "/static/images/heroes/hero-coastal-bayfront.webp",
+    "hero_image_alt": "Waterfront lagoon home in Lacey Township and Forked River, NJ with high-wind architectural shingles"
   },
   {
     "slug": "roofing-lakewood-nj",
@@ -75,7 +85,9 @@
     "meta_title": "Licensed Roof Replacement & Repair in Lakewood, NJ | Free 21-Point Inspection",
     "meta_description": "Trusted architectural roof replacements and fast leak repairs in Lakewood, NJ. Free 21-point roof & attic inspection and 50-year warranty.",
     "lat": 40.0979,
-    "lon": -74.2176
+    "lon": -74.2176,
+    "hero_image_url": "/static/images/heroes/hero-inland-pine.webp",
+    "hero_image_alt": "Architectural shingle roof replacement surrounded by tall pines in Lakewood, NJ"
   },
   {
     "slug": "roofing-barnegat-nj",
@@ -88,7 +100,9 @@
     "meta_title": "Barnegat, NJ Roof Replacement & Storm Damage Pros | 160 MPH Rated",
     "meta_description": "CertainTeed certified roof replacements in Barnegat, NJ. Engineered for coastal wind resistance with 1-day installation and 50-year warranty.",
     "lat": 39.7532,
-    "lon": -74.2226
+    "lon": -74.2226,
+    "hero_image_url": "/static/images/heroes/hero-coastal-bayfront.webp",
+    "hero_image_alt": "Barnegat bayfront residential roof replacement combining architectural shingles and standing seam metal"
   },
   {
     "slug": "roofing-manahawkin-nj",
@@ -101,7 +115,9 @@
     "meta_title": "Manahawkin & Beach Haven West Roofing Contractors | Coastal Rated",
     "meta_description": "Coastal-engineered roof replacements and emergency leak repair in Manahawkin & Stafford Township, NJ. Free 21-point roof & attic inspection.",
     "lat": 39.6940,
-    "lon": -74.2588
+    "lon": -74.2588,
+    "hero_image_url": "/static/images/heroes/hero-coastal-bayfront.webp",
+    "hero_image_alt": "Manahawkin and Beach Haven West coastal home with 160 MPH storm-rated roof assembly"
   },
   {
     "slug": "roofing-howell-nj",
@@ -114,7 +130,9 @@
     "meta_title": "Licensed Roofing Replacement in Howell, NJ | Ocean County Roofing Pros",
     "meta_description": "Residential architectural shingle replacement and storm damage repair in Howell, NJ. Free on-site inspection and transparent pricing.",
     "lat": 40.1698,
-    "lon": -74.2254
+    "lon": -74.2254,
+    "hero_image_url": "/static/images/heroes/hero-inland-pine.webp",
+    "hero_image_alt": "Monmouth County colonial roof replacement with skylights and copper valleys in Howell, NJ"
   },
   {
     "slug": "roofing-freehold-nj",
@@ -127,6 +145,8 @@
     "meta_title": "Freehold, NJ Roof Replacement & Leak Repair | Local Certified Pros",
     "meta_description": "Dispatched locally from Freehold, NJ. Full architectural shingle replacements and emergency leak detection. Free 21-point roof & attic inspection.",
     "lat": 40.2601,
-    "lon": -74.2738
+    "lon": -74.2738,
+    "hero_image_url": "/static/images/heroes/hero-inland-pine.webp",
+    "hero_image_alt": "Suburban colonial home with dimensional architectural roof replacement in Freehold, NJ"
   }
 ]
