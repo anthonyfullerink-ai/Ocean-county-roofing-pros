@@ -77,11 +77,16 @@ def test_vapi_cloud_assistant_properties():
 
     assert "Riley" in riley.get("name", "")
     assert riley.get("backchannelingEnabled") is True
-    assert riley.get("startSpeakingPlan", {}).get("waitSeconds") == 0.35
+    assert riley.get("backgroundDenoisingEnabled") is True
+    assert riley.get("startSpeakingPlan", {}).get("waitSeconds") == 0.25
+    assert riley.get("transcriber", {}).get("model") == "nova-2"
     assert "Hello, thanks for holding! This is Riley over in scheduling" in riley.get("firstMessage", "")
     assert riley.get("firstMessageMode") == "assistant-speaks-first"
     assert riley.get("voice", {}).get("voiceId") == "nPczCjzI2devNBz1zQrb"
-    assert riley.get("voice", {}).get("model") == "eleven_v3"
+    assert riley.get("voice", {}).get("model") == "eleven_flash_v2_5"
+    assert riley.get("voice", {}).get("stability") == 0.55
+    assert riley.get("voice", {}).get("speed") == 1.0
 
     assert "Sarah" in sarah.get("name", "")
     assert sarah.get("backchannelingEnabled") is True
+    assert sarah.get("voice", {}).get("model") == "eleven_v3"

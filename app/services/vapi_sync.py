@@ -403,8 +403,24 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
         "voice": {
             "provider": "11labs",
             "voiceId": "nPczCjzI2devNBz1zQrb",
-            "model": "eleven_v3"
+            "model": "eleven_flash_v2_5",
+            "stability": 0.55,
+            "similarityBoost": 0.8,
+            "speed": 1.0,
+            "optimizeStreamingLatency": 3,
+            "useSpeakerBoost": True
         },
+        "transcriber": {
+            "provider": "deepgram",
+            "model": "nova-2",
+            "language": "en-US",
+            "fallbackPlan": {
+                "autoFallback": {
+                    "enabled": True
+                }
+            }
+        },
+        "backgroundDenoisingEnabled": True,
         "firstMessage": f"Hello, thanks for holding! This is {tenant.assigned_estimator} over in scheduling. Sarah passed along your notes regarding your roof inspection. Let me check our calendar for our roofing specialist—what address are we looking at for the home?",
         "firstMessageMode": "assistant-speaks-first",
         "model": {
@@ -416,7 +432,7 @@ def push_prompts_and_settings_to_vapi() -> Dict[str, Any]:
         "server": _vapi_server(webhook_url, timeout_seconds=20),
         "backchannelingEnabled": True,
         "startSpeakingPlan": {
-            "waitSeconds": 0.35,
+            "waitSeconds": 0.25,
             "smartEndpointingEnabled": True
         },
         "stopSpeakingPlan": {
