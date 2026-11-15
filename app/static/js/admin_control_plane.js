@@ -322,9 +322,6 @@ function updateKpiCards(k) {
     setTxt('kpiAvgRating', `★ ${k.avg_rating ?? '5.0'}`);
     setTxt('kpiReviewsCount', `${k.total_reviews_count ?? 0} Verified Reviews`);
     setTxt('navLeadCountBadge', k.total_leads ?? STATE.leads.length);
-    if (k.active_tenant?.company_name) {
-        setTxt('headerActivePartnerName', k.active_tenant.company_name);
-    }
 }
 
 function renderRoiScoreboard(tenants, leads) {
