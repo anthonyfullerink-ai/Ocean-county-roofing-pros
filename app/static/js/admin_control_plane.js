@@ -27,6 +27,8 @@ const STATE = {
     kpis: {},
     emails: { received: [], sent: [], activeFolder: 'inbound' },
     vapi: { sarah: null, riley: null, calls: [] },
+    analytics: null,
+    analyticsRange: '30d',
     selectedLeadId: null,
     selectedEmailId: null,
     selectedCallId: null
@@ -148,6 +150,7 @@ function handleAdminLogout() {
 const TAB_TITLES = {
     overview: 'Executive Overview & Partner ROI',
     crm: 'Leads & Master CRM Pipeline',
+    analytics: 'Website Traffic & Conversion Analytics',
     emails: 'Email Center & Riley AI (@oceancountyroofingpros.com)',
     voice: 'Voice AI Studio — Sarah & Riley (Vapi Cloud)',
     sms: 'SMS & Alerts Center (Twilio)',
@@ -173,6 +176,7 @@ function switchTab(tabName) {
     const crumb = document.getElementById('activeBreadcrumbTitle');
     if (crumb) crumb.innerText = TAB_TITLES[tabName] || tabName;
 
+    if (tabName === 'analytics') loadSiteAnalytics(STATE.analyticsRange || '30d');
     if (tabName === 'emails' && STATE.emails.received.length === 0) loadResendEmails('inbound');
     if (tabName === 'voice' && !STATE.vapi.sarah) loadVapiOverview();
     if (tabName === 'agents') runLiveDiagnostics();
@@ -298,6 +302,7 @@ async function hydrateAdminBootstrap() {
             const briefEl = document.getElementById('executiveBriefingBox');
             if (briefEl) briefEl.innerText = data.latest_report.markdown_content;
         }
+        loadSiteAnalytics(STATE.analyticsRange || '30d', { quiet: true });
     } catch (e) {
         console.warn('Bootstrap hydration error:', e);
     }
@@ -1448,3 +1453,273 @@ document.addEventListener('DOMContentLoaded', () => {
     initRightPaneResizer();
     checkAdminSession();
 });
+
+// ============================================================================
+// 11. BUILT-IN WEBSITE ANALYTICS (ZERO EXTERNAL LOGIN)
+// ============================================================================
+function switchAnalyticsRange(range) {
+    STATE.analyticsRange = range || '30d';
+    document.querySelectorAll('.analytics-range-btn').forEach(btn => {
+        const active = btn.dataset.analyticsRange === STATE.analyticsRange;
+        btn.className = active
+            ? 'analytics-range-btn px-2.5 py-1 rounded-lg bg-teal-500/20 text-teal-300 border border-teal-500/30 transition'
+            : 'analytics-range-btn px-2.5 py-1 rounded-lg text-[#8b92a5] hover:text-white transition';
+    });
+    loadSiteAnalytics(STATE.analyticsRange);
+}
+
+async function loadSiteAnalytics(range = '30d', opts = {}) {
+    const token = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+    try {
+        const res = await fetch(`/api/analytics/summary?range=${encodeURIComponent(range)}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!res.ok) {
+            if (!opts.quiet) showToast(`Analytics load error (HTTP ${res.status})`, true);
+            return;
+        }
+        const data = await res.json();
+        STATE.analytics = data;
+        renderAnalyticsOverviewPulse(data);
+        renderAnalyticsKpis(data);
+        renderAnalyticsDailyChart(data.daily_series || []);
+        renderAnalyticsFunnel(data.funnel || []);
+        renderAnalyticsSourcesAndDevices(data.sources || [], data.devices || {});
+        renderAnalyticsTopPages(data.top_pages || []);
+        renderAnalyticsRecentStream(data.recent_events || []);
+    } catch (err) {
+        console.warn('Site analytics load warning:', err);
+        if (!opts.quiet) showToast('Could not refresh site analytics.', true);
+    }
+}
+
+function renderAnalyticsOverviewPulse(data) {
+    const k = data?.kpis || {};
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+    setTxt('pulseVisitors', Number(k.unique_visitors || 0).toLocaleString());
+    setTxt('pulseMobilePct', `${k.mobile_pct ?? 0}%`);
+    setTxt('pulseConvRate', `${k.conversion_rate_pct ?? 0}%`);
+    setTxt('pulseCallSms', Number((k.call_clicks || 0) + (k.sms_clicks || 0)).toLocaleString());
+    setTxt('navAnalyticsVisitorsBadge', `${Number(k.unique_visitors || 0)}`);
+}
+
+function renderAnalyticsKpis(data) {
+    const k = data?.kpis || {};
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+    setTxt('anKpiVisitors', Number(k.unique_visitors || 0).toLocaleString());
+    setTxt('anKpiSessions', `${Number(k.sessions || 0).toLocaleString()} Sessions`);
+    setTxt('anKpiPageviews', Number(k.pageviews || 0).toLocaleString());
+    setTxt('anKpiBlogReads', `${Number(k.blog_reads || 0).toLocaleString()} Deep Guide Reads`);
+    setTxt('anKpiConvRate', `${k.conversion_rate_pct ?? 0}%`);
+    setTxt('anKpiLeadsBookings', `${k.leads_submitted || 0} Leads • ${k.bookings_confirmed || 0} Booked`);
+    setTxt('anKpiCallSmsTotal', Number((k.call_clicks || 0) + (k.sms_clicks || 0)).toLocaleString());
+    setTxt('anKpiCallSmsSplit', `${k.call_clicks || 0} Calls • ${k.sms_clicks || 0} Texts`);
+    setTxt('anKpiMobilePct', `${k.mobile_pct ?? 0}%`);
+    setTxt('anKpiEstClicks', `${k.estimator_clicks || 0} Cost Estimator Clicks`);
+}
+
+function renderAnalyticsDailyChart(series) {
+    const wrap = document.getElementById('analyticsDailyChartWrap');
+    if (!wrap) return;
+    if (!Array.isArray(series) || series.length === 0) {
+        wrap.innerHTML = `<div class="text-xs text-[#8b92a5] py-12 text-center">No daily traffic recorded yet in this window.</div>`;
+        return;
+    }
+
+    const displaySeries = series.length > 35 ? series.slice(-30) : series;
+    const width = Math.max(640, displaySeries.length * 24 + 56);
+    const height = 210;
+    const padL = 36;
+    const padR = 16;
+    const padT = 18;
+    const padB = 28;
+    const plotW = width - padL - padR;
+    const plotH = height - padT - padB;
+    const maxVal = Math.max(4, ...displaySeries.map(d => Math.max(d.pageviews || 0, d.visitors || 0)));
+    const slotW = plotW / displaySeries.length;
+    const barW = Math.max(5, Math.min(18, slotW * 0.58));
+
+    const yTicks = [0, Math.round(maxVal / 2), maxVal];
+    const gridLines = yTicks.map(v => {
+        const y = padT + plotH - (v / maxVal) * plotH;
+        return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${width - padR}" y2="${y.toFixed(1)}" stroke="#1f222a" stroke-dasharray="3,3" />
+                <text x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end" fill="#8b92a5" font-size="9" font-family="monospace">${v}</text>`;
+    }).join('');
+
+    const stepLabelEvery = displaySeries.length > 14 ? Math.ceil(displaySeries.length / 8) : 1;
+    const bars = displaySeries.map((d, idx) => {
+        const cx = padL + idx * slotW + slotW / 2;
+        const pvH = ((d.pageviews || 0) / maxVal) * plotH;
+        const vH = ((d.visitors || 0) / maxVal) * plotH;
+        const pvY = padT + plotH - pvH;
+        const vY = padT + plotH - vH;
+        const conv = d.conversions || 0;
+        const convY = Math.max(padT + 4, Math.min(pvY, vY) - 6);
+        const labelHtml = (idx % stepLabelEvery === 0 || idx === displaySeries.length - 1)
+            ? `<text x="${cx.toFixed(1)}" y="${height - 8}" text-anchor="middle" fill="#8b92a5" font-size="9" font-family="monospace">${escapeHtml(d.label || d.date.slice(5))}</text>`
+            : '';
+
+        return `
+        <g class="analytics-day-group cursor-pointer" data-tip="${escapeHtml(d.label || d.date)}: ${d.visitors} visitors, ${d.pageviews} views, ${conv} conversions">
+            <rect x="${(cx - barW / 2).toFixed(1)}" y="${pvY.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1, pvH).toFixed(1)}" rx="3" fill="rgba(56,189,248,0.28)" stroke="rgba(56,189,248,0.65)" stroke-width="0.8" />
+            <rect x="${(cx - barW * 0.34).toFixed(1)}" y="${vY.toFixed(1)}" width="${(barW * 0.68).toFixed(1)}" height="${Math.max(1, vH).toFixed(1)}" rx="2" fill="#2dd4bf" />
+            ${conv > 0 ? `<circle cx="${cx.toFixed(1)}" cy="${convY.toFixed(1)}" r="3.5" fill="#fbbf24" stroke="#0a0a0c" stroke-width="1" />` : ''}
+            <title>${escapeHtml(d.label || d.date)} — ${d.visitors} Visitors • ${d.pageviews} Pageviews • ${conv} Conversions</title>
+            ${labelHtml}
+        </g>`;
+    }).join('');
+
+    wrap.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" class="w-full h-52 min-w-[540px]" role="img" aria-label="Daily site visitors and pageviews chart">
+            ${gridLines}
+            ${bars}
+        </svg>
+        <div id="analyticsChartReadout" class="mt-2 text-[11px] font-mono text-[#8b92a5] text-right">Hover over any bar for exact day totals.</div>
+    `;
+
+    wrap.querySelectorAll('.analytics-day-group').forEach(g => {
+        g.addEventListener('mouseenter', () => {
+            const readout = document.getElementById('analyticsChartReadout');
+            if (readout) readout.innerText = g.dataset.tip || '';
+        });
+    });
+}
+
+function renderAnalyticsFunnel(funnel) {
+    const el = document.getElementById('analyticsFunnelBody');
+    if (!el) return;
+    if (!Array.isArray(funnel) || funnel.length === 0) {
+        el.innerHTML = `<div class="text-[#8b92a5]">No funnel events recorded yet.</div>`;
+        return;
+    }
+    const topCount = Math.max(1, funnel[0]?.count || 0);
+    const colors = ['bg-sky-400', 'bg-teal-400', 'bg-emerald-400', 'bg-amber-400'];
+    el.innerHTML = funnel.map((step, i) => {
+        const pct = Math.min(100, Math.round((step.count / topCount) * 100));
+        return `
+        <div class="space-y-1">
+            <div class="flex justify-between items-center font-semibold">
+                <span class="text-slate-200">${escapeHtml(step.stage)}</span>
+                <span class="font-mono text-white">${Number(step.count || 0).toLocaleString()} <span class="text-[#8b92a5]">(${pct}%)</span></span>
+            </div>
+            <div class="h-2.5 bg-[#0a0a0c] border border-[#1f222a] rounded-full overflow-hidden">
+                <div class="h-full ${colors[i % colors.length]} rounded-full transition-all" style="width:${pct}%"></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderAnalyticsSourcesAndDevices(sources, devices) {
+    const sEl = document.getElementById('analyticsSourcesBody');
+    if (sEl) {
+        const totalSrc = Math.max(1, (sources || []).reduce((a, s) => a + (s.count || 0), 0));
+        sEl.innerHTML = (sources && sources.length > 0)
+            ? sources.map(s => {
+                const pct = Math.round(((s.count || 0) / totalSrc) * 100);
+                return `
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span class="font-bold text-slate-200">${escapeHtml(s.source)}</span>
+                        <span class="font-mono text-[#8b92a5]">${s.count} views (${pct}%)</span>
+                    </div>
+                    <div class="h-2 bg-[#0a0a0c] border border-[#1f222a] rounded-full overflow-hidden">
+                        <div class="h-full bg-teal-400 rounded-full" style="width:${pct}%"></div>
+                    </div>
+                </div>`;
+            }).join('')
+            : `<div class="text-[#8b92a5]">No referral sources logged yet.</div>`;
+    }
+
+    const dEl = document.getElementById('analyticsDevicesBody');
+    if (dEl) {
+        const mob = devices.mobile || 0;
+        const dsk = devices.desktop || 0;
+        const tab = devices.tablet || 0;
+        const tot = Math.max(1, mob + dsk + tab);
+        const cards = [
+            { label: '📱 Mobile', count: mob, pct: Math.round((mob / tot) * 100), tone: 'text-sky-300' },
+            { label: '💻 Desktop', count: dsk, pct: Math.round((dsk / tot) * 100), tone: 'text-teal-300' },
+            { label: '📲 Tablet', count: tab, pct: Math.round((tab / tot) * 100), tone: 'text-amber-300' }
+        ];
+        dEl.innerHTML = cards.map(c => `
+            <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-2.5 text-center">
+                <div class="text-[11px] font-bold text-[#8b92a5]">${c.label}</div>
+                <div class="text-lg font-black font-mono ${c.tone} mt-0.5">${c.pct}%</div>
+                <div class="text-[10px] font-mono text-[#8b92a5]">${c.count} visitors</div>
+            </div>`).join('');
+    }
+}
+
+function renderAnalyticsTopPages(pages) {
+    const tbody = document.getElementById('analyticsTopPagesBody');
+    if (!tbody) return;
+    if (!Array.isArray(pages) || pages.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-[#8b92a5]">No page traffic recorded yet.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = pages.map(p => `
+        <tr class="hover:bg-[#1a1d26]/60">
+            <td class="p-3">
+                <div class="font-mono font-bold text-teal-300 truncate max-w-[230px]">${escapeHtml(p.page_path)}</div>
+                <div class="text-[10px] text-[#8b92a5]">${escapeHtml(p.town_name || 'Countywide')}</div>
+            </td>
+            <td class="p-3 text-right font-mono font-bold text-white">${Number(p.pageviews || 0).toLocaleString()}</td>
+            <td class="p-3 text-right font-mono text-slate-300">${Number(p.visitors || 0).toLocaleString()}</td>
+            <td class="p-3 text-right font-mono font-bold text-amber-300">${Number(p.conversions || 0).toLocaleString()}</td>
+        </tr>`).join('');
+}
+
+function renderAnalyticsRecentStream(events) {
+    const container = document.getElementById('analyticsRecentStreamBody');
+    if (!container) return;
+    if (!Array.isArray(events) || events.length === 0) {
+        container.innerHTML = `<div class="p-6 text-center text-[#8b92a5]">No recent visitor events recorded yet.</div>`;
+        return;
+    }
+    const labels = {
+        page_view: '👁️ Viewed Page',
+        phone_call_click: '📞 Tapped Call',
+        sms_click: '💬 Tapped Text',
+        estimator_quote_click: '🧮 Estimator Quote',
+        quiz_step_complete: '📝 Quiz Progress',
+        generate_lead: '⚡ Lead Submitted',
+        booking_confirmed: '📅 Inspection Booked',
+        email_inquiry_sent: '✉️ Email Inquiry',
+        blog_read_complete: '📖 Read Guide 75%'
+    };
+    container.innerHTML = events.map(ev => {
+        const ts = escapeHtml((ev.created_at || '').slice(5, 19).replace('T', ' '));
+        const badge = labels[ev.event_name] || escapeHtml(ev.event_name);
+        return `
+        <div class="p-3 flex items-center justify-between gap-2 hover:bg-[#1a1d26]/50">
+            <div class="min-w-0">
+                <div class="font-bold text-white truncate">${badge} <span class="font-mono font-normal text-teal-300">${escapeHtml(ev.page_path)}</span></div>
+                <div class="text-[10px] text-[#8b92a5] truncate">${escapeHtml(ev.town_name || 'Ocean County')} • ${escapeHtml(ev.device_type)} • ${escapeHtml(ev.source_channel)}</div>
+            </div>
+            <span class="text-[10px] font-mono text-[#8b92a5] shrink-0">${ts}</span>
+        </div>`;
+    }).join('');
+}
+
+function exportAnalyticsCsv() {
+    const pages = STATE.analytics?.top_pages || [];
+    if (pages.length === 0) {
+        showToast('No analytics data to export yet.', true);
+        return;
+    }
+    const rows = [
+        ['page_path', 'town_name', 'pageviews', 'unique_visitors', 'intent_or_leads'],
+        ...pages.map(p => [p.page_path, p.town_name, p.pageviews, p.visitors, p.conversions])
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ocrp_website_analytics_${STATE.analyticsRange || '30d'}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Exported website analytics CSV!');
+}

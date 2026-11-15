@@ -202,3 +202,29 @@ CREATE TABLE IF NOT EXISTS public.blog_posts (
 CREATE INDEX IF NOT EXISTS idx_blog_posts_status ON public.blog_posts(status);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_slug ON public.blog_posts(slug);
 CREATE INDEX IF NOT EXISTS idx_blog_posts_published_at ON public.blog_posts(published_at DESC);
+
+-- 10. SITE ANALYTICS EVENTS (Zero-Login First-Party Website Traffic & Funnel Telemetry)
+CREATE TABLE IF NOT EXISTS public.site_analytics_events (
+    id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    event_name TEXT NOT NULL DEFAULT 'page_view',
+    session_id TEXT DEFAULT '',
+    visitor_id TEXT DEFAULT '',
+    page_path TEXT NOT NULL DEFAULT '/',
+    page_title TEXT DEFAULT '',
+    page_type TEXT DEFAULT 'landing', -- home | town_silo | blog | feedback | other
+    town_slug TEXT DEFAULT '',
+    town_name TEXT DEFAULT '',
+    device_type TEXT DEFAULT 'desktop', -- mobile | tablet | desktop
+    referrer_host TEXT DEFAULT 'direct',
+    source_channel TEXT DEFAULT 'Direct', -- Direct | Organic Search | Social | Referral | Campaign
+    utm_source TEXT DEFAULT '',
+    utm_medium TEXT DEFAULT '',
+    utm_campaign TEXT DEFAULT '',
+    viewport_width INTEGER DEFAULT 0,
+    meta_json TEXT DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON public.site_analytics_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_event_name ON public.site_analytics_events(event_name);
+CREATE INDEX IF NOT EXISTS idx_analytics_page_path ON public.site_analytics_events(page_path);

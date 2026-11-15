@@ -48,6 +48,12 @@
   to = "/.netlify/functions/api-admin"
   status = 200
 
+# First-Party Website Analytics Collector & Dashboard Summary
+[[redirects]]
+  from = "/api/analytics/*"
+  to = "/.netlify/functions/api-analytics"
+  status = 200
+
 # Contractor Partner Portal API
 [[redirects]]
   from = "/api/portal/*"

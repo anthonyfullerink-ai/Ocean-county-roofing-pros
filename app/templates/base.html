@@ -5,23 +5,132 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-site-verification" content="-DJmIrcyAaYEbc2TxHEDn7QxxwKZU5sSHZ-5sVu70Zw" />
     <title>{% block title %}{{ brand.brand_name }} | Top-Rated Roof Replacement in {{ brand.base_city }}, {{ brand.state }}{% endblock %}</title>
-    <!-- Google Analytics 4 (GA4) -->
+    <!-- Google Analytics 4 (GA4) + First-Party Built-In Telemetry -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-3SNSN2L13M"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'G-3SNSN2L13M');
-        window.ocrpTrackEvent = function(eventName, params) {
-            try {
-                if (typeof gtag === 'function') {
-                    gtag('event', eventName, Object.assign({
-                        town_name: "{{ current_town.town_name if current_town else 'Ocean County' }}",
-                        page_path: window.location.pathname
-                    }, params || {}));
+
+        (function() {
+            function getOrCreateAnonId(storage, key) {
+                try {
+                    let val = storage.getItem(key);
+                    if (!val) {
+                        val = (window.crypto && crypto.randomUUID)
+                            ? crypto.randomUUID()
+                            : ('id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+                        storage.setItem(key, val);
+                    }
+                    return val;
+                } catch (e) {
+                    return 'anon-' + Math.random().toString(36).slice(2, 10);
                 }
-            } catch (e) {}
-        };
+            }
+
+            const visitorId = getOrCreateAnonId(window.localStorage, 'ocrp_vid');
+            const sessionId = getOrCreateAnonId(window.sessionStorage, 'ocrp_sid');
+            const townName = "{{ current_town.town_name if current_town else ('Blog Guides' if is_blog_page else 'Ocean County') }}";
+            const townSlug = "{{ current_town.slug if current_town else '' }}";
+
+            function inferPageType(pathname) {
+                if (pathname === '/' || pathname === '') return 'home';
+                if (pathname.indexOf('/blog') === 0) return 'blog';
+                if (pathname.indexOf('/feedback') === 0) return 'feedback';
+                if (pathname.indexOf('/roofing-') === 0) return 'town_silo';
+                return 'other';
+            }
+
+            function inferDeviceType() {
+                const w = window.innerWidth || document.documentElement.clientWidth || 1280;
+                if (w < 768) return 'mobile';
+                if (w < 1024) return 'tablet';
+                return 'desktop';
+            }
+
+            const urlParams = new URLSearchParams(window.location.search || '');
+            const utmSource = urlParams.get('utm_source') || '';
+            const utmMedium = urlParams.get('utm_medium') || '';
+            const utmCampaign = urlParams.get('utm_campaign') || '';
+            const gclid = urlParams.get('gclid') || '';
+            const fbclid = urlParams.get('fbclid') || '';
+
+            function sendFirstPartyEvent(eventName, extraParams) {
+                try {
+                    const p = window.location.pathname || '/';
+                    if (p.indexOf('/admin') === 0 || p.indexOf('/portal') === 0) return;
+                    const meta = Object.assign({}, extraParams || {});
+                    if (gclid) meta.gclid = true;
+                    if (fbclid) meta.fbclid = true;
+
+                    const payload = {
+                        event_name: String(eventName || 'page_view'),
+                        session_id: sessionId,
+                        visitor_id: visitorId,
+                        page_path: p,
+                        page_title: (document.title || '').slice(0, 140),
+                        page_type: inferPageType(p),
+                        town_slug: townSlug,
+                        town_name: (extraParams && extraParams.city) ? String(extraParams.city) : townName,
+                        device_type: inferDeviceType(),
+                        referrer_host: document.referrer || '',
+                        utm_source: utmSource,
+                        utm_medium: utmMedium,
+                        utm_campaign: utmCampaign,
+                        viewport_width: window.innerWidth || 0,
+                        meta: meta
+                    };
+
+                    const jsonStr = JSON.stringify(payload);
+                    if (navigator.sendBeacon) {
+                        const blob = new Blob([jsonStr], { type: 'application/json' });
+                        if (navigator.sendBeacon('/api/analytics/collect', blob)) return;
+                    }
+                    fetch('/api/analytics/collect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: jsonStr,
+                        keepalive: true
+                    }).catch(function() {});
+                } catch (e) {}
+            }
+
+            window.ocrpTrackEvent = function(eventName, params) {
+                try {
+                    if (typeof gtag === 'function') {
+                        gtag('event', eventName, Object.assign({
+                            town_name: townName,
+                            page_path: window.location.pathname
+                        }, params || {}));
+                    }
+                } catch (e) {}
+                sendFirstPartyEvent(eventName, params);
+            };
+
+            function initAutoPageviewAndBlogDepth() {
+                sendFirstPartyEvent('page_view', {});
+                if ((window.location.pathname || '').indexOf('/blog/') === 0) {
+                    let readSent = false;
+                    window.addEventListener('scroll', function() {
+                        if (readSent) return;
+                        const docEl = document.documentElement;
+                        const scrollable = Math.max(1, (docEl.scrollHeight || 1) - (window.innerHeight || 0));
+                        const pct = (window.scrollY || window.pageYOffset || 0) / scrollable;
+                        if (pct >= 0.75) {
+                            readSent = true;
+                            window.ocrpTrackEvent('blog_read_complete', { scroll_pct: 75 });
+                        }
+                    }, { passive: true });
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAutoPageviewAndBlogDepth);
+            } else {
+                initAutoPageviewAndBlogDepth();
+            }
+        })();
     </script>
     <meta name="description" content="{% block meta_description %}NJ Licensed &amp; Insured Roof Replacement (GAF, CertainTeed, Owens Corning &amp; Metal) and Urgent Roof Leak Triage in {{ brand.base_city }} &amp; Ocean County, NJ. Free 21-point roof &amp; attic inspection (aerial drone diagnostics available upon request).{% endblock %}">
     

@@ -11,6 +11,7 @@ from app.services.db import (
     list_tenants,
     save_daily_report,
     log_agent_run,
+    get_analytics_summary,
 )
 from app.services.comms import send_daily_briefing_alert
 
@@ -31,6 +32,10 @@ class ChiefBriefingAgent:
         start_time = datetime.now()
         today_str = start_time.strftime("%Y-%m-%d")
         kpis = get_dashboard_kpis()
+        analytics_24h = get_analytics_summary("24h").get("kpis", {})
+        analytics_7d = get_analytics_summary("7d")
+        analytics_7d_kpis = analytics_7d.get("kpis", {})
+        top_page_7d = (analytics_7d.get("top_pages") or [{}])[0].get("page_path", "/")
         leads = list_leads()[:8]
         tenants = list_tenants()
 
@@ -91,7 +96,14 @@ class ChiefBriefingAgent:
 
 ---
 
-## 4. Recent Lead Dispatch Log
+## 4. First-Party Website Traffic & Conversion Pulse
+* **Last 24h Traffic:** `{analytics_24h.get('unique_visitors', 0)}` unique visitors (`{analytics_24h.get('pageviews', 0)}` pageviews)
+* **Last 7d Traffic:** `{analytics_7d_kpis.get('unique_visitors', 0)}` visitors • `{analytics_7d_kpis.get('mobile_pct', 0)}%` mobile • `{analytics_7d_kpis.get('call_clicks', 0)}` calls / `{analytics_7d_kpis.get('sms_clicks', 0)}` texts
+* **Top 7d Landing Page:** `{top_page_7d}`
+
+---
+
+## 5. Recent Lead Dispatch Log
 | Lead ID | Homeowner | Town | Service | Status | Est. Value |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 {lead_table}

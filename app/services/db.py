@@ -281,6 +281,30 @@ def init_db() -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS site_analytics_events (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            event_name TEXT NOT NULL DEFAULT 'page_view',
+            session_id TEXT DEFAULT '',
+            visitor_id TEXT DEFAULT '',
+            page_path TEXT NOT NULL DEFAULT '/',
+            page_title TEXT DEFAULT '',
+            page_type TEXT DEFAULT 'landing',
+            town_slug TEXT DEFAULT '',
+            town_name TEXT DEFAULT '',
+            device_type TEXT DEFAULT 'desktop',
+            referrer_host TEXT DEFAULT 'direct',
+            source_channel TEXT DEFAULT 'Direct',
+            utm_source TEXT DEFAULT '',
+            utm_medium TEXT DEFAULT '',
+            utm_campaign TEXT DEFAULT '',
+            viewport_width INTEGER DEFAULT 0,
+            meta_json TEXT DEFAULT '{}'
+        );
+        CREATE INDEX IF NOT EXISTS idx_sqlite_analytics_created_at ON site_analytics_events(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_sqlite_analytics_event_name ON site_analytics_events(event_name);
+        CREATE INDEX IF NOT EXISTS idx_sqlite_analytics_page_path ON site_analytics_events(page_path);
         """
     )
 
@@ -2123,3 +2147,411 @@ def delete_blog_post(slug_or_id: str) -> bool:
     if deleted:
         _sync_to_supabase_cloud("blog_posts", "DELETE", match_col="id", match_val=post_id)
     return deleted
+
+
+# ==============================================================================
+# 10. FIRST-PARTY WEBSITE ANALYTICS EVENTS & AGGREGATION
+# ==============================================================================
+
+_ANALYTICS_BOT_RE = re.compile(
+    r"(bot|crawl|spider|slurp|lighthouse|headlesschrome|pingdom|uptimerobot|pagespeed|curl/|wget/)",
+    re.IGNORECASE,
+)
+
+
+def is_ignored_analytics_hit(page_path: str, user_agent: str = "") -> bool:
+    """Returns True for crawlers/monitors or internal control-plane paths (/admin, /portal, /api)."""
+    p = (page_path or "/").strip().lower()
+    if p.startswith("/admin") or p.startswith("/portal") or p.startswith("/api/") or p.startswith("/.netlify"):
+        return True
+    if user_agent and _ANALYTICS_BOT_RE.search(user_agent):
+        return True
+    return False
+
+
+def classify_analytics_source(
+    referrer_host: str = "",
+    utm_source: str = "",
+    utm_medium: str = "",
+    meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, str]:
+    """Derives clean referrer host and attribution channel without external credentials."""
+    host = (referrer_host or "").strip().lower()
+    if host.startswith("www."):
+        host = host[4:]
+    if not host or "oceancountyroofingpros.com" in host or host in ("localhost", "127.0.0.1"):
+        host = "direct"
+
+    usrc = (utm_source or "").strip().lower()
+    umed = (utm_medium or "").strip().lower()
+    meta_dict = meta if isinstance(meta, dict) else {}
+
+    if usrc or meta_dict.get("gclid") or meta_dict.get("fbclid") or umed in ("cpc", "ppc", "paid", "paid_social", "email"):
+        channel = "Campaign"
+    elif any(k in host for k in ("google.", "bing.com", "duckduckgo.com", "search.yahoo.com", "yahoo.com")):
+        channel = "Organic Search"
+    elif any(k in host for k in ("facebook.com", "instagram.com", "nextdoor.com", "yelp.com", "linkedin.com", "t.co", "x.com", "youtube.com")):
+        channel = "Social"
+    elif host == "direct":
+        channel = "Direct"
+    else:
+        channel = "Referral"
+
+    return {"referrer_host": host, "source_channel": channel}
+
+
+def _normalize_device_type(raw_device: str = "", viewport_width: int = 0, user_agent: str = "") -> str:
+    val = (raw_device or "").strip().lower()
+    if val in ("mobile", "tablet", "desktop"):
+        return val
+    if viewport_width and viewport_width > 0:
+        if viewport_width < 768:
+            return "mobile"
+        if viewport_width < 1024:
+            return "tablet"
+        return "desktop"
+    ua = (user_agent or "").lower()
+    if any(k in ua for k in ("ipad", "tablet")):
+        return "tablet"
+    if any(k in ua for k in ("iphone", "android", "mobile")):
+        return "mobile"
+    return "desktop"
+
+
+def record_analytics_event(data: Dict[str, Any], user_agent: str = "") -> Dict[str, Any]:
+    """Persists an anonymous first-party pageview or funnel event locally and syncs to Supabase."""
+    page_path = (str(data.get("page_path") or "/").split("?")[0] or "/")[:240]
+    if is_ignored_analytics_hit(page_path, user_agent):
+        return {"ok": True, "ignored": True}
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    vw = 0
+    try:
+        vw = int(data.get("viewport_width") or 0)
+    except Exception:
+        vw = 0
+
+    meta_obj = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+    raw_ref = str(data.get("referrer_host") or data.get("referrer") or "")
+    if "://" in raw_ref:
+        try:
+            raw_ref = raw_ref.split("://", 1)[1].split("/", 1)[0].split(":", 1)[0]
+        except Exception:
+            raw_ref = ""
+
+    utm_source = str(data.get("utm_source") or "")[:80]
+    utm_medium = str(data.get("utm_medium") or "")[:80]
+    utm_campaign = str(data.get("utm_campaign") or "")[:120]
+    attributed = classify_analytics_source(raw_ref, utm_source, utm_medium, meta_obj)
+
+    import secrets
+    event_id = str(data.get("id") or f"EVT-{int(datetime.now(timezone.utc).timestamp() * 1000)}-{secrets.token_hex(3)}")
+    record = {
+        "id": event_id,
+        "created_at": str(data.get("created_at") or now_iso),
+        "event_name": str(data.get("event_name") or "page_view")[:64],
+        "session_id": str(data.get("session_id") or "")[:80],
+        "visitor_id": str(data.get("visitor_id") or "")[:80],
+        "page_path": page_path,
+        "page_title": str(data.get("page_title") or "")[:160],
+        "page_type": str(data.get("page_type") or "landing")[:32],
+        "town_slug": str(data.get("town_slug") or "")[:80],
+        "town_name": str(data.get("town_name") or "")[:80],
+        "device_type": _normalize_device_type(str(data.get("device_type") or ""), vw, user_agent),
+        "referrer_host": attributed["referrer_host"],
+        "source_channel": attributed["source_channel"],
+        "utm_source": utm_source,
+        "utm_medium": utm_medium,
+        "utm_campaign": utm_campaign,
+        "viewport_width": vw,
+        "meta_json": json.dumps(meta_obj),
+    }
+
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO site_analytics_events (
+            id, created_at, event_name, session_id, visitor_id, page_path, page_title,
+            page_type, town_slug, town_name, device_type, referrer_host, source_channel,
+            utm_source, utm_medium, utm_campaign, viewport_width, meta_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record["id"],
+            record["created_at"],
+            record["event_name"],
+            record["session_id"],
+            record["visitor_id"],
+            record["page_path"],
+            record["page_title"],
+            record["page_type"],
+            record["town_slug"],
+            record["town_name"],
+            record["device_type"],
+            record["referrer_host"],
+            record["source_channel"],
+            record["utm_source"],
+            record["utm_medium"],
+            record["utm_campaign"],
+            record["viewport_width"],
+            record["meta_json"],
+        ),
+    )
+    conn.commit()
+    conn.close()
+    _sync_to_supabase_cloud("site_analytics_events", "UPSERT", record, match_col="id", match_val=event_id)
+    return {"ok": True, "event": record}
+
+
+def _parse_iso_dt(raw: str) -> Optional[datetime]:
+    if not raw:
+        return None
+    try:
+        s = str(raw).strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        try:
+            dt = datetime.strptime(str(raw)[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            return dt
+        except Exception:
+            return None
+
+
+def summarize_analytics_events(events: List[Dict[str, Any]], range_key: str = "30d") -> Dict[str, Any]:
+    """Aggregates raw site_analytics_events rows into KPIs, daily charts, funnel, sources, and top pages."""
+    range_days_map = {"24h": 1, "today": 1, "7d": 7, "30d": 30, "90d": 90}
+    days = range_days_map.get((range_key or "30d").lower(), 30)
+    now_utc = datetime.now(timezone.utc)
+    cutoff = now_utc - timedelta(days=days)
+
+    filtered: List[Dict[str, Any]] = []
+    for ev in events or []:
+        dt = _parse_iso_dt(ev.get("created_at", ""))
+        if dt and dt >= cutoff:
+            filtered.append({**ev, "_dt": dt})
+
+    visitors_set = set()
+    sessions_set = set()
+    visitor_device_map: Dict[str, str] = {}
+    visitor_source_map: Dict[str, str] = {}
+
+    quiz_start_visitors = set()
+    lead_visitors = set()
+    booking_visitors = set()
+
+    pageviews = 0
+    call_clicks = 0
+    sms_clicks = 0
+    estimator_clicks = 0
+    email_inquiries = 0
+    leads_submitted = 0
+    bookings_confirmed = 0
+    blog_reads = 0
+
+    day_buckets: Dict[str, Dict[str, Any]] = {}
+    for offset in range(days - 1, -1, -1):
+        d = (now_utc - timedelta(days=offset)).strftime("%Y-%m-%d")
+        day_buckets[d] = {
+            "date": d,
+            "label": datetime.strptime(d, "%Y-%m-%d").strftime("%b %d"),
+            "_visitors": set(),
+            "visitors": 0,
+            "pageviews": 0,
+            "conversions": 0,
+            "intent_clicks": 0,
+        }
+
+    page_stats: Dict[str, Dict[str, Any]] = {}
+    town_stats: Dict[str, Dict[str, Any]] = {}
+    source_stats: Dict[str, int] = {}
+
+    for ev in filtered:
+        ename = ev.get("event_name") or "page_view"
+        vid = ev.get("visitor_id") or ev.get("session_id") or ev.get("id")
+        sid = ev.get("session_id") or vid
+        path = (ev.get("page_path") or "/").strip() or "/"
+        town = (ev.get("town_name") or "").strip() or "General / Countywide"
+        device = (ev.get("device_type") or "desktop").lower()
+        source = (ev.get("source_channel") or "Direct").strip() or "Direct"
+        day_key = ev["_dt"].strftime("%Y-%m-%d")
+
+        visitors_set.add(vid)
+        sessions_set.add(sid)
+        visitor_device_map.setdefault(vid, device)
+        visitor_source_map.setdefault(vid, source)
+
+        if day_key in day_buckets:
+            day_buckets[day_key]["_visitors"].add(vid)
+
+        p_entry = page_stats.setdefault(path, {"page_path": path, "pageviews": 0, "_visitors": set(), "conversions": 0, "town_name": town})
+        t_entry = town_stats.setdefault(town, {"town_name": town, "pageviews": 0, "_visitors": set(), "conversions": 0})
+
+        if ename == "page_view":
+            pageviews += 1
+            p_entry["pageviews"] += 1
+            p_entry["_visitors"].add(vid)
+            t_entry["pageviews"] += 1
+            t_entry["_visitors"].add(vid)
+            if day_key in day_buckets:
+                day_buckets[day_key]["pageviews"] += 1
+            source_stats[source] = source_stats.get(source, 0) + 1
+        elif ename in ("quiz_step_complete", "estimator_quote_click"):
+            quiz_start_visitors.add(vid)
+            if ename == "estimator_quote_click":
+                estimator_clicks += 1
+                if day_key in day_buckets:
+                    day_buckets[day_key]["intent_clicks"] += 1
+        elif ename == "phone_call_click":
+            call_clicks += 1
+            p_entry["conversions"] += 1
+            t_entry["conversions"] += 1
+            if day_key in day_buckets:
+                day_buckets[day_key]["intent_clicks"] += 1
+                day_buckets[day_key]["conversions"] += 1
+        elif ename == "sms_click":
+            sms_clicks += 1
+            p_entry["conversions"] += 1
+            t_entry["conversions"] += 1
+            if day_key in day_buckets:
+                day_buckets[day_key]["intent_clicks"] += 1
+                day_buckets[day_key]["conversions"] += 1
+        elif ename == "email_inquiry_sent":
+            email_inquiries += 1
+            leads_submitted += 1
+            lead_visitors.add(vid)
+            p_entry["conversions"] += 1
+            t_entry["conversions"] += 1
+            if day_key in day_buckets:
+                day_buckets[day_key]["conversions"] += 1
+        elif ename == "generate_lead":
+            leads_submitted += 1
+            lead_visitors.add(vid)
+            p_entry["conversions"] += 1
+            t_entry["conversions"] += 1
+            if day_key in day_buckets:
+                day_buckets[day_key]["conversions"] += 1
+        elif ename == "booking_confirmed":
+            bookings_confirmed += 1
+            booking_visitors.add(vid)
+            p_entry["conversions"] += 1
+            t_entry["conversions"] += 1
+        elif ename == "blog_read_complete":
+            blog_reads += 1
+
+    unique_visitors = len(visitors_set)
+    device_counts = {"mobile": 0, "desktop": 0, "tablet": 0}
+    for dev in visitor_device_map.values():
+        key = dev if dev in device_counts else "desktop"
+        device_counts[key] += 1
+
+    mobile_pct = round((device_counts["mobile"] / unique_visitors) * 100, 1) if unique_visitors else 0.0
+    total_conversions = leads_submitted + call_clicks + sms_clicks
+    conv_rate = round((leads_submitted / unique_visitors) * 100, 1) if unique_visitors else 0.0
+
+    daily_series = []
+    for item in day_buckets.values():
+        daily_series.append(
+            {
+                "date": item["date"],
+                "label": item["label"],
+                "visitors": len(item["_visitors"]),
+                "pageviews": item["pageviews"],
+                "conversions": item["conversions"],
+                "intent_clicks": item["intent_clicks"],
+            }
+        )
+
+    top_pages = sorted(
+        [
+            {
+                "page_path": p["page_path"],
+                "pageviews": p["pageviews"],
+                "visitors": len(p["_visitors"]),
+                "conversions": p["conversions"],
+                "town_name": p["town_name"],
+            }
+            for p in page_stats.values()
+        ],
+        key=lambda x: (x["pageviews"], x["visitors"]),
+        reverse=True,
+    )[:12]
+
+    top_towns = sorted(
+        [
+            {
+                "town_name": t["town_name"],
+                "pageviews": t["pageviews"],
+                "visitors": len(t["_visitors"]),
+                "conversions": t["conversions"],
+            }
+            for t in town_stats.values()
+        ],
+        key=lambda x: (x["pageviews"], x["visitors"]),
+        reverse=True,
+    )[:10]
+
+    sources = sorted(
+        [{"source": k, "count": v} for k, v in (source_stats or {"Direct": 0}).items()],
+        key=lambda x: x["count"],
+        reverse=True,
+    )
+
+    recent_sorted = sorted(filtered, key=lambda x: x["_dt"], reverse=True)[:25]
+    recent_events = [
+        {
+            "created_at": r.get("created_at"),
+            "event_name": r.get("event_name"),
+            "page_path": r.get("page_path"),
+            "town_name": r.get("town_name") or "",
+            "device_type": r.get("device_type") or "desktop",
+            "source_channel": r.get("source_channel") or "Direct",
+            "referrer_host": r.get("referrer_host") or "direct",
+        }
+        for r in recent_sorted
+    ]
+
+    return {
+        "status": "success",
+        "range": (range_key or "30d").lower(),
+        "days": days,
+        "kpis": {
+            "unique_visitors": unique_visitors,
+            "sessions": len(sessions_set),
+            "pageviews": pageviews,
+            "leads_submitted": leads_submitted,
+            "bookings_confirmed": bookings_confirmed,
+            "call_clicks": call_clicks,
+            "sms_clicks": sms_clicks,
+            "estimator_clicks": estimator_clicks,
+            "email_inquiries": email_inquiries,
+            "intent_actions_total": total_conversions,
+            "conversion_rate_pct": conv_rate,
+            "mobile_pct": mobile_pct,
+            "blog_reads": blog_reads,
+        },
+        "funnel": [
+            {"stage": "Site Visitors", "count": unique_visitors},
+            {"stage": "Quiz / Cost Guide Started", "count": len(quiz_start_visitors)},
+            {"stage": "Lead Submitted", "count": len(lead_visitors)},
+            {"stage": "Inspection Booked", "count": len(booking_visitors)},
+        ],
+        "devices": device_counts,
+        "sources": sources,
+        "top_pages": top_pages,
+        "top_towns": top_towns,
+        "daily_series": daily_series,
+        "recent_events": recent_events,
+    }
+
+
+def get_analytics_summary(range_key: str = "30d") -> Dict[str, Any]:
+    """Reads site_analytics_events from SQLite mirror and computes dashboard summary."""
+    init_db()
+    conn = _get_conn()
+    rows = conn.execute("SELECT * FROM site_analytics_events ORDER BY created_at DESC LIMIT 10000").fetchall()
+    conn.close()
+    events = [dict(r) for r in rows]
+    return summarize_analytics_events(events, range_key=range_key)

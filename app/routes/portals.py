@@ -45,6 +45,8 @@ from app.services.db import (
     get_setting,
     set_setting,
     update_settings_bulk,
+    record_analytics_event,
+    get_analytics_summary,
 )
 from app.services.tenant_manager import TenantManager
 from app.services.crm_portability import export_leads, import_leads_payload
@@ -1175,3 +1177,38 @@ async def api_submit_public_testimonial(request: Request):
         }
     )
     return {"status": "success", "review": saved}
+
+
+# ==============================================================================
+# 7. FIRST-PARTY WEBSITE ANALYTICS COLLECTOR & SUMMARY ENDPOINTS
+# ==============================================================================
+
+@router.post("/api/analytics/collect")
+async def api_analytics_collect(request: Request):
+    """Non-blocking first-party telemetry endpoint (mirrors Netlify api-analytics.mjs)."""
+    import json as _json
+    raw_body = (await request.body()).decode("utf-8", errors="ignore").strip()
+    if not raw_body:
+        raise HTTPException(status_code=400, detail="Empty analytics payload")
+    try:
+        payload = _json.loads(raw_body)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON analytics payload")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Analytics payload must be a JSON object")
+
+    ua = request.headers.get("user-agent", "")
+    res = record_analytics_event(payload, user_agent=ua)
+    return {"ok": True, **res}
+
+
+@router.get("/api/analytics/summary")
+async def api_analytics_summary(request: Request, range: str = "30d"):
+    """Returns aggregated website analytics for the Owner Command Center (/admin)."""
+    auth_header = request.headers.get("authorization", "")
+    token = auth_header.replace("Bearer ", "").replace("bearer ", "").strip()
+    session = _verify_admin_hmac_token(token) if token else None
+    has_cookie = request.cookies.get("admin_authenticated") == "true"
+    if not session and not has_cookie:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return get_analytics_summary(range_key=range)
