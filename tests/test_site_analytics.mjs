@@ -172,10 +172,30 @@ test("Netlify api-analytics.mjs records collect beacons and enforces admin auth 
     assert.equal(sum.funnel[1].count, 1);
     assert.equal(sum.funnel[2].count, 1);
 
-    // Quick pure helper check
+    // Quick pure helper check (including Eastern Time day bucketing across UTC midnight)
     const emptySum = summarizeAnalyticsEvents([], "7d");
     assert.equal(emptySum.daily_series.length, 7);
     assert.equal(emptySum.kpis.unique_visitors, 0);
+
+    const fixedNowMs = Date.parse("2026-11-15T06:00:00Z"); // 1:00 AM EST on 2026-11-15
+    const etSum = summarizeAnalyticsEvents(
+      [
+        {
+          id: "evt-et-1",
+          created_at: "2026-11-15T03:30:00Z", // 10:30 PM EST on 2026-11-14
+          event_name: "page_view",
+          visitor_id: "et-v1",
+          session_id: "et-s1",
+          page_path: "/"
+        }
+      ],
+      "7d",
+      fixedNowMs
+    );
+    const nov14 = etSum.daily_series.find(d => d.date === "2026-11-14");
+    const nov15 = etSum.daily_series.find(d => d.date === "2026-11-15");
+    assert.equal(nov14?.pageviews, 1);
+    assert.equal(nov15?.pageviews, 0);
   } finally {
     global.fetch = originalFetch;
   }

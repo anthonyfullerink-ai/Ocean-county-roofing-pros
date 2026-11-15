@@ -92,13 +92,26 @@ function normalizeDeviceType(rawDevice = "", viewportWidth = 0, userAgent = "") 
   return "desktop";
 }
 
-function formatUtcDay(dt) {
+const ET_DAY_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
+
+function formatEtDay(dt) {
+  return ET_DAY_FMT.format(dt);
+}
+
+function addDaysToIsoDate(isoDateStr, deltaDays) {
+  const [y, m, d] = isoDateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 12, 0, 0) + deltaDays * 86400000);
   return dt.toISOString().slice(0, 10);
 }
 
 function formatDayLabel(isoDateStr) {
   const [y, m, d] = isoDateStr.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+  const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 12, 0, 0));
   return dt.toLocaleDateString("en-US", { month: "short", day: "2-digit", timeZone: "UTC" });
 }
 
@@ -133,10 +146,10 @@ export function summarizeAnalyticsEvents(events = [], rangeKey = "30d", nowMs = 
   let bookingsConfirmed = 0;
   let blogReads = 0;
 
+  const todayEt = formatEtDay(new Date(nowMs));
   const dayBuckets = new Map();
   for (let offset = days - 1; offset >= 0; offset--) {
-    const dt = new Date(nowMs - offset * 24 * 60 * 60 * 1000);
-    const key = formatUtcDay(dt);
+    const key = addDaysToIsoDate(todayEt, -offset);
     dayBuckets.set(key, {
       date: key,
       label: formatDayLabel(key),
@@ -159,7 +172,7 @@ export function summarizeAnalyticsEvents(events = [], rangeKey = "30d", nowMs = 
     const town = String(ev.town_name || "").trim() || "General / Countywide";
     const device = String(ev.device_type || "desktop").toLowerCase();
     const source = String(ev.source_channel || "Direct").trim() || "Direct";
-    const dayKey = new Date(ev._ts).toISOString().slice(0, 10);
+    const dayKey = formatEtDay(new Date(ev._ts));
 
     visitorsSet.add(vid);
     sessionsSet.add(sid);

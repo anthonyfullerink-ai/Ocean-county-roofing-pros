@@ -88,3 +88,26 @@ def test_admin_dashboard_and_base_include_zero_login_analytics():
 
     assert "loadSiteAnalytics" in admin_js
     assert "/api/analytics/summary" in admin_js
+    assert "formatEtTimestamp" in admin_js
+    assert "America/New_York" in admin_js
+
+    from datetime import datetime, timezone
+    from app.services.db import summarize_analytics_events
+
+    et_sum = summarize_analytics_events(
+        [
+            {
+                "id": "py-et-1",
+                "created_at": "2026-11-15T03:30:00Z",
+                "event_name": "page_view",
+                "visitor_id": "py-et-v1",
+                "session_id": "py-et-s1",
+                "page_path": "/",
+            }
+        ],
+        range_key="7d",
+        now_utc=datetime(2026, 11, 15, 6, 0, tzinfo=timezone.utc),
+    )
+    by_day = {d["date"]: d["pageviews"] for d in et_sum["daily_series"]}
+    assert by_day["2026-11-14"] == 1
+    assert by_day["2026-11-15"] == 0

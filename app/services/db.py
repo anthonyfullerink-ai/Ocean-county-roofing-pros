@@ -2320,12 +2320,19 @@ def _parse_iso_dt(raw: str) -> Optional[datetime]:
             return None
 
 
-def summarize_analytics_events(events: List[Dict[str, Any]], range_key: str = "30d") -> Dict[str, Any]:
-    """Aggregates raw site_analytics_events rows into KPIs, daily charts, funnel, sources, and top pages."""
+def summarize_analytics_events(
+    events: List[Dict[str, Any]],
+    range_key: str = "30d",
+    now_utc: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Aggregates raw site_analytics_events rows into KPIs, daily charts (America/New_York), funnel, sources, and top pages."""
+    from zoneinfo import ZoneInfo
+
+    et_tz = ZoneInfo("America/New_York")
     range_days_map = {"24h": 1, "today": 1, "7d": 7, "30d": 30, "90d": 90}
     days = range_days_map.get((range_key or "30d").lower(), 30)
-    now_utc = datetime.now(timezone.utc)
-    cutoff = now_utc - timedelta(days=days)
+    ref_utc = now_utc or datetime.now(timezone.utc)
+    cutoff = ref_utc - timedelta(days=days)
 
     filtered: List[Dict[str, Any]] = []
     for ev in events or []:
@@ -2351,12 +2358,14 @@ def summarize_analytics_events(events: List[Dict[str, Any]], range_key: str = "3
     bookings_confirmed = 0
     blog_reads = 0
 
+    today_et_date = ref_utc.astimezone(et_tz).date()
     day_buckets: Dict[str, Dict[str, Any]] = {}
     for offset in range(days - 1, -1, -1):
-        d = (now_utc - timedelta(days=offset)).strftime("%Y-%m-%d")
+        d_obj = today_et_date - timedelta(days=offset)
+        d = d_obj.strftime("%Y-%m-%d")
         day_buckets[d] = {
             "date": d,
-            "label": datetime.strptime(d, "%Y-%m-%d").strftime("%b %d"),
+            "label": d_obj.strftime("%b %d"),
             "_visitors": set(),
             "visitors": 0,
             "pageviews": 0,
@@ -2376,7 +2385,7 @@ def summarize_analytics_events(events: List[Dict[str, Any]], range_key: str = "3
         town = (ev.get("town_name") or "").strip() or "General / Countywide"
         device = (ev.get("device_type") or "desktop").lower()
         source = (ev.get("source_channel") or "Direct").strip() or "Direct"
-        day_key = ev["_dt"].strftime("%Y-%m-%d")
+        day_key = ev["_dt"].astimezone(et_tz).strftime("%Y-%m-%d")
 
         visitors_set.add(vid)
         sessions_set.add(sid)

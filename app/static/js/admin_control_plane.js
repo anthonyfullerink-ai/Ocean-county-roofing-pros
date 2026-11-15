@@ -1666,6 +1666,26 @@ function renderAnalyticsTopPages(pages) {
         </tr>`).join('');
 }
 
+function formatEtTimestamp(rawIso) {
+    if (!rawIso) return '';
+    try {
+        const d = new Date(rawIso);
+        if (Number.isNaN(d.getTime())) return String(rawIso).slice(5, 19).replace('T', ' ');
+        return new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York',
+            month: 'short',
+            day: '2-digit',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZoneName: 'short'
+        }).format(d);
+    } catch (e) {
+        return String(rawIso).slice(5, 19).replace('T', ' ');
+    }
+}
+
 function renderAnalyticsRecentStream(events) {
     const container = document.getElementById('analyticsRecentStreamBody');
     if (!container) return;
@@ -1685,7 +1705,7 @@ function renderAnalyticsRecentStream(events) {
         blog_read_complete: '📖 Read Guide 75%'
     };
     container.innerHTML = events.map(ev => {
-        const ts = escapeHtml((ev.created_at || '').slice(5, 19).replace('T', ' '));
+        const ts = escapeHtml(formatEtTimestamp(ev.created_at));
         const badge = labels[ev.event_name] || escapeHtml(ev.event_name);
         return `
         <div class="p-3 flex items-center justify-between gap-2 hover:bg-[#1a1d26]/50">
