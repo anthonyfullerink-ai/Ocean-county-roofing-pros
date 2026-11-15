@@ -307,7 +307,7 @@ def test_portals_and_google_compliant_feedback_hub():
     # 1. Owner Command Center (/admin)
     r_admin = client.get("/admin")
     assert r_admin.status_code == 200
-    assert "OWNER COMMAND CENTER" in r_admin.text
+    assert "OC ROOFING PROS HQ" in r_admin.text
     assert "Universal CRM Export & Import Engine" in r_admin.text
 
     # 2. Contractor Partner Portal (/portal)

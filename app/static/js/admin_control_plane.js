@@ -118,7 +118,7 @@ async function handleAdminLogin(e) {
             localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
             localStorage.setItem(ADMIN_USER_KEY, data.user || u);
             unlockAdminDashboard(data.user || u);
-            showToast('Welcome to Owner Command Center');
+            showToast('Welcome to OC Roofing Pros HQ');
         } else {
             if (errEl) {
                 errEl.innerText = data.error || data.detail || 'Invalid username or password.';
