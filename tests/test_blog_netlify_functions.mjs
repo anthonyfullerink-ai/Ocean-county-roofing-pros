@@ -310,6 +310,61 @@ test("Netlify cron-seo-flywheel.mjs promotes expired 24h blog_posts, publishes M
   }
 });
 
+test("Netlify cron-seo-flywheel.mjs enforces hard daily cap of max 2 Meta posts per run", async () => {
+  const originalFetch = global.fetch;
+  process.env.SUPABASE_URL = "https://mock-supabase.local";
+  process.env.SUPABASE_KEY = "mock_supabase_key";
+  process.env.META_PAGE_ID = "1466735946524886";
+  process.env.META_ACCESS_TOKEN = "test_meta_token";
+  delete process.env.META_IG_USER_ID;
+
+  const queuedGbp = Array.from({ length: 5 }, (_, i) => ({
+    id: `GBP-QUEUE-${i + 1}`,
+    title: `Ocean County Tip ${i + 1}`,
+    content: `Roof tip ${i + 1}`,
+    cta_url: "https://oceancountyroofingpros.com",
+    status: "draft_auto_24h"
+  }));
+  let fbFeedPosts = 0;
+
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || "GET").toUpperCase();
+    if (u.includes("/rest/v1/system_settings")) {
+      return new Response(JSON.stringify([{ key: "auto_publish_24h", value: "true" }]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/gbp_posts") && method === "GET") {
+      return new Response(JSON.stringify(queuedGbp), { status: 200 });
+    }
+    if (u.includes("/rest/v1/gbp_posts") && method === "PATCH") {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/")) {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/feed")) {
+      fbFeedPosts++;
+      return new Response(JSON.stringify({ id: `fb_${fbFeedPosts}` }), { status: 200 });
+    }
+    if (u === "https://api.indexnow.org/indexnow") {
+      return new Response("ok", { status: 200 });
+    }
+    return new Response("{}", { status: 200 });
+  };
+
+  try {
+    const res = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.promoted_count, 5);
+    assert.equal(data.meta_posts_sent, 2);
+    assert.equal(data.max_meta_posts_per_run, 2);
+    assert.equal(fbFeedPosts, 2);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("admin_control_plane.js previewBlogPost renders question/answer, q/a FAQs, and s.callout", () => {
   const jsPath = path.resolve("app/static/js/admin_control_plane.js");
   const code = fs.readFileSync(jsPath, "utf8");

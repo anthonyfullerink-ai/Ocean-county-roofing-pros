@@ -45,7 +45,21 @@ export default async (req, context) => {
     }
 
     const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const maxMetaPostsPerRun = Math.max(1, Number(process.env.MAX_META_POSTS_PER_RUN || sys.max_meta_posts_per_day || 2));
     let promotedCount = 0;
+    let metaPostsSent = 0;
+    const metaResults = [];
+
+    async function publishMetaWithCap(payload) {
+      if (metaPostsSent >= maxMetaPostsPerRun) {
+        return { status: "skipped", reason: "daily_cap_reached" };
+      }
+      const res = await MetaSocialService.publishPost(payload);
+      if (res?.facebook?.status === "published" || res?.instagram?.status === "published" || res?.status === "published") {
+        metaPostsSent++;
+      }
+      return res;
+    }
 
     // 2. Promote expired 24h pending job photos & cross-post to Meta (FB + IG)
     const projRes = await fetch(
@@ -53,7 +67,6 @@ export default async (req, context) => {
       { headers }
     );
     const pendingProjects = projRes.ok ? await projRes.json() : [];
-    const metaResults = [];
     for (const p of pendingProjects) {
       await fetch(`${supabaseUrl}/rest/v1/job_projects?id=eq.${encodeURIComponent(p.id)}`, {
         method: "PATCH",
@@ -67,7 +80,7 @@ export default async (req, context) => {
       const imageUrl = p.image_url || p.photo_url || "";
       if (MetaSocialService.isPublicHttpsUrl(imageUrl)) {
         try {
-          const metaRes = await MetaSocialService.publishPost({
+          const metaRes = await publishMetaWithCap({
             caption,
             imageUrl,
             linkUrl: "https://oceancountyroofingpros.com"
@@ -122,7 +135,7 @@ export default async (req, context) => {
       promotedCount++;
 
       try {
-        const metaRes = await MetaSocialService.publishPost({
+        const metaRes = await publishMetaWithCap({
           caption: post.summary || post.content || post.title || "Ocean County Roofing Pros Update — (732) 660-9121",
           imageUrl: post.image_url || "",
           linkUrl: post.cta_url || "https://oceancountyroofingpros.com"
@@ -175,7 +188,7 @@ export default async (req, context) => {
               : relImg
                 ? `https://oceancountyroofingpros.com${relImg.startsWith("/") ? "" : "/"}${relImg.replace(/\.webp$/i, ".jpg")}`
                 : "";
-            const metaRes = await MetaSocialService.publishPost({
+            const metaRes = await publishMetaWithCap({
               caption: article.social_caption || `${article.title} — ${article.excerpt || "Ocean County Roofing Pros Local Guide"}`,
               imageUrl: publicImageUrl,
               linkUrl: articleUrl,
@@ -242,6 +255,8 @@ export default async (req, context) => {
       JSON.stringify({
         status: "success",
         promoted_count: promotedCount,
+        meta_posts_sent: metaPostsSent,
+        max_meta_posts_per_run: maxMetaPostsPerRun,
         rebuild_triggered: rebuildTriggered,
         indexnow_pinged: indexNowPinged,
         checked_at: new Date().toISOString()
