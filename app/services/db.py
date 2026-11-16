@@ -360,7 +360,9 @@ def init_db() -> None:
             (k, v, now_iso),
         )
 
-    # 2. Seed tenants
+    seed_demo_data = bool(os.getenv("PYTEST_CURRENT_TEST") or os.getenv("OCRP_SEED_DEMO_DATA") == "1")
+
+    # 2. Seed tenants (primary active tenant always; sample standby tenant only in tests/demo mode)
     cur.execute("SELECT COUNT(*) FROM tenants")
     if cur.fetchone()[0] == 0:
         tenants_seed = [
@@ -381,24 +383,27 @@ def init_db() -> None:
                 "Primary launch partner for Ocean County, NJ. Full 21-point roof & attic inspections (drone upon request).",
                 now_iso,
             ),
-            (
-                "client_apex_roofing",
-                "Apex Shore Roofing & Restoration LLC",
-                "Mike Sullivan",
-                "Tyler",
-                "+17325550199",
-                "dispatch@apexshoreroofing.com",
-                "732200",
-                "external_link",
-                "https://calendly.com/apex-shore-roofing/21-point-drone-inspection",
-                "apex_shore_calendar@group.calendar.google.com",
-                "Fully Licensed & Insured NJ HIC",
-                2000.00,
-                0,
-                "Backup / prospective tenant covering northern Ocean and Monmouth counties.",
-                now_iso,
-            ),
         ]
+        if seed_demo_data:
+            tenants_seed.append(
+                (
+                    "client_apex_roofing",
+                    "Apex Shore Roofing & Restoration LLC",
+                    "Mike Sullivan",
+                    "Tyler",
+                    "+17325550199",
+                    "dispatch@apexshoreroofing.com",
+                    "732200",
+                    "external_link",
+                    "https://calendly.com/apex-shore-roofing/21-point-drone-inspection",
+                    "apex_shore_calendar@group.calendar.google.com",
+                    "Fully Licensed & Insured NJ HIC",
+                    2000.00,
+                    0,
+                    "Backup / prospective tenant covering northern Ocean and Monmouth counties.",
+                    now_iso,
+                )
+            )
         cur.executemany(
             """
             INSERT INTO tenants (
@@ -410,9 +415,9 @@ def init_db() -> None:
             tenants_seed,
         )
 
-    # 3. Seed realistic Ocean County leads
+    # 3. Seed realistic Ocean County leads (only in test/demo mode; production starts with live data only)
     cur.execute("SELECT COUNT(*) FROM leads")
-    if cur.fetchone()[0] == 0:
+    if seed_demo_data and cur.fetchone()[0] == 0:
         leads_seed = [
             (
                 "WEB-171001",
@@ -568,9 +573,9 @@ def init_db() -> None:
             leads_seed,
         )
 
-    # 4. Seed verified job_projects across Ocean County towns
+    # 4. Seed verified job_projects across Ocean County towns (only in test/demo mode)
     cur.execute("SELECT COUNT(*) FROM job_projects")
-    if cur.fetchone()[0] == 0:
+    if seed_demo_data and cur.fetchone()[0] == 0:
         projects_seed = [
             (
                 "PROJ-TR-001",
@@ -661,9 +666,9 @@ def init_db() -> None:
             projects_seed,
         )
 
-    # 5. Seed verified customer reviews
+    # 5. Seed verified customer reviews (only in test/demo mode)
     cur.execute("SELECT COUNT(*) FROM reviews")
-    if cur.fetchone()[0] == 0:
+    if seed_demo_data and cur.fetchone()[0] == 0:
         reviews_seed = [
             (
                 "REV-101",
@@ -725,9 +730,9 @@ def init_db() -> None:
             reviews_seed,
         )
 
-    # 6. Seed GBP Posts
+    # 6. Seed GBP Posts (only in test/demo mode)
     cur.execute("SELECT COUNT(*) FROM gbp_posts")
-    if cur.fetchone()[0] == 0:
+    if seed_demo_data and cur.fetchone()[0] == 0:
         gbp_seed = [
             (
                 "GBP-201",

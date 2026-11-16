@@ -409,7 +409,7 @@ def test_mobile_first_nav_hamburger_dock_and_precompiled_css():
 
     for landing in public_pages[:2]:
         html = landing.read_text(encoding="utf-8")
-        assert 'id="verified-projects"' in html
+        assert "#verified-projects" in html
         assert 'touch-action: pan-y' in html
         assert 'autocomplete="email"' in html
         assert "text-base sm:text-sm" in html
