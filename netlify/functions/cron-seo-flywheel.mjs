@@ -209,6 +209,68 @@ export default async (req, context) => {
       }
     } catch (e) {}
 
+    // 4C. Process scheduled voice-dictated posts in social_queue (respecting daily Meta cap)
+    try {
+      const nowIso = new Date().toISOString();
+      const sqRes = await fetch(
+        `${supabaseUrl}/rest/v1/social_queue?status=eq.scheduled&scheduled_for=lte.${encodeURIComponent(nowIso)}&order=scheduled_for.asc&limit=5`,
+        { headers }
+      );
+      const dueSocialPosts = sqRes.ok ? await sqRes.json() : [];
+      for (const sp of dueSocialPosts) {
+        const metaRes = await publishMetaWithCap({
+          caption: sp.caption,
+          imageUrl: sp.image_url || "",
+          linkUrl: sp.link_url || "https://oceancountyroofingpros.com/#quizSection",
+          utmCampaign: sp.utm_campaign || "social_agent"
+        });
+        metaResults.push({ type: "social_queue", id: sp.id, ...metaRes });
+        if (metaRes.status === "published") {
+          await fetch(`${supabaseUrl}/rest/v1/social_queue?id=eq.${encodeURIComponent(sp.id)}`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({
+              status: "published",
+              published_at: nowIso,
+              external_post_ids_json: JSON.stringify(metaRes),
+              updated_at: nowIso
+            })
+          });
+          promotedCount++;
+        }
+      }
+    } catch (e) {}
+
+    // 4D. Promote expired 24h 4-5 star social review replies (1-3 star held for owner approval)
+    try {
+      const nowIso = new Date().toISOString();
+      const siRes = await fetch(
+        `${supabaseUrl}/rest/v1/social_interactions?reply_status=eq.auto_24h&auto_publish_at=lte.${encodeURIComponent(nowIso)}&limit=20`,
+        { headers }
+      );
+      const dueReplies = siRes.ok ? await siRes.json() : [];
+      for (const item of dueReplies) {
+        if (Number(item.rating || 0) > 0 && Number(item.rating) <= 3) continue; // Guardrail
+        let pubRes = { status: "published" };
+        if (item.external_id && item.ai_reply_draft) {
+          pubRes = await MetaSocialService.replyToComment({
+            commentId: item.external_id,
+            message: item.ai_reply_draft
+          });
+        }
+        await fetch(`${supabaseUrl}/rest/v1/social_interactions?id=eq.${encodeURIComponent(item.id)}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({
+            reply_status: "published",
+            published_reply_id: pubRes?.id || "",
+            updated_at: nowIso
+          })
+        });
+        promotedCount++;
+      }
+    } catch (e) {}
+
     // 5. Trigger Netlify Build Hook & IndexNow Ping only when new proof/reviews/blog posts published
     let rebuildTriggered = false;
     let indexNowPinged = false;

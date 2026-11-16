@@ -4,6 +4,7 @@ from app.agents.gbp_seo_agent import LocalSeoGbpAgent
 from app.agents.reputation_agent import ReputationReviewAgent
 from app.agents.watchdog_agent import CroWatchdogAgent
 from app.agents.briefing_agent import ChiefBriefingAgent
+from app.agents.social_agent import SocialEngagementAgent
 
 AGENT_REGISTRY = {
     "media_ingestor": MediaIngestorAgent,
@@ -11,6 +12,7 @@ AGENT_REGISTRY = {
     "reputation": ReputationReviewAgent,
     "watchdog": CroWatchdogAgent,
     "briefing": ChiefBriefingAgent,
+    "social": SocialEngagementAgent,
 }
 
 

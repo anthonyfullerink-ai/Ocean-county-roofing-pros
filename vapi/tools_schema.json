@@ -166,5 +166,108 @@
     "server": {
       "url": "https://oceancountyroofingpros.com/api/vapi/tools"
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_social_post",
+      "description": "Creates and queues (or immediately publishes) a Facebook & Instagram social post from spoken owner dictation with automatic UTM tracking.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "caption": {
+            "type": "string",
+            "description": "Full polished social post caption mentioning the Ocean County town and call-to-action."
+          },
+          "town_name": {
+            "type": "string",
+            "description": "Ocean or Monmouth County town (e.g. Toms River, Brick)."
+          },
+          "image_url": {
+            "type": "string",
+            "description": "Optional public HTTPS image URL."
+          },
+          "utm_campaign": {
+            "type": "string",
+            "description": "Short UTM campaign tag (e.g. silverton_job_highlight)."
+          },
+          "publish_now": {
+            "type": "boolean",
+            "description": "Set true to publish immediately to Facebook/Instagram, or false to place in the scheduled queue."
+          }
+        },
+        "required": ["caption"]
+      }
+    },
+    "server": {
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_social_digest",
+      "description": "Fetches pending social comments, Messenger/IG DMs, social reviews, and queued posts for voice briefing.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "status_filter": {
+            "type": "string",
+            "description": "Optional filter: pending_approval, auto_24h, or all."
+          }
+        }
+      }
+    },
+    "server": {
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "approve_social_reply",
+      "description": "Approves, edits, ignores, or publishes a reply to a Facebook/Instagram comment, DM, or social review.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "interaction_id": {
+            "type": "string",
+            "description": "ID of the social_interactions record (e.g. SOC-REV-...)."
+          },
+          "action": {
+            "type": "string",
+            "description": "approve_and_publish | save_draft | ignore"
+          },
+          "edited_reply": {
+            "type": "string",
+            "description": "Optional updated reply text dictated by the owner."
+          }
+        },
+        "required": ["interaction_id", "action"]
+      }
+    },
+    "server": {
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "publish_queued_post",
+      "description": "Immediately publishes a queued post from social_queue to Facebook Page and Instagram Business.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "post_id": {
+            "type": "string",
+            "description": "ID of the social_queue item (e.g. SQ-...)."
+          }
+        },
+        "required": ["post_id"]
+      }
+    },
+    "server": {
+      "url": "https://oceancountyroofingpros.com/api/vapi/tools"
+    }
   }
 ]

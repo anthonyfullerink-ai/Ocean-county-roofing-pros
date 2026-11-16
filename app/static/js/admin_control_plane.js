@@ -154,6 +154,7 @@ const TAB_TITLES = {
     emails: 'Email Center & Riley AI (@oceancountyroofingpros.com)',
     voice: 'Voice AI Studio — Sarah & Riley (Vapi Cloud)',
     sms: 'SMS & Alerts Center (Twilio)',
+    social: 'Social Media, Maya Voice Desk & Reviews',
     tenants: 'Contractors & Hybrid Territory Routing',
     launchpad: 'SEO, GBP & 24h Photo Queue',
     website: 'Website & Live CRO Controls',
@@ -177,6 +178,7 @@ function switchTab(tabName) {
     if (crumb) crumb.innerText = TAB_TITLES[tabName] || tabName;
 
     if (tabName === 'analytics') loadSiteAnalytics(STATE.analyticsRange || '30d');
+    if (tabName === 'social') loadSocialHub();
     if (tabName === 'emails' && STATE.emails.received.length === 0) loadResendEmails('inbound');
     if (tabName === 'voice' && !STATE.vapi.sarah) loadVapiOverview();
     if (tabName === 'agents') runLiveDiagnostics();
@@ -1739,4 +1741,148 @@ function exportAnalyticsCsv() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast('Exported website analytics CSV!');
+}
+
+// ============================================================================
+// 12. SOCIAL MEDIA, MAYA VAPI DESK & REVIEWS HUB
+// ============================================================================
+async function loadSocialHub() {
+    try {
+        const res = await fetch('/api/admin/social');
+        if (!res.ok) return;
+        const data = await res.json();
+        const interactions = data.interactions || [];
+        const queue = data.queue || [];
+
+        const pendingCount = interactions.filter(i => i.reply_status === 'pending_approval').length;
+        const badge = document.getElementById('navSocialBadge');
+        if (badge) badge.innerText = String(pendingCount);
+
+        renderSocialQueue(queue);
+        renderSocialInteractions(interactions);
+    } catch (e) {
+        console.warn('loadSocialHub error:', e);
+    }
+}
+
+function renderSocialQueue(queue) {
+    const el = document.getElementById('socialQueueList');
+    if (!el) return;
+    if (!Array.isArray(queue) || queue.length === 0) {
+        el.innerHTML = `<div class="text-[#8b92a5] py-8 text-center">No scheduled social posts yet. Use the form or call Maya to queue one.</div>`;
+        return;
+    }
+    el.innerHTML = queue.map(p => {
+        const statusCls = p.status === 'published'
+            ? 'bg-emerald-500/20 text-emerald-300'
+            : 'bg-sky-500/20 text-sky-300';
+        return `
+        <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-3 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+                <span class="px-2 py-0.5 rounded-full font-bold text-[10px] ${statusCls}">${escapeHtml(p.status)}</span>
+                <span class="text-[10px] font-mono text-[#8b92a5]">${escapeHtml(p.town_name || 'Ocean County')} • ${escapeHtml(p.created_by || 'admin')}</span>
+            </div>
+            <p class="text-slate-200 line-clamp-2">${escapeHtml(p.caption)}</p>
+            <div class="flex items-center justify-between gap-2 pt-1">
+                <span class="text-[10px] font-mono text-teal-400">utm=${escapeHtml(p.utm_campaign || 'social_agent')}</span>
+                ${p.status === 'scheduled' ? `<button type="button" onclick="publishAdminSocialQueue('${escapeHtml(p.id)}')" class="bg-teal-600 hover:bg-teal-500 text-white font-bold px-2.5 py-1 rounded-lg text-[11px]">🚀 Publish Now</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderSocialInteractions(interactions) {
+    const el = document.getElementById('socialInteractionsList');
+    if (!el) return;
+    if (!Array.isArray(interactions) || interactions.length === 0) {
+        el.innerHTML = `<div class="p-6 text-center text-[#8b92a5]">No social comments, DMs, or social reviews logged yet.</div>`;
+        return;
+    }
+    el.innerHTML = interactions.map(item => {
+        const isNeg = item.intent === 'NEGATIVE_REVIEW' || (Number(item.rating || 0) > 0 && Number(item.rating) <= 3);
+        const badgeCls = item.reply_status === 'published'
+            ? 'bg-emerald-500/20 text-emerald-300'
+            : isNeg
+                ? 'bg-rose-500/20 text-rose-300'
+                : 'bg-amber-500/20 text-amber-300';
+        const stars = Number(item.rating || 0) > 0 ? ` • ${'★'.repeat(Number(item.rating))}` : '';
+        return `
+        <div class="p-4 space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded-full font-bold text-[10px] ${badgeCls}">${escapeHtml(item.reply_status)}</span>
+                    <span class="font-bold text-white">${escapeHtml(item.author_name || 'Neighbor')}</span>
+                    <span class="text-[11px] font-mono text-teal-300 uppercase">${escapeHtml(item.platform)} ${escapeHtml(item.interaction_type)}${escapeHtml(stars)}</span>
+                </div>
+                <span class="text-[10px] font-mono text-[#8b92a5]">${escapeHtml(item.intent || 'GENERAL')}</span>
+            </div>
+            <p class="text-slate-200 bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-2.5">${escapeHtml(item.message_text)}</p>
+            <textarea id="socReply-${escapeHtml(item.id)}" rows="2" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-2.5 text-slate-200">${escapeHtml(item.ai_reply_draft || '')}</textarea>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="socialInteractionAction('${escapeHtml(item.id)}', 'approve_and_publish')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg">✓ Approve &amp; Reply</button>
+                <button type="button" onclick="socialInteractionAction('${escapeHtml(item.id)}', 'save_draft')" class="bg-[#0a0a0c] border border-[#1f222a] text-slate-200 font-bold px-3 py-1.5 rounded-lg">💾 Save Draft</button>
+                <button type="button" onclick="socialInteractionAction('${escapeHtml(item.id)}', 'ignore')" class="bg-rose-950/60 border border-rose-500/30 text-rose-300 font-bold px-3 py-1.5 rounded-lg">Ignore</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function saveAdminSocialPost(e) {
+    e.preventDefault();
+    const publishNow = e.target.dataset.publishNow === '1';
+    const payload = {
+        town_name: document.getElementById('soc_town').value.trim(),
+        utm_campaign: document.getElementById('soc_utm_campaign').value.trim(),
+        caption: document.getElementById('soc_caption').value.trim(),
+        image_url: document.getElementById('soc_image_url').value.trim(),
+        publish_now: publishNow
+    };
+    const res = await fetch('/api/admin/social', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+        showToast(publishNow ? 'Published post to Meta!' : 'Post queued for daily flywheel!');
+        document.getElementById('soc_caption').value = '';
+        await loadSocialHub();
+    } else {
+        showToast('Could not save social post.', true);
+    }
+}
+
+async function socialInteractionAction(id, action) {
+    const replyText = document.getElementById(`socReply-${id}`)?.value || '';
+    const res = await fetch(`/api/admin/social/interaction/${encodeURIComponent(id)}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, reply_text: replyText })
+    });
+    if (res.ok) {
+        showToast(`Social interaction ${id} updated (${action}).`);
+        await loadSocialHub();
+    } else {
+        showToast('Failed to update social interaction.', true);
+    }
+}
+
+async function publishAdminSocialQueue(id) {
+    const res = await fetch(`/api/admin/social/queue/${encodeURIComponent(id)}/publish`, { method: 'POST' });
+    if (res.ok) {
+        showToast(`Dispatched post ${id} to Meta!`);
+        await loadSocialHub();
+    } else {
+        showToast('Could not publish queued post.', true);
+    }
+}
+
+async function triggerMayaVoiceBriefing() {
+    showToast('Connecting Maya (Vapi Social Desk) to your phone...');
+    const res = await fetch('/api/admin/social/maya-call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.status === 'success') {
+        showToast('Maya is calling your phone now!');
+    } else {
+        showToast(data.error || 'Configure VAPI_SOCIAL_ASSISTANT_ID to enable Maya outbound calls.', true);
+    }
 }

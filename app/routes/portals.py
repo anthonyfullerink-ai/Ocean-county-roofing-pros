@@ -47,6 +47,10 @@ from app.services.db import (
     update_settings_bulk,
     record_analytics_event,
     get_analytics_summary,
+    list_social_interactions,
+    update_social_interaction,
+    enqueue_social_post,
+    list_social_queue,
 )
 from app.services.tenant_manager import TenantManager
 from app.services.crm_portability import export_leads, import_leads_payload
@@ -1212,3 +1216,54 @@ async def api_analytics_summary(request: Request, range: str = "30d"):
     if not session and not has_cookie:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return get_analytics_summary(range_key=range)
+
+
+# ==============================================================================
+# 8. SOCIAL MEDIA, MAYA VAPI DESK & REVIEWS HUB ENDPOINTS
+# ==============================================================================
+
+@router.get("/api/admin/social")
+async def api_admin_get_social():
+    return {
+        "status": "success",
+        "interactions": list_social_interactions(limit=50),
+        "queue": list_social_queue(limit=40),
+        "maya_assistant_id": get_setting("vapi_social_assistant_id", os.getenv("VAPI_SOCIAL_ASSISTANT_ID", "")),
+    }
+
+
+@router.post("/api/admin/social")
+async def api_admin_create_social_post(request: Request):
+    body = await request.json()
+    caption = str(body.get("caption") or "").strip()
+    if not caption:
+        raise HTTPException(status_code=400, detail="Caption is required.")
+    post = enqueue_social_post({
+        "caption": caption,
+        "image_url": body.get("image_url") or "",
+        "link_url": body.get("link_url") or "https://oceancountyroofingpros.com/#quizSection",
+        "utm_campaign": body.get("utm_campaign") or "admin_social_post",
+        "town_name": body.get("town_name") or "Ocean County",
+        "status": "published" if body.get("publish_now") else "scheduled",
+        "created_by": "admin",
+    })
+    return {"status": "success", "post": post}
+
+
+@router.post("/api/admin/social/interaction/{interaction_id}/action")
+async def api_admin_social_interaction_action(interaction_id: str, request: Request):
+    body = await request.json()
+    action = str(body.get("action") or "approve_and_publish")
+    updates: Dict[str, Any] = {}
+    if isinstance(body.get("reply_text"), str) and body["reply_text"].strip():
+        updates["ai_reply_draft"] = body["reply_text"].strip()
+    if action == "ignore":
+        updates["reply_status"] = "ignored"
+    elif action == "save_draft":
+        updates["reply_status"] = "pending_approval"
+    else:
+        updates["reply_status"] = "published"
+    updated = update_social_interaction(interaction_id, updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Social interaction not found.")
+    return {"status": "success", "interaction": updated}

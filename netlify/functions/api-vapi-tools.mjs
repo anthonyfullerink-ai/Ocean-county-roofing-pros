@@ -6,6 +6,7 @@ import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { GCalService, normalizeAvailabilityConfig, getNyDateParts } from "./services/gcal-service.mjs";
 import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
+import { MetaSocialService } from "./services/meta-social-service.mjs";
 
 function parseToolArgs(rawArgs) {
   if (!rawArgs) return {};
@@ -532,6 +533,210 @@ export default async (req, context) => {
           toolCallId: callId,
           result: `Human callback ticket #${leadId} logged and owner alerted (email: ${emailResult?.status || "attempted"}, sms: ${smsSent ? "queued" : "skipped"}). ${spokenInstruction}`
         });
+      }
+
+      // -----------------------------------------------------------------------
+      // TOOL 5: create_social_post (Maya Social Desk Voice-to-Post)
+      // -----------------------------------------------------------------------
+      else if (funcName === "create_social_post") {
+        const caption = String(args.caption || "").trim();
+        const townName = String(args.town_name || "Ocean County").trim();
+        const imageUrl = String(args.image_url || "").trim();
+        const utmCampaign = String(args.utm_campaign || "vapi_voice_post").trim();
+        const publishNow = Boolean(args.publish_now);
+        const nowIso = new Date().toISOString();
+        const postId = `SQ-${Date.now() % 100000000}`;
+
+        if (!caption) {
+          results.push({ toolCallId: callId, result: "Please provide a post caption before saving." });
+          continue;
+        }
+
+        let pubResult = null;
+        if (publishNow) {
+          pubResult = await MetaSocialService.publishPost({
+            caption,
+            imageUrl,
+            linkUrl: "https://oceancountyroofingpros.com/#quizSection",
+            utmCampaign
+          });
+        }
+
+        const row = {
+          id: postId,
+          created_at: nowIso,
+          updated_at: nowIso,
+          caption,
+          image_url: imageUrl,
+          link_url: "https://oceancountyroofingpros.com/#quizSection",
+          platforms: "facebook,instagram",
+          utm_campaign: utmCampaign,
+          town_name: townName,
+          status: publishNow && pubResult?.status === "published" ? "published" : "scheduled",
+          scheduled_for: nowIso,
+          published_at: publishNow && pubResult?.status === "published" ? nowIso : null,
+          external_post_ids_json: JSON.stringify(pubResult || {}),
+          created_by: "vapi_voice"
+        };
+
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/social_queue`, {
+            method: "POST",
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json",
+              Prefer: "return=minimal"
+            },
+            body: JSON.stringify(row)
+          }).catch(() => {});
+        }
+
+        const spoken = row.status === "published"
+          ? `Published social post ${postId} for ${townName} to Meta right now with UTM tracking.`
+          : `Queued social post ${postId} for ${townName} in OC Roofing Pros HQ so it goes out on your daily flywheel.`;
+        results.push({ toolCallId: callId, result: spoken });
+      }
+
+      // -----------------------------------------------------------------------
+      // TOOL 6: get_social_digest (Maya Social Desk Spoken Briefing)
+      // -----------------------------------------------------------------------
+      else if (funcName === "get_social_digest") {
+        let interactions = [];
+        let queue = [];
+        if (supabaseUrl && supabaseKey) {
+          const sbH = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+          const [intRes, qRes] = await Promise.all([
+            fetch(`${supabaseUrl}/rest/v1/social_interactions?order=created_at.desc&limit=25`, { headers: sbH }).catch(() => null),
+            fetch(`${supabaseUrl}/rest/v1/social_queue?status=eq.scheduled&order=scheduled_for.asc&limit=10`, { headers: sbH }).catch(() => null)
+          ]);
+          if (intRes && intRes.ok) interactions = await intRes.json();
+          if (qRes && qRes.ok) queue = await qRes.json();
+        }
+        const pendingApproval = interactions.filter(i => i.reply_status === "pending_approval");
+        const auto24h = interactions.filter(i => i.reply_status === "auto_24h");
+        const urgentNeg = pendingApproval.filter(i => i.intent === "NEGATIVE_REVIEW" || i.intent === "EMERGENCY_LEAK");
+
+        const summary = {
+          pending_approval_count: pendingApproval.length,
+          urgent_alerts_count: urgentNeg.length,
+          auto_24h_count: auto24h.length,
+          scheduled_posts_count: queue.length,
+          items_needing_attention: pendingApproval.slice(0, 5).map(i => ({
+            id: i.id,
+            platform: i.platform,
+            type: i.interaction_type,
+            rating: i.rating,
+            author: i.author_name,
+            message: i.message_text,
+            draft_reply: i.ai_reply_draft
+          }))
+        };
+        results.push({ toolCallId: callId, result: JSON.stringify(summary) });
+      }
+
+      // -----------------------------------------------------------------------
+      // TOOL 7: approve_social_reply (Maya Voice Approval/Publishing)
+      // -----------------------------------------------------------------------
+      else if (funcName === "approve_social_reply") {
+        const interactionId = String(args.interaction_id || "").trim();
+        const action = String(args.action || "approve_and_publish").trim();
+        const editedReply = String(args.edited_reply || "").trim();
+
+        let item = null;
+        if (supabaseUrl && supabaseKey && interactionId) {
+          const sbH = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+          const r = await fetch(`${supabaseUrl}/rest/v1/social_interactions?id=eq.${encodeURIComponent(interactionId)}`, { headers: sbH }).catch(() => null);
+          const arr = r && r.ok ? await r.json() : [];
+          item = arr[0] || null;
+        }
+
+        if (!item) {
+          results.push({ toolCallId: callId, result: `Interaction ${interactionId} was not found.` });
+          continue;
+        }
+
+        const finalText = editedReply || item.ai_reply_draft || "";
+        let newStatus = item.reply_status;
+        let pubRes = null;
+
+        if (action === "ignore") {
+          newStatus = "ignored";
+        } else if (action === "save_draft") {
+          newStatus = "pending_approval";
+        } else if (action === "approve_and_publish") {
+          if (item.interaction_type === "dm") {
+            pubRes = item.platform === "instagram"
+              ? await MetaSocialService.sendIgDm({ recipientId: item.author_id, message: finalText })
+              : await MetaSocialService.sendPageDm({ recipientId: item.author_id, message: finalText });
+          } else if (item.external_id) {
+            pubRes = await MetaSocialService.replyToComment({ commentId: item.external_id, message: finalText });
+          }
+          newStatus = "published";
+        }
+
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/social_interactions?id=eq.${encodeURIComponent(interactionId)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              ai_reply_draft: finalText,
+              reply_status: newStatus,
+              published_reply_id: pubRes?.id || item.published_reply_id || "",
+              updated_at: new Date().toISOString()
+            })
+          }).catch(() => {});
+        }
+
+        results.push({
+          toolCallId: callId,
+          result: `Updated ${interactionId} (${newStatus}).`
+        });
+      }
+
+      // -----------------------------------------------------------------------
+      // TOOL 8: publish_queued_post (Maya Immediate Dispatch)
+      // -----------------------------------------------------------------------
+      else if (funcName === "publish_queued_post") {
+        const postId = String(args.post_id || "").trim();
+        let post = null;
+        if (supabaseUrl && supabaseKey && postId) {
+          const sbH = { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` };
+          const r = await fetch(`${supabaseUrl}/rest/v1/social_queue?id=eq.${encodeURIComponent(postId)}`, { headers: sbH }).catch(() => null);
+          const arr = r && r.ok ? await r.json() : [];
+          post = arr[0] || null;
+        }
+        if (!post) {
+          results.push({ toolCallId: callId, result: `Queued post ${postId} was not found.` });
+          continue;
+        }
+        const pubRes = await MetaSocialService.publishPost({
+          caption: post.caption,
+          imageUrl: post.image_url,
+          linkUrl: post.link_url,
+          utmCampaign: post.utm_campaign || "social_agent"
+        });
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/social_queue?id=eq.${encodeURIComponent(postId)}`, {
+            method: "PATCH",
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              status: pubRes.status === "published" ? "published" : "failed",
+              published_at: new Date().toISOString(),
+              external_post_ids_json: JSON.stringify(pubRes),
+              updated_at: new Date().toISOString()
+            })
+          }).catch(() => {});
+        }
+        results.push({ toolCallId: callId, result: `Post ${postId} dispatch result: ${pubRes.status}.` });
       }
 
       // Default fallback

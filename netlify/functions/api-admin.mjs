@@ -1505,6 +1505,187 @@ export default async (req, context) => {
     }
 
     // =========================================================================
+    // 9B. SOCIAL MEDIA, MAYA VAPI DESK & REVIEWS HUB (/api/admin/social)
+    // =========================================================================
+    if (path.includes("/admin/social")) {
+      const interactionActionMatch = path.match(/\/admin\/social\/interaction\/([^/]+)\/action\/?$/);
+      const queuePublishMatch = path.match(/\/admin\/social\/queue\/([^/]+)\/publish\/?$/);
+
+      if (path.endsWith("/maya-call") && req.method === "POST") {
+        const vapiKey = process.env.VAPI_API_KEY;
+        const phoneId = process.env.VAPI_PHONE_NUMBER_ID;
+        const body = await req.json().catch(() => ({}));
+        const targetPhone = (body.phone || process.env.OWNER_ALERT_PHONE || "+17325523896").trim();
+
+        let socialAssistantId = (process.env.VAPI_SOCIAL_ASSISTANT_ID || "").trim();
+        if (!socialAssistantId && supabaseUrl && supabaseKey) {
+          const sRes = await fetch(`${supabaseUrl}/rest/v1/system_settings?key=eq.vapi_social_assistant_id`, { headers }).catch(() => null);
+          const sArr = sRes && sRes.ok ? await sRes.json() : [];
+          socialAssistantId = (sArr[0]?.value || "").trim();
+        }
+        if (!vapiKey || !phoneId || !socialAssistantId) {
+          return jsonResponse({
+            status: "error",
+            error: "Maya Social Assistant ID or Vapi phone credentials are not configured yet."
+          }, 400);
+        }
+
+        const callRes = await fetch("https://api.vapi.ai/call/phone", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${vapiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumberId: phoneId,
+            assistantId: socialAssistantId,
+            customer: { number: targetPhone, name: "Owner" }
+          })
+        });
+        const callData = await callRes.json().catch(() => ({}));
+        return jsonResponse({ status: callRes.ok ? "success" : "error", call: callData }, callRes.ok ? 200 : 400);
+      }
+
+      if (interactionActionMatch && req.method === "POST") {
+        const iid = decodeURIComponent(interactionActionMatch[1]);
+        const body = await req.json().catch(() => ({}));
+        const action = String(body.action || "approve_and_publish");
+        const editedReply = typeof body.reply_text === "string" ? body.reply_text.trim() : "";
+
+        let existing = null;
+        if (supabaseUrl && supabaseKey) {
+          const r = await fetch(`${supabaseUrl}/rest/v1/social_interactions?id=eq.${encodeURIComponent(iid)}`, { headers }).catch(() => null);
+          const arr = r && r.ok ? await r.json() : [];
+          existing = arr[0] || null;
+        }
+        if (!existing) return jsonResponse({ error: "Social interaction not found" }, 404);
+
+        const finalText = editedReply || existing.ai_reply_draft || "";
+        let newStatus = existing.reply_status;
+        let pubRes = null;
+
+        if (action === "ignore") {
+          newStatus = "ignored";
+        } else if (action === "save_draft") {
+          newStatus = "pending_approval";
+        } else if (action === "approve_and_publish") {
+          if (existing.interaction_type === "dm") {
+            pubRes = existing.platform === "instagram"
+              ? await MetaSocialService.sendIgDm({ recipientId: existing.author_id, message: finalText })
+              : await MetaSocialService.sendPageDm({ recipientId: existing.author_id, message: finalText });
+          } else if (existing.external_id) {
+            pubRes = await MetaSocialService.replyToComment({ commentId: existing.external_id, message: finalText });
+          }
+          newStatus = "published";
+        }
+
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/social_interactions?id=eq.${encodeURIComponent(iid)}`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({
+              ai_reply_draft: finalText,
+              reply_status: newStatus,
+              published_reply_id: pubRes?.id || existing.published_reply_id || "",
+              updated_at: new Date().toISOString()
+            })
+          });
+        }
+        return jsonResponse({ status: "success", reply_status: newStatus, dispatch: pubRes });
+      }
+
+      if (queuePublishMatch && req.method === "POST") {
+        const pid = decodeURIComponent(queuePublishMatch[1]);
+        let post = null;
+        if (supabaseUrl && supabaseKey) {
+          const r = await fetch(`${supabaseUrl}/rest/v1/social_queue?id=eq.${encodeURIComponent(pid)}`, { headers }).catch(() => null);
+          const arr = r && r.ok ? await r.json() : [];
+          post = arr[0] || null;
+        }
+        if (!post) return jsonResponse({ error: "Queued post not found" }, 404);
+
+        const pubRes = await MetaSocialService.publishPost({
+          caption: post.caption,
+          imageUrl: post.image_url,
+          linkUrl: post.link_url,
+          utmCampaign: post.utm_campaign || "social_agent"
+        });
+        const newStatus = pubRes.status === "published" ? "published" : "failed";
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/social_queue?id=eq.${encodeURIComponent(pid)}`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({
+              status: newStatus,
+              published_at: new Date().toISOString(),
+              external_post_ids_json: JSON.stringify(pubRes),
+              updated_at: new Date().toISOString()
+            })
+          });
+        }
+        return jsonResponse({ status: "success", post_status: newStatus, meta: pubRes });
+      }
+
+      if (req.method === "GET") {
+        let interactions = [];
+        let queue = [];
+        let mayaAssistantId = (process.env.VAPI_SOCIAL_ASSISTANT_ID || "").trim();
+        if (supabaseUrl && supabaseKey) {
+          const [intRes, qRes, sRes] = await Promise.all([
+            fetch(`${supabaseUrl}/rest/v1/social_interactions?order=created_at.desc&limit=50`, { headers }).catch(() => null),
+            fetch(`${supabaseUrl}/rest/v1/social_queue?order=created_at.desc&limit=40`, { headers }).catch(() => null),
+            fetch(`${supabaseUrl}/rest/v1/system_settings?key=eq.vapi_social_assistant_id`, { headers }).catch(() => null)
+          ]);
+          if (intRes && intRes.ok) interactions = await intRes.json();
+          if (qRes && qRes.ok) queue = await qRes.json();
+          if (!mayaAssistantId && sRes && sRes.ok) {
+            const sArr = await sRes.json();
+            mayaAssistantId = (sArr[0]?.value || "").trim();
+          }
+        }
+        return jsonResponse({ status: "success", interactions, queue, maya_assistant_id: mayaAssistantId });
+      }
+
+      if (req.method === "POST") {
+        const body = await req.json();
+        const caption = String(body.caption || "").trim();
+        if (!caption) return jsonResponse({ error: "Caption is required" }, 400);
+        const nowIso = new Date().toISOString();
+        const postId = `SQ-${Date.now().toString(36).toUpperCase()}`;
+        const publishNow = Boolean(body.publish_now);
+        const utmCampaign = String(body.utm_campaign || "admin_social_post").trim();
+        const linkUrl = String(body.link_url || "https://oceancountyroofingpros.com/#quizSection").trim();
+        const imageUrl = String(body.image_url || "").trim();
+
+        let pubRes = null;
+        if (publishNow) {
+          pubRes = await MetaSocialService.publishPost({ caption, imageUrl, linkUrl, utmCampaign });
+        }
+        const row = {
+          id: postId,
+          created_at: nowIso,
+          updated_at: nowIso,
+          caption,
+          image_url: imageUrl,
+          link_url: linkUrl,
+          platforms: String(body.platforms || "facebook,instagram"),
+          utm_campaign: utmCampaign,
+          town_name: String(body.town_name || "Ocean County"),
+          status: publishNow && pubRes?.status === "published" ? "published" : "scheduled",
+          scheduled_for: body.scheduled_for || nowIso,
+          published_at: publishNow && pubRes?.status === "published" ? nowIso : null,
+          external_post_ids_json: JSON.stringify(pubRes || {}),
+          created_by: "admin"
+        };
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/social_queue`, {
+            method: "POST",
+            headers: { ...headers, Prefer: "return=minimal" },
+            body: JSON.stringify(row)
+          });
+        }
+        return jsonResponse({ status: "success", post: row, meta: pubRes });
+      }
+    }
+
+    // =========================================================================
     // 10. LIVE API HEALTH DIAGNOSTICS (/api/admin/diagnostics)
     // =========================================================================
     if (path.includes("/diagnostics") && req.method === "GET") {

@@ -228,3 +228,48 @@ CREATE TABLE IF NOT EXISTS public.site_analytics_events (
 CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON public.site_analytics_events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_event_name ON public.site_analytics_events(event_name);
 CREATE INDEX IF NOT EXISTS idx_analytics_page_path ON public.site_analytics_events(page_path);
+
+-- 11. SOCIAL INTERACTIONS (Facebook/Instagram Comments, DMs & Social Reviews)
+CREATE TABLE IF NOT EXISTS public.social_interactions (
+    id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    platform TEXT NOT NULL DEFAULT 'facebook', -- facebook | instagram | gbp
+    interaction_type TEXT NOT NULL DEFAULT 'comment', -- comment | dm | review
+    external_id TEXT DEFAULT '',
+    post_id TEXT DEFAULT '',
+    author_name TEXT DEFAULT '',
+    author_id TEXT DEFAULT '',
+    rating INTEGER DEFAULT 0,
+    message_text TEXT DEFAULT '',
+    intent TEXT DEFAULT 'GENERAL', -- PRICE_OR_INSPECTION_INQUIRY | EMERGENCY_LEAK | COMPLIMENT | NEGATIVE_REVIEW | SPAM_OR_TROLL | GENERAL
+    ai_reply_draft TEXT DEFAULT '',
+    reply_status TEXT DEFAULT 'pending_approval', -- pending_approval | auto_24h | published | ignored
+    auto_publish_at TIMESTAMPTZ,
+    published_reply_id TEXT DEFAULT '',
+    lead_id TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_social_interactions_status ON public.social_interactions(reply_status);
+CREATE INDEX IF NOT EXISTS idx_social_interactions_created ON public.social_interactions(created_at DESC);
+
+-- 12. SOCIAL QUEUE (Voice-Dictated & Scheduled Posts with UTM Attribution)
+CREATE TABLE IF NOT EXISTS public.social_queue (
+    id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    caption TEXT NOT NULL,
+    image_url TEXT DEFAULT '',
+    link_url TEXT DEFAULT 'https://oceancountyroofingpros.com',
+    platforms TEXT DEFAULT 'facebook,instagram',
+    utm_campaign TEXT DEFAULT 'social_agent',
+    town_name TEXT DEFAULT 'Ocean County',
+    status TEXT DEFAULT 'scheduled', -- scheduled | published | skipped | failed
+    scheduled_for TIMESTAMPTZ DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
+    external_post_ids_json TEXT DEFAULT '{}',
+    created_by TEXT DEFAULT 'vapi_voice' -- vapi_voice | agent6 | admin
+);
+
+CREATE INDEX IF NOT EXISTS idx_social_queue_status ON public.social_queue(status);
+CREATE INDEX IF NOT EXISTS idx_social_queue_sched ON public.social_queue(scheduled_for ASC);

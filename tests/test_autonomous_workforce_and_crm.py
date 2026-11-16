@@ -198,9 +198,9 @@ def test_full_5_agent_workforce_execution():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "success"
-    assert data["agents_executed"] == 5
+    assert data["agents_executed"] == 6
 
-    for key in ("media_ingestor", "gbp_seo", "reputation", "watchdog", "briefing"):
+    for key in ("media_ingestor", "gbp_seo", "reputation", "watchdog", "briefing", "social"):
         assert key in data["results"]
         assert data["results"][key]["status"] == "success"
 

@@ -305,6 +305,47 @@ def init_db() -> None:
         CREATE INDEX IF NOT EXISTS idx_sqlite_analytics_created_at ON site_analytics_events(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sqlite_analytics_event_name ON site_analytics_events(event_name);
         CREATE INDEX IF NOT EXISTS idx_sqlite_analytics_page_path ON site_analytics_events(page_path);
+
+        CREATE TABLE IF NOT EXISTS social_interactions (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            platform TEXT NOT NULL DEFAULT 'facebook',
+            interaction_type TEXT NOT NULL DEFAULT 'comment',
+            external_id TEXT DEFAULT '',
+            post_id TEXT DEFAULT '',
+            author_name TEXT DEFAULT '',
+            author_id TEXT DEFAULT '',
+            rating INTEGER DEFAULT 0,
+            message_text TEXT DEFAULT '',
+            intent TEXT DEFAULT 'GENERAL',
+            ai_reply_draft TEXT DEFAULT '',
+            reply_status TEXT DEFAULT 'pending_approval',
+            auto_publish_at TEXT DEFAULT '',
+            published_reply_id TEXT DEFAULT '',
+            lead_id TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_sqlite_social_int_status ON social_interactions(reply_status);
+        CREATE INDEX IF NOT EXISTS idx_sqlite_social_int_created ON social_interactions(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS social_queue (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            caption TEXT NOT NULL,
+            image_url TEXT DEFAULT '',
+            link_url TEXT DEFAULT 'https://oceancountyroofingpros.com',
+            platforms TEXT DEFAULT 'facebook,instagram',
+            utm_campaign TEXT DEFAULT 'social_agent',
+            town_name TEXT DEFAULT 'Ocean County',
+            status TEXT DEFAULT 'scheduled',
+            scheduled_for TEXT NOT NULL,
+            published_at TEXT DEFAULT '',
+            external_post_ids_json TEXT DEFAULT '{}',
+            created_by TEXT DEFAULT 'vapi_voice'
+        );
+        CREATE INDEX IF NOT EXISTS idx_sqlite_social_q_status ON social_queue(status);
+        CREATE INDEX IF NOT EXISTS idx_sqlite_social_q_sched ON social_queue(scheduled_for ASC);
         """
     )
 
@@ -2569,3 +2610,170 @@ def get_analytics_summary(range_key: str = "30d") -> Dict[str, Any]:
     conn.close()
     events = [dict(r) for r in rows]
     return summarize_analytics_events(events, range_key=range_key)
+
+
+# ==============================================================================
+# 11. SOCIAL INTERACTIONS & SOCIAL POST QUEUE (VAPI MAYA + AGENT 6)
+# ==============================================================================
+
+def record_social_interaction(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Persists a Facebook/Instagram/GBP comment, DM, or social review to SQLite & Supabase."""
+    init_db()
+    import secrets
+    now_iso = datetime.now(timezone.utc).isoformat()
+    row_id = str(data.get("id") or f"SOC-{int(datetime.now(timezone.utc).timestamp() * 1000)}-{secrets.token_hex(2)}")
+    record = {
+        "id": row_id,
+        "created_at": str(data.get("created_at") or now_iso),
+        "updated_at": str(data.get("updated_at") or now_iso),
+        "platform": str(data.get("platform") or "facebook"),
+        "interaction_type": str(data.get("interaction_type") or "comment"),
+        "external_id": str(data.get("external_id") or ""),
+        "post_id": str(data.get("post_id") or ""),
+        "author_name": str(data.get("author_name") or "Neighbor"),
+        "author_id": str(data.get("author_id") or ""),
+        "rating": int(data.get("rating") or 0),
+        "message_text": str(data.get("message_text") or ""),
+        "intent": str(data.get("intent") or "GENERAL"),
+        "ai_reply_draft": str(data.get("ai_reply_draft") or ""),
+        "reply_status": str(data.get("reply_status") or "pending_approval"),
+        "auto_publish_at": str(data.get("auto_publish_at") or ""),
+        "published_reply_id": str(data.get("published_reply_id") or ""),
+        "lead_id": str(data.get("lead_id") or ""),
+    }
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO social_interactions (
+            id, created_at, updated_at, platform, interaction_type, external_id, post_id,
+            author_name, author_id, rating, message_text, intent, ai_reply_draft,
+            reply_status, auto_publish_at, published_reply_id, lead_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        tuple(record.values()),
+    )
+    conn.commit()
+    conn.close()
+    _sync_to_supabase_cloud("social_interactions", "UPSERT", record, match_col="id", match_val=row_id)
+    return record
+
+
+def list_social_interactions(
+    reply_status: Optional[str] = None,
+    platform: Optional[str] = None,
+    limit: int = 100,
+) -> List[Dict[str, Any]]:
+    init_db()
+    conn = _get_conn()
+    clauses = []
+    params: List[Any] = []
+    if reply_status:
+        clauses.append("reply_status = ?")
+        params.append(reply_status)
+    if platform:
+        clauses.append("platform = ?")
+        params.append(platform)
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.append(int(limit))
+    rows = conn.execute(
+        f"SELECT * FROM social_interactions {where_sql} ORDER BY created_at DESC LIMIT ?",
+        params,
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def update_social_interaction(interaction_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    init_db()
+    allowed = {
+        "intent", "ai_reply_draft", "reply_status", "auto_publish_at",
+        "published_reply_id", "lead_id", "rating",
+    }
+    clean = {k: v for k, v in (updates or {}).items() if k in allowed and v is not None}
+    clean["updated_at"] = datetime.now(timezone.utc).isoformat()
+    set_clause = ", ".join(f"{k} = ?" for k in clean.keys())
+    conn = _get_conn()
+    conn.execute(f"UPDATE social_interactions SET {set_clause} WHERE id = ?", list(clean.values()) + [interaction_id])
+    conn.commit()
+    row = conn.execute("SELECT * FROM social_interactions WHERE id = ?", (interaction_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    _sync_to_supabase_cloud("social_interactions", "PATCH", clean, match_col="id", match_val=interaction_id)
+    return dict(row)
+
+
+def enqueue_social_post(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Adds a scheduled or voice-dictated social media post to social_queue."""
+    init_db()
+    import secrets
+    now_iso = datetime.now(timezone.utc).isoformat()
+    post_id = str(data.get("id") or f"SQ-{int(datetime.now(timezone.utc).timestamp() * 1000)}-{secrets.token_hex(2)}")
+    record = {
+        "id": post_id,
+        "created_at": str(data.get("created_at") or now_iso),
+        "updated_at": str(data.get("updated_at") or now_iso),
+        "caption": str(data.get("caption") or "").strip(),
+        "image_url": str(data.get("image_url") or "").strip(),
+        "link_url": str(data.get("link_url") or "https://oceancountyroofingpros.com").strip(),
+        "platforms": str(data.get("platforms") or "facebook,instagram"),
+        "utm_campaign": str(data.get("utm_campaign") or "social_agent"),
+        "town_name": str(data.get("town_name") or "Ocean County"),
+        "status": str(data.get("status") or "scheduled"),
+        "scheduled_for": str(data.get("scheduled_for") or now_iso),
+        "published_at": str(data.get("published_at") or ""),
+        "external_post_ids_json": str(data.get("external_post_ids_json") or "{}"),
+        "created_by": str(data.get("created_by") or "vapi_voice"),
+    }
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO social_queue (
+            id, created_at, updated_at, caption, image_url, link_url, platforms,
+            utm_campaign, town_name, status, scheduled_for, published_at,
+            external_post_ids_json, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        tuple(record.values()),
+    )
+    conn.commit()
+    conn.close()
+    _sync_to_supabase_cloud("social_queue", "UPSERT", record, match_col="id", match_val=post_id)
+    return record
+
+
+def list_social_queue(status: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    init_db()
+    conn = _get_conn()
+    if status:
+        rows = conn.execute(
+            "SELECT * FROM social_queue WHERE status = ? ORDER BY scheduled_for DESC LIMIT ?",
+            (status, int(limit)),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM social_queue ORDER BY created_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def update_social_queue_item(post_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    init_db()
+    allowed = {
+        "caption", "image_url", "link_url", "platforms", "utm_campaign",
+        "town_name", "status", "scheduled_for", "published_at", "external_post_ids_json",
+    }
+    clean = {k: v for k, v in (updates or {}).items() if k in allowed and v is not None}
+    clean["updated_at"] = datetime.now(timezone.utc).isoformat()
+    set_clause = ", ".join(f"{k} = ?" for k in clean.keys())
+    conn = _get_conn()
+    conn.execute(f"UPDATE social_queue SET {set_clause} WHERE id = ?", list(clean.values()) + [post_id])
+    conn.commit()
+    row = conn.execute("SELECT * FROM social_queue WHERE id = ?", (post_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    _sync_to_supabase_cloud("social_queue", "PATCH", clean, match_col="id", match_val=post_id)
+    return dict(row)

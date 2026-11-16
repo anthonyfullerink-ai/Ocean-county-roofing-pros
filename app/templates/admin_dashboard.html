@@ -87,6 +87,10 @@
                         <button onclick="switchTab('sms')" id="tabBtn-sms" class="nav-rail-btn w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[#8b92a5] hover:text-white">
                             <span>💬</span><span class="sidebar-text truncate">SMS & Alerts Center</span>
                         </button>
+                        <button onclick="switchTab('social')" id="tabBtn-social" class="nav-rail-btn w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-[#8b92a5] hover:text-white">
+                            <span class="flex items-center gap-2.5"><span>📣</span><span class="sidebar-text truncate">Social &amp; Reviews</span></span>
+                            <span id="navSocialBadge" class="sidebar-text text-[10px] font-mono bg-[#14161c] border border-[#1f222a] px-1.5 py-0.5 rounded text-amber-300">0</span>
+                        </button>
                     </div>
 
                     <div>
@@ -631,6 +635,74 @@
                     </div>
                 </section>
 
+                <!-- TAB 5B: SOCIAL MEDIA, MAYA VAPI DESK & REVIEWS HUB -->
+                <section id="tab-social" class="tab-panel hidden space-y-6">
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-black uppercase bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded">Vapi Maya + Agent 6</span>
+                                <h2 class="text-sm font-black text-white">📣 Social Media Communications &amp; Reviews Hub</h2>
+                            </div>
+                            <p class="text-xs text-[#8b92a5]">Automate Facebook/Instagram posts (max 2/day with UTM attribution), comment &amp; DM triage, and 1–5★ social review responses.</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" onclick="triggerMayaVoiceBriefing()" class="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white text-xs font-black px-4 py-2.5 rounded-xl shadow-lg">📞 Have Maya Call Me (Voice Briefing)</button>
+                            <button type="button" onclick="loadSocialHub()" class="bg-[#0a0a0c] hover:bg-[#1a1d26] border border-[#1f222a] text-teal-300 text-xs font-bold px-3.5 py-2.5 rounded-xl">🔄 Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="grid lg:grid-cols-2 gap-6">
+                        <form onsubmit="saveAdminSocialPost(event)" class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-3 text-xs">
+                            <h3 class="text-sm font-black text-white">✍️ Create / Queue Social Post (FB + IG)</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-[#8b92a5]">Ocean County Town</label>
+                                    <input type="text" id="soc_town" value="Toms River" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white mt-1">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-[#8b92a5]">UTM Campaign Tag</label>
+                                    <input type="text" id="soc_utm_campaign" value="social_agent" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white font-mono mt-1">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#8b92a5]">Post Caption *</label>
+                                <textarea id="soc_caption" rows="4" required placeholder="Finished a 1-day CertainTeed Landmark PRO roof upgrade in Silverton, Toms River! Book your free 21-point roof &amp; attic inspection (aerial drone diagnostics available upon request)..." class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-3 text-white mt-1"></textarea>
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase font-bold text-[#8b92a5]">Public HTTPS Image URL (Optional — required for IG)</label>
+                                <input type="url" id="soc_image_url" placeholder="https://oceancountyroofingpros.com/static/images/shingle-restored-after.jpg" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white font-mono mt-1">
+                            </div>
+                            <div class="flex flex-wrap gap-2 pt-1">
+                                <button type="submit" onclick="this.form.dataset.publishNow='0'" class="flex-1 bg-[#0a0a0c] hover:bg-teal-600 border border-[#1f222a] text-white font-extrabold py-2.5 rounded-xl">🕒 Queue for Daily Flywheel</button>
+                                <button type="submit" onclick="this.form.dataset.publishNow='1'" class="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-extrabold py-2.5 rounded-xl">🚀 Publish Now</button>
+                            </div>
+                        </form>
+
+                        <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-3 flex flex-col">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-sm font-black text-white">🗓️ Scheduled &amp; Recent Posts</h3>
+                                <span class="text-[10px] font-mono text-[#8b92a5]">Hard Cap: Max 2/Day</span>
+                            </div>
+                            <div id="socialQueueList" class="space-y-2.5 overflow-y-auto max-h-80 text-xs flex-1">
+                                <div class="text-[#8b92a5] py-8 text-center">Loading social post queue...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl overflow-hidden">
+                        <div class="p-4 border-b border-[#1f222a] flex flex-wrap justify-between items-center gap-2">
+                            <div>
+                                <h3 class="text-sm font-black text-white">💬 Social Comments, DMs &amp; Reviews Queue</h3>
+                                <p class="text-xs text-[#8b92a5]">1–3★ negative reviews &amp; urgent complaints are always held for your approval; 4–5★ reviews use the 24h hybrid queue.</p>
+                            </div>
+                            <button type="button" onclick="runSingleAgent('social')" class="bg-[#0a0a0c] hover:bg-teal-600 border border-[#1f222a] text-teal-300 hover:text-white text-xs font-bold px-3 py-1.5 rounded-xl">▶ Run Agent 6 Now</button>
+                        </div>
+                        <div id="socialInteractionsList" class="divide-y divide-[#1f222a] text-xs">
+                            <div class="p-6 text-center text-[#8b92a5]">No social comments, DMs, or social reviews logged yet.</div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- TAB 6: CONTRACTORS & HYBRID TERRITORY ROUTING -->
                 <section id="tab-tenants" class="tab-panel hidden space-y-6">
                     <div id="tenantsCardGrid" class="grid md:grid-cols-2 gap-4">
@@ -898,15 +970,15 @@
                     </form>
                 </section>
 
-                <!-- TAB 9: 5-AGENT WORKFORCE & HEALTH -->
+                <!-- TAB 9: 6-AGENT WORKFORCE & HEALTH -->
                 <section id="tab-agents" class="tab-panel hidden space-y-6">
-                    <div class="grid md:grid-cols-5 gap-3 text-xs">
+                    <div class="grid md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
                         <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
-                            <div><span class="text-[10px] text-teal-400 font-bold uppercase">Agent 1</span><h4 class="font-bold text-white">Media & EXIF Tagger</h4></div>
+                            <div><span class="text-[10px] text-teal-400 font-bold uppercase">Agent 1</span><h4 class="font-bold text-white">Media &amp; EXIF Tagger</h4></div>
                             <button onclick="runSingleAgent('media_ingestor')" class="bg-[#0a0a0c] hover:bg-teal-600 text-white font-bold py-2 rounded-xl border border-[#1f222a]">▶ Run Agent 1</button>
                         </div>
                         <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
-                            <div><span class="text-[10px] text-sky-400 font-bold uppercase">Agent 2</span><h4 class="font-bold text-white">GBP & Weather SEO</h4></div>
+                            <div><span class="text-[10px] text-sky-400 font-bold uppercase">Agent 2</span><h4 class="font-bold text-white">GBP &amp; Weather SEO</h4></div>
                             <button onclick="runSingleAgent('gbp_seo')" class="bg-[#0a0a0c] hover:bg-teal-600 text-white font-bold py-2 rounded-xl border border-[#1f222a]">▶ Run Agent 2</button>
                         </div>
                         <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
@@ -920,6 +992,10 @@
                         <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
                             <div><span class="text-[10px] text-purple-400 font-bold uppercase">Agent 5</span><h4 class="font-bold text-white">7:30 AM Briefing</h4></div>
                             <button onclick="runSingleAgent('briefing')" class="bg-[#0a0a0c] hover:bg-teal-600 text-white font-bold py-2 rounded-xl border border-[#1f222a]">▶ Run Agent 5</button>
+                        </div>
+                        <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
+                            <div><span class="text-[10px] text-rose-400 font-bold uppercase">Agent 6</span><h4 class="font-bold text-white">Social &amp; Engagement</h4></div>
+                            <button onclick="runSingleAgent('social')" class="bg-[#0a0a0c] hover:bg-teal-600 text-white font-bold py-2 rounded-xl border border-[#1f222a]">▶ Run Agent 6</button>
                         </div>
                     </div>
 
