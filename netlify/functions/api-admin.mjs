@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { MetaSocialService } from "./services/meta-social-service.mjs";
-import { normalizeAvailabilityConfig } from "./services/gcal-service.mjs";
+import { normalizeAvailabilityConfig, pickNonEmptyConfig } from "./services/gcal-service.mjs";
 import { fetchIcsBusyIntervals } from "./services/ics-parser.mjs";
 import { normalizeEmergencyConfig, getTenantEmergencyConfig, parseEmergencyPolicy } from "./services/emergency-router.mjs";
 import runSeoOptimizer from "./cron-seo-optimizer.mjs";
@@ -638,8 +638,10 @@ export default async (req, context) => {
             const feedbackUrl = `https://oceancountyroofingpros.com/feedback/${encodeURIComponent(leadId)}`;
             const smsBody = `Hi ${firstName}, thank you for choosing Ocean County Roofing Pros! Your roofing project is marked complete. We'd love your feedback or a quick Google review here: ${feedbackUrl}`;
             reviewSmsResult = await sendTwilioSms({ to: targetPhone, body: smsBody });
-            updates.review_request_sent = true;
-            updates.review_request_sent_at = new Date().toISOString();
+            if (reviewSmsResult?.sent) {
+              updates.review_request_sent = true;
+              updates.review_request_sent_at = new Date().toISOString();
+            }
           }
         }
 
@@ -754,7 +756,7 @@ export default async (req, context) => {
         } catch {}
       }
       tenant.ics_feed_url = tenant.ics_feed_url || scheduleExtras.ics_feed_url || "";
-      tenant.availability = normalizeAvailabilityConfig(tenant.availability_json || scheduleExtras.availability || null);
+      tenant.availability = normalizeAvailabilityConfig(pickNonEmptyConfig(scheduleExtras.availability, tenant.availability_json));
       tenant.emergency_config = getTenantEmergencyConfig(tenant, portalSettingsMap);
 
       const kpis = computeKpis({
@@ -804,21 +806,44 @@ export default async (req, context) => {
       }
 
       let existing = {};
+      let sysScheduleExtras = {};
+      let sysEmergencyRaw = null;
       if (supabaseUrl && supabaseKey) {
-        const exRes = await fetch(`${supabaseUrl}/rest/v1/tenants?tenant_id=eq.${encodeURIComponent(tenantId)}&limit=1`, { headers });
-        if (exRes.ok) {
+        const [exRes, sysRes] = await Promise.all([
+          fetch(`${supabaseUrl}/rest/v1/tenants?tenant_id=eq.${encodeURIComponent(tenantId)}&limit=1`, { headers }),
+          fetch(
+            `${supabaseUrl}/rest/v1/system_settings?key=in.(${encodeURIComponent(`tenant_schedule_${tenantId}`)},${encodeURIComponent(`tenant_emergency_${tenantId}`)})`,
+            { headers }
+          )
+        ]);
+        if (exRes && exRes.ok) {
           const rows = await exRes.json();
           if (rows.length > 0) existing = rows[0];
+        }
+        if (sysRes && sysRes.ok) {
+          const sRows = await sysRes.json();
+          for (const row of sRows) {
+            if (row?.key === `tenant_schedule_${tenantId}` && row.value) {
+              try { sysScheduleExtras = JSON.parse(row.value); } catch {}
+            } else if (row?.key === `tenant_emergency_${tenantId}` && row.value) {
+              sysEmergencyRaw = row.value;
+            }
+          }
         }
       }
 
       const cleanIcs = String(
-        body.ics_feed_url !== undefined ? body.ics_feed_url : (existing.ics_feed_url || "")
+        body.ics_feed_url !== undefined ? body.ics_feed_url : (existing.ics_feed_url || sysScheduleExtras.ics_feed_url || "")
       ).trim();
       const normalizedAvail = normalizeAvailabilityConfig(
-        body.availability || body.availability_json || existing.availability_json || null
+        pickNonEmptyConfig(body.availability, body.availability_json, sysScheduleExtras.availability, existing.availability_json)
       );
-      const rawEmergInput = body.emergency_config || body.emergency_config_json || existing.emergency_config_json || null;
+      const rawEmergInput = pickNonEmptyConfig(
+        body.emergency_config,
+        body.emergency_config_json,
+        sysEmergencyRaw,
+        existing.emergency_config_json
+      );
       const normalizedEmergency = rawEmergInput
         ? normalizeEmergencyConfig(rawEmergInput, body.dispatch_phone ?? existing.dispatch_phone ?? "+17326609121")
         : null;
@@ -1393,7 +1418,10 @@ export default async (req, context) => {
             const arr = await getRes.json();
             if (arr[0]) {
               const stamp = new Date().toISOString().split("T")[0];
-              const newNote = `${arr[0].notes ? arr[0].notes + "\n" : ""}[${stamp} Outbound SMS -> ${to}]: "${msg}"`;
+              const tag = smsResult.sent
+                ? `Outbound SMS -> ${to}`
+                : `Outbound SMS FAILED -> ${to} (${smsResult.error || smsResult.reason || smsResult.status || "error"})`;
+              const newNote = `${arr[0].notes ? arr[0].notes + "\n" : ""}[${stamp} ${tag}]: "${msg}"`;
               await fetch(`${supabaseUrl}/rest/v1/leads?id=eq.${encodeURIComponent(body.lead_id)}`, {
                 method: "PATCH",
                 headers,
@@ -1478,7 +1506,7 @@ export default async (req, context) => {
       let smsRes = { status: "skipped" };
       if (phone) {
         const smsText = `Hi ${firstName}, thanks for choosing Ocean County Roofing Pros! How did our team do? Takes 20 seconds: ${feedbackUrl} (Reply STOP to opt out)`;
-        smsRes = await sendTwilioSms(phone, smsText);
+        smsRes = await sendTwilioSms({ to: phone, body: smsText });
       }
 
       let emailRes = { status: "skipped" };
@@ -1574,7 +1602,7 @@ export default async (req, context) => {
           } else if (existing.external_id) {
             pubRes = await MetaSocialService.replyToComment({ commentId: existing.external_id, message: finalText });
           }
-          newStatus = "published";
+          newStatus = pubRes?.status === "published" ? "published" : "failed";
         }
 
         if (supabaseUrl && supabaseKey) {
@@ -1669,7 +1697,7 @@ export default async (req, context) => {
           platforms: String(body.platforms || "facebook,instagram"),
           utm_campaign: utmCampaign,
           town_name: String(body.town_name || "Ocean County"),
-          status: publishNow && pubRes?.status === "published" ? "published" : "scheduled",
+          status: publishNow ? (pubRes?.status === "published" ? "published" : "failed") : "scheduled",
           scheduled_for: body.scheduled_for || nowIso,
           published_at: publishNow && pubRes?.status === "published" ? nowIso : null,
           external_post_ids_json: JSON.stringify(pubRes || {}),

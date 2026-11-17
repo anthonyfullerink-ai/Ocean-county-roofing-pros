@@ -9,7 +9,7 @@
  *   3. Honest Next-Morning Priority Capture (9:00 AM earliest slot) when no overnight crew is active
  */
 import { AIEmailAgent } from "./ai-email-handler.mjs";
-import { getNyDateParts } from "./gcal-service.mjs";
+import { getNyDateParts, pickNonEmptyConfig } from "./gcal-service.mjs";
 
 export const DEFAULT_EMERGENCY_CONFIG = {
   emergency_enabled: false,
@@ -86,7 +86,7 @@ export function getTenantEmergencyConfig(tenant, sysSettings = {}) {
   if (!tenant) return normalizeEmergencyConfig(null, "");
   const rawFromSettings = sysSettings[`tenant_emergency_${tenant.tenant_id}`];
   return normalizeEmergencyConfig(
-    rawFromSettings || tenant.emergency_config || tenant.emergency_config_json || null,
+    pickNonEmptyConfig(rawFromSettings, tenant.emergency_config, tenant.emergency_config_json),
     tenant.dispatch_phone || ""
   );
 }

@@ -481,10 +481,19 @@ async function sendReviewRequestForLead(leadId) {
             email: lead.email || ''
         })
     });
-    if (res.ok) {
-        showToast(`Review request sent to ${lead.first_name}!`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        showToast(data.error || 'Could not send review request', true);
+        return;
+    }
+    const smsSent = Boolean(data.sms?.sent ?? data.sent ?? (data.sms?.status === 'dispatched'));
+    const emailSent = data.email?.status === 'success';
+    if (!smsSent && !emailSent) {
+        showToast(data.sms?.error || data.sms?.reason || data.email?.error || 'Review request failed to dispatch', true);
+    } else if (lead.phone && !smsSent) {
+        showToast(`Review email sent, but SMS failed (${data.sms?.error || data.sms?.reason || data.sms?.status || 'error'})`, true);
     } else {
-        showToast('Could not send review request', true);
+        showToast(`Review request sent to ${lead.first_name}!`);
     }
 }
 
@@ -496,12 +505,13 @@ async function sendQuickLeadSms(leadId, phone) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: phone, body, lead_id: leadId })
     });
-    const data = await res.json();
-    if (res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const smsSent = Boolean(data.sms?.sent ?? data.sent ?? (data.status === 'success'));
+    if (res.ok && smsSent) {
         showToast(`SMS (${data.status}) to ${phone}`);
         hydrateAdminBootstrap();
     } else {
-        showToast(data.error || 'SMS failed', true);
+        showToast(data.sms?.error || data.sms?.reason || data.error || `SMS failed (${data.status || res.status})`, true);
     }
 }
 
@@ -830,11 +840,14 @@ async function sendManualSms(e) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to, body })
     });
-    const data = await res.json();
-    if (res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const smsSent = Boolean(data.sms?.sent ?? data.sent ?? (data.status === 'success'));
+    if (res.ok && smsSent) {
         showToast(`SMS (${data.status}) to ${to}`);
         e.target.reset();
-    } else showToast(data.error || 'SMS error', true);
+    } else {
+        showToast(data.sms?.error || data.sms?.reason || data.error || `SMS failed (${data.status || res.status})`, true);
+    }
 }
 
 async function saveSmsAlertSettings(e) {
@@ -1374,7 +1387,12 @@ async function saveAnalyticsSeoSettings(e) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
-    if (res.ok) showToast('Analytics & Automated SEO settings saved!');
+    if (res.ok) {
+        STATE.sys_settings = { ...(STATE.sys_settings || {}), ...payload };
+        showToast('Analytics & Automated SEO settings saved!');
+    } else {
+        showToast('Failed to save Analytics & SEO settings', 'error');
+    }
 }
 
 async function saveKillSwitches(e) {

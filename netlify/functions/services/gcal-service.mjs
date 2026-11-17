@@ -27,6 +27,27 @@ export const DEFAULT_AVAILABILITY = {
   blackout_dates: []
 };
 
+export function pickNonEmptyConfig(...candidates) {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (!trimmed || trimmed === "{}" || trimmed === "null") continue;
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && Object.keys(parsed).length > 0) {
+          return parsed;
+        }
+      } catch {
+        continue;
+      }
+    } else if (typeof candidate === "object" && !Array.isArray(candidate) && Object.keys(candidate).length > 0) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 export function normalizeAvailabilityConfig(raw) {
   let parsed = raw;
   if (typeof raw === "string" && raw.trim()) {

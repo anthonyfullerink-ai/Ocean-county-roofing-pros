@@ -147,3 +147,64 @@ test("cron-seo-optimizer.mjs pulls GSC rows, stages pending_24h + blog draft, pr
     delete process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   }
 });
+
+test("cron-seo-optimizer.mjs uses NETLIFY_BUILD_HOOK_URL env fallback and respects auto_seo_rebuild_enabled=false", async () => {
+  process.env.SUPABASE_URL = "https://example.supabase.co";
+  process.env.SUPABASE_KEY = "test_key";
+  process.env.NETLIFY_BUILD_HOOK_URL = "https://api.netlify.com/build_hooks/envhook999";
+
+  const originalFetch = global.fetch;
+  let hookCalls = 0;
+  let autoRebuildFlag = "true";
+
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || "GET").toUpperCase();
+    if (u.includes("/rest/v1/system_settings")) {
+      return new Response(
+        JSON.stringify([{ key: "auto_seo_rebuild_enabled", value: autoRebuildFlag }]),
+        { status: 200 }
+      );
+    }
+    if (u.includes("/rest/v1/seo_experiments") && method === "GET") {
+      return new Response(
+        JSON.stringify([
+          {
+            id: "EXP-ENV-1",
+            page_path: "/roofing-brick-nj",
+            status: "pending_24h",
+            auto_apply_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+            baseline_ctr: 0.02,
+            baseline_position: 10,
+            baseline_impressions: 100
+          }
+        ]),
+        { status: 200 }
+      );
+    }
+    if (u === "https://api.netlify.com/build_hooks/envhook999" && method === "POST") {
+      hookCalls++;
+      return new Response("ok", { status: 200 });
+    }
+    return new Response(JSON.stringify([]), { status: 200 });
+  };
+
+  try {
+    const res1 = await seoOptimizerHandler();
+    assert.equal(res1.status, 200);
+    const data1 = await res1.json();
+    assert.equal(data1.promoted_to_active, 1);
+    assert.equal(data1.rebuild_triggered, true);
+    assert.equal(hookCalls, 1);
+
+    autoRebuildFlag = "false";
+    const res2 = await seoOptimizerHandler();
+    assert.equal(res2.status, 200);
+    const data2 = await res2.json();
+    assert.equal(data2.rebuild_triggered, false);
+    assert.equal(hookCalls, 1);
+  } finally {
+    global.fetch = originalFetch;
+    delete process.env.NETLIFY_BUILD_HOOK_URL;
+  }
+});

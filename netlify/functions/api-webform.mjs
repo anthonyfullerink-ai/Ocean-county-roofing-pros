@@ -4,7 +4,7 @@
  */
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
-import { resolveEmergencyHandler, sendEmergencySmsEscalation } from "./services/emergency-router.mjs";
+import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
 import { formatPropertyAddress } from "./services/gcal-service.mjs";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -160,7 +160,8 @@ export default async (req, context) => {
     const twilioToken = process.env.TWILIO_AUTH_TOKEN;
     const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
 
-    if (twilioSid && twilioToken && rawPhone) {
+    const toPhone = sanitizePhoneE164(rawPhone);
+    if (twilioSid && twilioToken && toPhone) {
       let msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Select your preferred inspection time on screen, or reply here to coordinate. Reply STOP to opt out.`;
       if (schedulingType === "external_link" && bookingUrl) {
         msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Please finalize your preferred 15-minute arrival window on our live dispatch calendar: ${bookingUrl} Reply STOP to opt out.`;
@@ -175,11 +176,18 @@ export default async (req, context) => {
             "Content-Type": "application/x-www-form-urlencoded"
           },
           body: new URLSearchParams({
-            To: rawPhone,
+            To: toPhone,
             From: twilioPhone,
             Body: msgBody
           })
-        }).catch(err => console.error("Error dispatching SMS:", err))
+        })
+          .then(async (smsRes) => {
+            if (!smsRes.ok) {
+              const errText = await smsRes.text().catch(() => "");
+              console.error(`[api-webform] Twilio SMS failed (${smsRes.status}):`, errText);
+            }
+          })
+          .catch(err => console.error("Error dispatching SMS:", err))
       );
     }
 

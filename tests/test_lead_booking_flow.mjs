@@ -1038,3 +1038,189 @@ test("Mandatory email enforcement, Lakehurst address formatting, owner invite pa
     else process.env.OWNER_ALERT_EMAIL = prevOwner;
   }
 });
+
+test("tenant_schedule_* in system_settings is not shadowed by '{}' in tenants.availability_json", async () => {
+  const originalFetch = global.fetch;
+  const prevSupaUrl = process.env.SUPABASE_URL;
+  const prevSupaKey = process.env.SUPABASE_KEY;
+  process.env.SUPABASE_URL = "https://mock-supabase.local";
+  process.env.SUPABASE_KEY = "mock-key";
+
+  const mockTenants = [
+    {
+      tenant_id: "client_joe_the_roofer",
+      company_name: "Joe The Roofer LLC",
+      is_active: true,
+      scheduling_type: "google_calendar",
+      dispatch_phone: "+17326609121",
+      availability_json: "{}",
+      emergency_config_json: "{}"
+    }
+  ];
+  const mockSettings = [
+    {
+      key: "tenant_schedule_client_joe_the_roofer",
+      value: JSON.stringify({
+        ics_feed_url: "",
+        availability: {
+          days_of_week: ["Tue", "Thu"],
+          windows: ["11:30 AM"],
+          min_notice: "48h",
+          max_per_day: 2,
+          blackout_dates: []
+        }
+      })
+    }
+  ];
+
+  global.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("/rest/v1/system_settings")) {
+      return new Response(JSON.stringify(mockSettings), { status: 200 });
+    }
+    if (u.includes("/rest/v1/tenants")) {
+      return new Response(JSON.stringify(mockTenants), { status: 200 });
+    }
+    if (u.includes("/rest/v1/leads") || u.includes("/rest/v1/job_projects") || u.includes("/rest/v1/reviews")) {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    return new Response(JSON.stringify({}), { status: 200 });
+  };
+
+  try {
+    const portalRes = await adminHandler(
+      new Request("https://oceancountyroofingpros.com/api/portal/data?tenant_id=client_joe_the_roofer")
+    );
+    assert.equal(portalRes.status, 200);
+    const portalData = await portalRes.json();
+    assert.deepEqual(portalData.tenant.availability.days_of_week, ["Tue", "Thu"]);
+    assert.deepEqual(portalData.tenant.availability.windows, ["11:30 AM"]);
+    assert.equal(portalData.tenant.availability.min_notice, "48h");
+    assert.equal(portalData.tenant.availability.max_per_day, 2);
+
+    const calRes = await calendarHandler(
+      new Request("https://oceancountyroofingpros.com/api/calendar/availability?city=Toms%20River&days=6")
+    );
+    assert.equal(calRes.status, 200);
+    const calData = await calRes.json();
+    const returnedSlotTimes = calData.days.flatMap(d => d.slots.map(s => s.time));
+    assert.ok(returnedSlotTimes.every(t => t === "11:30 AM"), `Expected only 11:30 AM slots, got ${returnedSlotTimes}`);
+  } finally {
+    global.fetch = originalFetch;
+    if (prevSupaUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = prevSupaUrl;
+    if (prevSupaKey === undefined) delete process.env.SUPABASE_KEY;
+    else process.env.SUPABASE_KEY = prevSupaKey;
+  }
+});
+
+test("Empty {} or '{}' does not shadow populated config, and partial /portal/settings POST preserves system_settings", async () => {
+  const originalFetch = global.fetch;
+  const prevSupaUrl = process.env.SUPABASE_URL;
+  const prevSupaKey = process.env.SUPABASE_KEY;
+  process.env.SUPABASE_URL = "https://mock-supabase.local";
+  process.env.SUPABASE_KEY = "mock-key";
+
+  const mockTenants = [
+    {
+      tenant_id: "client_joe_the_roofer",
+      company_name: "Joe The Roofer LLC",
+      is_active: true,
+      scheduling_type: "google_calendar",
+      dispatch_phone: "+17326609121",
+      availability_json: JSON.stringify({
+        days_of_week: ["Fri"],
+        windows: ["2:00 PM"],
+        min_notice: "48h",
+        max_per_day: 1,
+        blackout_dates: []
+      }),
+      emergency_config_json: JSON.stringify({
+        emergency_enabled: true,
+        emergency_mode: "live_transfer",
+        emergency_phone: "+17325550199"
+      })
+    }
+  ];
+  const mockSettings = [
+    {
+      key: "tenant_schedule_client_joe_the_roofer",
+      value: JSON.stringify({ ics_feed_url: "", availability: {} })
+    },
+    {
+      key: "tenant_emergency_client_joe_the_roofer",
+      value: "{}"
+    }
+  ];
+
+  const postedSettings = [];
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || "GET").toUpperCase();
+    if (u.includes("/rest/v1/system_settings")) {
+      if (method === "POST") {
+        postedSettings.push(JSON.parse(opts.body));
+        return new Response(JSON.stringify({}), { status: 201 });
+      }
+      return new Response(JSON.stringify(mockSettings), { status: 200 });
+    }
+    if (u.includes("/rest/v1/tenants")) {
+      if (method === "POST") {
+        return new Response(JSON.stringify({}), { status: 201 });
+      }
+      return new Response(JSON.stringify(mockTenants), { status: 200 });
+    }
+    if (u.includes("/rest/v1/leads") || u.includes("/rest/v1/job_projects") || u.includes("/rest/v1/reviews")) {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    return new Response(JSON.stringify({}), { status: 200 });
+  };
+
+  try {
+    // 1. Empty {} in tenant_schedule_*.availability & "{}" in tenant_emergency_* must NOT shadow tenants.*_json
+    const portalRes = await adminHandler(
+      new Request("https://oceancountyroofingpros.com/api/portal/data?tenant_id=client_joe_the_roofer")
+    );
+    assert.equal(portalRes.status, 200);
+    const portalData = await portalRes.json();
+    assert.deepEqual(portalData.tenant.availability.days_of_week, ["Fri"]);
+    assert.deepEqual(portalData.tenant.availability.windows, ["2:00 PM"]);
+    assert.equal(portalData.tenant.emergency_config.emergency_enabled, true);
+    assert.equal(portalData.tenant.emergency_config.emergency_mode, "live_transfer");
+
+    // 2. Partial POST /api/portal/settings omitting availability & emergency_config preserves system_settings
+    mockTenants[0].availability_json = "{}";
+    mockTenants[0].emergency_config_json = "{}";
+    mockSettings[0].value = JSON.stringify({
+      ics_feed_url: "",
+      availability: { days_of_week: ["Wed"], windows: ["9:00 AM"], min_notice: "next_day", max_per_day: 3, blackout_dates: [] }
+    });
+    mockSettings[1].value = JSON.stringify({
+      emergency_enabled: true,
+      emergency_mode: "sms_callback",
+      emergency_phone: "+17326609121"
+    });
+
+    const saveRes = await adminHandler(
+      new Request("https://oceancountyroofingpros.com/api/portal/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: "client_joe_the_roofer",
+          company_name: "Joe The Roofer LLC"
+        })
+      })
+    );
+    assert.equal(saveRes.status, 200);
+    const savedSched = postedSettings.find(s => s.key === "tenant_schedule_client_joe_the_roofer");
+    const savedEmerg = postedSettings.find(s => s.key === "tenant_emergency_client_joe_the_roofer");
+    assert.ok(savedSched && JSON.parse(savedSched.value).availability.days_of_week[0] === "Wed");
+    assert.ok(savedEmerg && JSON.parse(savedEmerg.value).emergency_enabled === true);
+  } finally {
+    global.fetch = originalFetch;
+    if (prevSupaUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = prevSupaUrl;
+    if (prevSupaKey === undefined) delete process.env.SUPABASE_KEY;
+    else process.env.SUPABASE_KEY = prevSupaKey;
+  }
+});

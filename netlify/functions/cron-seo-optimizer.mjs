@@ -266,8 +266,8 @@ export default async () => {
 
     // 7. Trigger Netlify rebuild if active overrides changed
     let rebuildTriggered = false;
-    const buildHook = (sys.netlify_build_hook_url || "").trim();
-    if (overridesChanged && buildHook.startsWith("https://")) {
+    const buildHook = (sys.netlify_build_hook_url || "").trim() || (process.env.NETLIFY_BUILD_HOOK_URL || "").trim();
+    if (overridesChanged && sys.auto_seo_rebuild_enabled !== "false" && buildHook.startsWith("https://")) {
       const bhRes = await fetch(buildHook, { method: "POST" }).catch(() => null);
       rebuildTriggered = Boolean(bhRes && bhRes.ok);
     }

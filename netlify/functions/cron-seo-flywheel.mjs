@@ -63,7 +63,7 @@ export default async (req, context) => {
 
     // 2. Promote expired 24h pending job photos & cross-post to Meta (FB + IG)
     const projRes = await fetch(
-      `${supabaseUrl}/rest/v1/job_projects?status=eq.pending_auto_24h&created_at=lt.${encodeURIComponent(cutoffIso)}`,
+      `${supabaseUrl}/rest/v1/job_projects?approval_status=eq.pending_auto_24h&created_at=lt.${encodeURIComponent(cutoffIso)}`,
       { headers }
     );
     const pendingProjects = projRes.ok ? await projRes.json() : [];
@@ -71,13 +71,13 @@ export default async (req, context) => {
       await fetch(`${supabaseUrl}/rest/v1/job_projects?id=eq.${encodeURIComponent(p.id)}`, {
         method: "PATCH",
         headers,
-        body: JSON.stringify({ status: "approved" })
+        body: JSON.stringify({ approval_status: "approved" })
       });
       promotedCount++;
 
-      const town = p.town || "Ocean County, NJ";
-      const caption = p.caption || p.title || `Completed roofing project in ${town} by Ocean County Roofing Pros! Need a free 21-point roof & attic inspection (aerial drone diagnostics available upon request)? Call (732) 660-9121 or visit https://oceancountyroofingpros.com`;
-      const imageUrl = p.image_url || p.photo_url || "";
+      const town = p.town_name || p.town || "Ocean County, NJ";
+      const caption = p.caption || p.ai_seo_summary || p.title || `Completed roofing project in ${town} by Ocean County Roofing Pros! Need a free 21-point roof & attic inspection (aerial drone diagnostics available upon request)? Call (732) 660-9121 or visit https://oceancountyroofingpros.com`;
+      const imageUrl = p.image_geotagged_jpg_url || p.image_webp_url || p.image_url || p.photo_url || "";
       if (MetaSocialService.isPublicHttpsUrl(imageUrl)) {
         try {
           const metaRes = await publishMetaWithCap({
@@ -237,6 +237,16 @@ export default async (req, context) => {
             })
           });
           promotedCount++;
+        } else if (!(metaRes.status === "skipped" && metaRes.reason === "daily_cap_reached")) {
+          await fetch(`${supabaseUrl}/rest/v1/social_queue?id=eq.${encodeURIComponent(sp.id)}`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({
+              status: "failed",
+              external_post_ids_json: JSON.stringify(metaRes),
+              updated_at: nowIso
+            })
+          });
         }
       }
     } catch (e) {}
@@ -251,30 +261,31 @@ export default async (req, context) => {
       const dueReplies = siRes.ok ? await siRes.json() : [];
       for (const item of dueReplies) {
         if (Number(item.rating || 0) > 0 && Number(item.rating) <= 3) continue; // Guardrail
-        let pubRes = { status: "published" };
+        let pubRes = { status: "skipped", reason: "missing_external_id_or_draft" };
         if (item.external_id && item.ai_reply_draft) {
           pubRes = await MetaSocialService.replyToComment({
             commentId: item.external_id,
             message: item.ai_reply_draft
           });
         }
+        const replyPublished = pubRes?.status === "published";
         await fetch(`${supabaseUrl}/rest/v1/social_interactions?id=eq.${encodeURIComponent(item.id)}`, {
           method: "PATCH",
           headers,
           body: JSON.stringify({
-            reply_status: "published",
+            reply_status: replyPublished ? "published" : "failed",
             published_reply_id: pubRes?.id || "",
             updated_at: nowIso
           })
         });
-        promotedCount++;
+        if (replyPublished) promotedCount++;
       }
     } catch (e) {}
 
     // 5. Trigger Netlify Build Hook & IndexNow Ping only when new proof/reviews/blog posts published
     let rebuildTriggered = false;
     let indexNowPinged = false;
-    const buildHook = (sys.netlify_build_hook_url || "").trim();
+    const buildHook = (sys.netlify_build_hook_url || "").trim() || (process.env.NETLIFY_BUILD_HOOK_URL || "").trim();
     if (promotedCount > 0 && sys.auto_seo_rebuild_enabled !== "false" && buildHook.startsWith("https://")) {
       try {
         const bhRes = await fetch(buildHook, { method: "POST" });

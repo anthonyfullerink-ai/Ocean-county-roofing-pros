@@ -166,6 +166,9 @@ def test_node_api_admin_auth_bootstrap_crud_routing_sandbox_diagnostics():
     process.env.SUPABASE_KEY = "mock_supabase_service_key";
     process.env.VAPI_API_KEY = "mock_vapi_key";
     process.env.RESEND_API_KEY = "mock_resend_key";
+    process.env.TWILIO_ACCOUNT_SID = "AC_mock_sid";
+    process.env.TWILIO_AUTH_TOKEN = "mock_twilio_token";
+    process.env.TWILIO_PHONE_NUMBER = "+17326609121";
 
     const dbLeads = [
       {{
@@ -265,6 +268,10 @@ def test_node_api_admin_auth_bootstrap_crud_routing_sandbox_diagnostics():
 
       if (u.includes("api.resend.com")) {{
         return new Response(JSON.stringify({{ data: [] }}), {{ status: 200 }});
+      }}
+
+      if (u.includes("api.twilio.com")) {{
+        return new Response(JSON.stringify({{ sid: "SM_mock_123", status: "queued" }}), {{ status: 201 }});
       }}
 
       return new Response(JSON.stringify([]), {{ status: 200 }});

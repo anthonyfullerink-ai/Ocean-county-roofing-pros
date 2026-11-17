@@ -7,8 +7,8 @@
  */
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
-import { GCalService, formatPropertyAddress, getNyDateParts, normalizeAvailabilityConfig } from "./services/gcal-service.mjs";
-import { resolveEmergencyHandler } from "./services/emergency-router.mjs";
+import { GCalService, formatPropertyAddress, getNyDateParts, normalizeAvailabilityConfig, pickNonEmptyConfig } from "./services/gcal-service.mjs";
+import { resolveEmergencyHandler, sanitizePhoneE164 } from "./services/emergency-router.mjs";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -78,7 +78,7 @@ async function resolveTenantAndSchedule(locationText = "") {
 
   const icsFeedUrl = tenant.ics_feed_url || scheduleExtras.ics_feed_url || "";
   const availabilityConfig = normalizeAvailabilityConfig(
-    tenant.availability_json || scheduleExtras.availability || null
+    pickNonEmptyConfig(scheduleExtras.availability, tenant.availability_json)
   );
 
   return { tenant, sysSettings, icsFeedUrl, availabilityConfig };
@@ -321,22 +321,27 @@ export default async (req) => {
       const twilioSid = process.env.TWILIO_ACCOUNT_SID;
       const twilioToken = process.env.TWILIO_AUTH_TOKEN;
       const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
-      if (twilioSid && twilioToken && phone && !phone.toLowerCase().includes("email")) {
+      const toPhone = phone && !phone.toLowerCase().includes("email") ? sanitizePhoneE164(phone) : "";
+      if (twilioSid && twilioToken && toPhone) {
         try {
           const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
           const smsText = `Confirmed! Hi ${name.split(" ")[0]}, your free 21-point roof inspection with Ocean County Roofing Pros is locked in for ${displayDay} at ${timeStr} at ${formattedAddress}. Ref #${leadId || "WEB"}. Reply STOP to opt out.`;
-          await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+          const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
             method: "POST",
             headers: {
               Authorization: `Basic ${auth}`,
               "Content-Type": "application/x-www-form-urlencoded"
             },
             body: new URLSearchParams({
-              To: phone,
+              To: toPhone,
               From: twilioPhone,
               Body: smsText
             })
           });
+          if (!smsRes.ok) {
+            const errText = await smsRes.text().catch(() => "");
+            console.error(`[api-calendar] Twilio booking SMS failed (${smsRes.status}):`, errText);
+          }
         } catch (smsErr) {
           console.error("[api-calendar] Twilio booking SMS error:", smsErr);
         }

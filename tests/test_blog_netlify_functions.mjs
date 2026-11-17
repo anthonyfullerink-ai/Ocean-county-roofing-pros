@@ -441,3 +441,142 @@ test("admin_control_plane.js previewBlogPost renders question/answer, q/a FAQs, 
   assert.ok(iframeStub.srcdoc.includes("Legacy Q?"));
   assert.ok(iframeStub.srcdoc.includes("Legacy A."));
 });
+
+test("Netlify api-admin.mjs saves netlify_build_hook_url and cron-seo-flywheel.mjs falls back to NETLIFY_BUILD_HOOK_URL", async () => {
+  const originalFetch = global.fetch;
+  process.env.SUPABASE_URL = "https://mock.supabase.co";
+  process.env.SUPABASE_KEY = "mock_supabase_key";
+  process.env.NETLIFY_BUILD_HOOK_URL = "https://api.netlify.com/build_hooks/envflywheel";
+
+  const upsertedSettings = [];
+  let flywheelHookCalls = 0;
+
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || "GET").toUpperCase();
+    if (u.includes("/rest/v1/system_settings") && method === "POST") {
+      upsertedSettings.push(JSON.parse(opts.body));
+      return new Response(JSON.stringify([JSON.parse(opts.body)]), { status: 201 });
+    }
+    if (u.includes("/rest/v1/system_settings") && method === "GET") {
+      return new Response(JSON.stringify([
+        { key: "auto_publish_24h", value: "true" },
+        { key: "netlify_build_hook_url", value: "   " }
+      ]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/job_projects") && method === "GET") {
+      return new Response(JSON.stringify([{ id: "JOB-1", town: "Brick, NJ", caption: "New roof" }]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/job_projects") && method === "PATCH") {
+      return new Response(JSON.stringify([{ id: "JOB-1" }]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/") && method === "GET") {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (u === "https://api.netlify.com/build_hooks/envflywheel" && method === "POST") {
+      flywheelHookCalls++;
+      return new Response("ok", { status: 200 });
+    }
+    if (u === "https://api.indexnow.org/indexnow") {
+      return new Response("ok", { status: 200 });
+    }
+    return new Response(JSON.stringify([]), { status: 200 });
+  };
+
+  try {
+    const saveRes = await adminHandler(
+      new Request("https://oceancountyroofingpros.com/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          netlify_build_hook_url: "https://api.netlify.com/build_hooks/saved123",
+          auto_seo_rebuild_enabled: "true"
+        })
+      })
+    );
+    assert.equal(saveRes.status, 200);
+    assert.ok(upsertedSettings.some(r => r.key === "netlify_build_hook_url" && r.value === "https://api.netlify.com/build_hooks/saved123"));
+    assert.ok(upsertedSettings.some(r => r.key === "auto_seo_rebuild_enabled" && r.value === "true"));
+
+    const fwRes = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(fwRes.status, 200);
+    const fwData = await fwRes.json();
+    assert.equal(fwData.promoted_count, 1);
+    assert.equal(fwData.rebuild_triggered, true);
+    assert.equal(flywheelHookCalls, 1);
+  } finally {
+    global.fetch = originalFetch;
+    delete process.env.NETLIFY_BUILD_HOOK_URL;
+  }
+});
+
+test("admin_control_plane.js hydrateSettingsInputs and saveAnalyticsSeoSettings handle netlify_build_hook_url", async () => {
+  const code = fs.readFileSync(
+    path.resolve("app/static/js/admin_control_plane.js"),
+    "utf8"
+  );
+  const elements = {
+    seo_ga4_id: { value: "" },
+    seo_gsc_code: { value: "" },
+    seo_build_hook: { value: "" },
+    seo_auto_rebuild: { checked: false },
+    toastContainer: { appendChild: () => {} }
+  };
+  const fetchCalls = [];
+  let nextOk = true;
+
+  const context = vm.createContext({
+    console,
+    URL,
+    localStorage: { getItem: () => null, setItem: () => {} },
+    document: {
+      addEventListener: () => {},
+      getElementById: (id) => elements[id] || null,
+      querySelectorAll: () => [],
+      createElement: () => ({ className: "", innerText: "", remove: () => {} })
+    },
+    window: {},
+    setTimeout: () => 0,
+    fetch: async (url, opts) => {
+      fetchCalls.push({ url, opts });
+      return { ok: nextOk, status: nextOk ? 200 : 500 };
+    }
+  });
+  vm.runInContext(code, context);
+
+  vm.runInContext(
+    `STATE.sys_settings = {
+      ga4_measurement_id: "G-TEST1234",
+      gsc_verification_code: "gsc-code",
+      netlify_build_hook_url: "https://api.netlify.com/build_hooks/existing",
+      auto_seo_rebuild_enabled: "false"
+    };
+    hydrateSettingsInputs();`,
+    context
+  );
+  assert.equal(elements.seo_build_hook.value, "https://api.netlify.com/build_hooks/existing");
+  assert.equal(elements.seo_auto_rebuild.checked, false);
+
+  elements.seo_build_hook.value = "  https://api.netlify.com/build_hooks/updated  ";
+  elements.seo_auto_rebuild.checked = true;
+  await vm.runInContext(`saveAnalyticsSeoSettings({ preventDefault: () => {} })`, context);
+
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls[0].url, "/api/admin/settings");
+  const sentBody = JSON.parse(fetchCalls[0].opts.body);
+  assert.equal(sentBody.netlify_build_hook_url, "https://api.netlify.com/build_hooks/updated");
+  assert.equal(sentBody.auto_seo_rebuild_enabled, "true");
+  assert.equal(
+    vm.runInContext(`STATE.sys_settings.netlify_build_hook_url`, context),
+    "https://api.netlify.com/build_hooks/updated"
+  );
+
+  // Error path must not overwrite STATE.sys_settings
+  nextOk = false;
+  elements.seo_build_hook.value = "https://api.netlify.com/build_hooks/failed";
+  await vm.runInContext(`saveAnalyticsSeoSettings({ preventDefault: () => {} })`, context);
+  assert.equal(
+    vm.runInContext(`STATE.sys_settings.netlify_build_hook_url`, context),
+    "https://api.netlify.com/build_hooks/updated"
+  );
+});

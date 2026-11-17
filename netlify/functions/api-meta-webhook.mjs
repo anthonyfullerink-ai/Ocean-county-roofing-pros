@@ -217,9 +217,10 @@ export default async (req) => {
 
         if (cls.requires_owner_alert) {
           await EmailService.sendEmail({
+            from: EmailService.getFromAddress(),
             to: sysSettings.owner_alert_email || process.env.OWNER_ALERT_EMAIL || "anthony.fuller.ink@gmail.com",
             subject: `[Social Alert: ${cls.intent}] Facebook comment from ${authorName}`,
-            htmlBody: `<p><strong>${authorName}</strong> commented:</p><blockquote>${text}</blockquote><p>Suggested draft: ${cls.draft}</p>`
+            html: `<p><strong>${authorName}</strong> commented:</p><blockquote>${text}</blockquote><p>Suggested draft: ${cls.draft}</p>`
           }).catch(() => {});
         }
 
@@ -300,9 +301,10 @@ export default async (req) => {
 
         if (cls.requires_owner_alert) {
           await EmailService.sendEmail({
+            from: EmailService.getFromAddress(),
             to: sysSettings.owner_alert_email || process.env.OWNER_ALERT_EMAIL || "anthony.fuller.ink@gmail.com",
             subject: `[URGENT: ${rating}★ Social Review] Approval Required — ${authorName}`,
-            htmlBody: `<p><strong>${authorName}</strong> left a ${rating}★ Facebook review:</p><blockquote>${text}</blockquote><p>Held for your approval in OC Roofing Pros HQ (/admin):</p><p>${cls.draft}</p>`
+            html: `<p><strong>${authorName}</strong> left a ${rating}★ Facebook review:</p><blockquote>${text}</blockquote><p>Held for your approval in OC Roofing Pros HQ (/admin):</p><p>${cls.draft}</p>`
           }).catch(() => {});
         }
 

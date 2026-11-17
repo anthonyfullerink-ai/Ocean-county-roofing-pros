@@ -4,7 +4,7 @@
  */
 import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
-import { GCalService, normalizeAvailabilityConfig, getNyDateParts } from "./services/gcal-service.mjs";
+import { GCalService, normalizeAvailabilityConfig, getNyDateParts, pickNonEmptyConfig } from "./services/gcal-service.mjs";
 import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
 import { MetaSocialService } from "./services/meta-social-service.mjs";
 
@@ -32,7 +32,7 @@ function loadScheduleExtras(tenant, sysSettings = {}) {
   }
   return {
     icsFeedUrl: tenant?.ics_feed_url || extras.ics_feed_url || "",
-    availabilityConfig: normalizeAvailabilityConfig(tenant?.availability_json || extras.availability || null)
+    availabilityConfig: normalizeAvailabilityConfig(pickNonEmptyConfig(extras.availability, tenant?.availability_json))
   };
 }
 
@@ -409,9 +409,43 @@ export default async (req, context) => {
         }
 
         if (targetTenant.scheduling_type === "external_link" && targetTenant.booking_url) {
+          let smsSent = false;
+          const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+          const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+          const fromPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+18669001221";
+          const toPhone = sanitizePhoneE164(phone);
+          if (twilioSid && twilioToken && toPhone) {
+            try {
+              const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
+              const smsText = `Hi ${name.split(" ")[0]}, thanks for calling ${targetTenant.company_name || "Ocean County Roofing Pros"}! Finalize your preferred 15-minute inspection arrival window here: ${targetTenant.booking_url} Reply STOP to opt out.`;
+              const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Basic ${auth}`,
+                  "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: new URLSearchParams({
+                  To: toPhone,
+                  From: fromPhone,
+                  Body: smsText
+                })
+              });
+              if (!smsRes.ok) {
+                const errText = await smsRes.text().catch(() => "");
+                console.error(`[api-vapi-tools] Twilio external_link SMS failed (${smsRes.status}):`, errText);
+              } else {
+                smsSent = true;
+              }
+            } catch (smsErr) {
+              console.error("[api-vapi-tools] Twilio external_link SMS error:", smsErr);
+            }
+          }
+          const smsClause = smsSent
+            ? `I have sent an SMS to ${phone} with a direct booking link to finalize your 15-minute arrival window: ${targetTenant.booking_url}.`
+            : `Please use our direct booking link to finalize your 15-minute arrival window: ${targetTenant.booking_url}.`;
           results.push({
             toolCallId: callId,
-            result: `Appointment request registered for ${name} with ${targetTenant.company_name}! I have sent an SMS to ${phone} with a direct booking link to finalize your 15-minute arrival window: ${targetTenant.booking_url}. One of our certified roofing specialists will meet you at ${address} for the free 21-point inspection.`
+            result: `Appointment request registered for ${name} with ${targetTenant.company_name}! ${smsClause} One of our certified roofing specialists will meet you at ${address} for the free 21-point inspection.`
           });
         } else {
           const inviteNote = email ? ` A calendar invite has been sent to ${email}.` : "";
@@ -572,7 +606,7 @@ export default async (req, context) => {
           platforms: "facebook,instagram",
           utm_campaign: utmCampaign,
           town_name: townName,
-          status: publishNow && pubResult?.status === "published" ? "published" : "scheduled",
+          status: publishNow ? (pubResult?.status === "published" ? "published" : "failed") : "scheduled",
           scheduled_for: nowIso,
           published_at: publishNow && pubResult?.status === "published" ? nowIso : null,
           external_post_ids_json: JSON.stringify(pubResult || {}),
@@ -594,7 +628,9 @@ export default async (req, context) => {
 
         const spoken = row.status === "published"
           ? `Published social post ${postId} for ${townName} to Meta right now with UTM tracking.`
-          : `Queued social post ${postId} for ${townName} in OC Roofing Pros HQ so it goes out on your daily flywheel.`;
+          : row.status === "failed"
+            ? `Saved social post ${postId} for ${townName}, but Meta publish failed (${pubResult?.reason || pubResult?.facebook?.error || pubResult?.status || "error"}).`
+            : `Queued social post ${postId} for ${townName} in OC Roofing Pros HQ so it goes out on your daily flywheel.`;
         results.push({ toolCallId: callId, result: spoken });
       }
 
@@ -672,7 +708,7 @@ export default async (req, context) => {
           } else if (item.external_id) {
             pubRes = await MetaSocialService.replyToComment({ commentId: item.external_id, message: finalText });
           }
-          newStatus = "published";
+          newStatus = pubRes?.status === "published" ? "published" : "failed";
         }
 
         if (supabaseUrl && supabaseKey) {
