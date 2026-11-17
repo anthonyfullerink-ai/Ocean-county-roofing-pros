@@ -316,3 +316,19 @@ CREATE TABLE IF NOT EXISTS public.seo_experiments (
 
 CREATE INDEX IF NOT EXISTS idx_seo_exp_status ON public.seo_experiments(status);
 CREATE INDEX IF NOT EXISTS idx_seo_exp_path ON public.seo_experiments(page_path);
+
+-- 15. ROW LEVEL SECURITY (Default-deny for anon/authenticated PostgREST; backend uses service_role)
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.gbp_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.daily_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.site_analytics_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.social_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.social_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seo_ranking_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.seo_experiments ENABLE ROW LEVEL SECURITY;
