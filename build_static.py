@@ -22,6 +22,9 @@ from app.services.db import (
     get_dashboard_kpis,
     list_blog_posts,
     sync_blog_posts_from_supabase,
+    sync_job_projects_from_supabase,
+    sync_reviews_from_supabase,
+    sync_citations_from_supabase,
     get_active_seo_overrides,
     is_supabase_configured,
 )
@@ -132,6 +135,10 @@ def main():
     services = load_services_data()
     all_towns = load_towns_data()
     seo_overrides = fetch_live_seo_overrides()
+    print("Syncing job_projects, reviews, and citations_json from Supabase...")
+    sync_job_projects_from_supabase()
+    sync_reviews_from_supabase()
+    sync_citations_from_supabase()
 
     # 3. Master Landing Page (index.html)
     print("Generating index.html...")

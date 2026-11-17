@@ -150,12 +150,18 @@ def build_dynamic_town_json_ld(
 
     project_nodes = []
     for p in projects[:4]:
+        raw_img_url = str(p.get("image_webp_url") or "/static/images/shingle-restored-after.webp").strip()
+        full_img_url = (
+            raw_img_url
+            if raw_img_url.startswith(("http://", "https://"))
+            else f"https://oceancountyroofingpros.com{raw_img_url}"
+        )
         project_nodes.append(
             {
                 "@type": "CreativeWork",
                 "name": f"{p.get('shingle_system', 'CertainTeed Roof')} in {p.get('neighborhood', town_name)}, {p.get('town_name', town_name)}",
                 "description": p.get("ai_seo_summary") or p.get("caption", ""),
-                "image": f"https://oceancountyroofingpros.com{p.get('image_webp_url', '/static/images/shingle-restored-after.webp')}",
+                "image": full_img_url,
                 "contentLocation": {
                     "@type": "Place",
                     "name": f"{p.get('neighborhood', '')}, {p.get('town_name', town_name)}, NJ",

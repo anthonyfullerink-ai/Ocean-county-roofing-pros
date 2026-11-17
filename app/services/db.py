@@ -2061,6 +2061,275 @@ def sync_blog_posts_from_supabase() -> List[Dict[str, Any]]:
         return []
 
 
+def _safe_float(val: Any, default: float) -> float:
+    if val is None or val == "":
+        return default
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(val: Any, default: int) -> int:
+    if val is None or val == "":
+        return default
+    try:
+        return int(float(val))
+    except (TypeError, ValueError):
+        return default
+
+
+def sync_job_projects_from_supabase() -> List[Dict[str, Any]]:
+    """
+    Pulls job_projects from live Supabase PostgREST (if configured) and mirrors them
+    into local SQLite so static builds (`build_static.py`) include newly approved
+    job photos from `/admin`, `/portal`, or `cron-seo-flywheel.mjs`.
+    Falls back gracefully to local SQLite on offline/error.
+    """
+    init_db()
+    if not is_supabase_configured():
+        return []
+    base_url = settings.SUPABASE_URL.rstrip("/")
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    conn: Optional[sqlite3.Connection] = None
+    try:
+        with httpx.Client(timeout=6.0) as client:
+            r = client.get(
+                f"{base_url}/rest/v1/job_projects?order=created_at.desc",
+                headers=headers,
+            )
+            if r.status_code != 200:
+                logger.warning(f"Supabase job_projects pull returned {r.status_code}: {r.text[:200]}")
+                return []
+            cloud_rows = r.json()
+            if not isinstance(cloud_rows, list):
+                return []
+            cloud_ids: List[str] = []
+            now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn = _get_conn()
+            for row in cloud_rows:
+                proj_id = str(row.get("id") or "").strip()
+                if not proj_id:
+                    continue
+                town_slug = str(row.get("town_slug") or "roofing-toms-river-nj")
+                town_name = str(row.get("town_name") or "Toms River")
+                record = {
+                    "id": proj_id,
+                    "created_at": str(row.get("created_at") or now_iso),
+                    "town_slug": town_slug,
+                    "town_name": town_name,
+                    "neighborhood": str(row.get("neighborhood") or ""),
+                    "service_type": str(row.get("service_type") or "Full Roof Replacement"),
+                    "shingle_system": str(row.get("shingle_system") or "CertainTeed Landmark PRO"),
+                    "caption": str(row.get("caption") or ""),
+                    "ai_seo_summary": str(row.get("ai_seo_summary") or ""),
+                    "image_webp_url": str(row.get("image_webp_url") or "/static/images/shingle-restored-after.webp"),
+                    "image_geotagged_jpg_url": str(row.get("image_geotagged_jpg_url") or "/static/images/shingle-restored-after.jpg"),
+                    "lat": _safe_float(row.get("lat"), 39.9537),
+                    "lon": _safe_float(row.get("lon"), -74.1979),
+                    "uploaded_by": str(row.get("uploaded_by") or "owner"),
+                    "tenant_id": str(row.get("tenant_id") or "client_joe_the_roofer"),
+                    "approval_status": str(row.get("approval_status") or "approved"),
+                    "auto_publish_at": str(row.get("auto_publish_at") or ""),
+                }
+                conn.execute(
+                    """
+                    INSERT INTO job_projects (
+                        id, created_at, town_slug, town_name, neighborhood, service_type,
+                        shingle_system, caption, ai_seo_summary, image_webp_url,
+                        image_geotagged_jpg_url, lat, lon, uploaded_by, tenant_id,
+                        approval_status, auto_publish_at
+                    ) VALUES (
+                        :id, :created_at, :town_slug, :town_name, :neighborhood, :service_type,
+                        :shingle_system, :caption, :ai_seo_summary, :image_webp_url,
+                        :image_geotagged_jpg_url, :lat, :lon, :uploaded_by, :tenant_id,
+                        :approval_status, :auto_publish_at
+                    )
+                    ON CONFLICT(id) DO UPDATE SET
+                        created_at = excluded.created_at,
+                        town_slug = excluded.town_slug,
+                        town_name = excluded.town_name,
+                        neighborhood = excluded.neighborhood,
+                        service_type = excluded.service_type,
+                        shingle_system = excluded.shingle_system,
+                        caption = excluded.caption,
+                        ai_seo_summary = excluded.ai_seo_summary,
+                        image_webp_url = excluded.image_webp_url,
+                        image_geotagged_jpg_url = excluded.image_geotagged_jpg_url,
+                        lat = excluded.lat,
+                        lon = excluded.lon,
+                        uploaded_by = excluded.uploaded_by,
+                        tenant_id = excluded.tenant_id,
+                        approval_status = excluded.approval_status,
+                        auto_publish_at = excluded.auto_publish_at
+                    """,
+                    record,
+                )
+                cloud_ids.append(proj_id)
+            if cloud_ids:
+                placeholders = ",".join("?" for _ in cloud_ids)
+                conn.execute(f"DELETE FROM job_projects WHERE id NOT IN ({placeholders})", cloud_ids)
+            conn.commit()
+            return list_job_projects()
+    except Exception as e:
+        logger.warning(f"Supabase job_projects pull warning: {e}")
+        return []
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def sync_reviews_from_supabase() -> List[Dict[str, Any]]:
+    """
+    Pulls reviews from live Supabase PostgREST (if configured) and mirrors them
+    into local SQLite so static builds (`build_static.py`) include newly published
+    or approved reviews from `/feedback`, `/admin`, or `cron-seo-flywheel.mjs`.
+    Falls back gracefully to local SQLite on offline/error.
+    """
+    init_db()
+    if not is_supabase_configured():
+        return []
+    base_url = settings.SUPABASE_URL.rstrip("/")
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    conn: Optional[sqlite3.Connection] = None
+    try:
+        with httpx.Client(timeout=6.0) as client:
+            r = client.get(
+                f"{base_url}/rest/v1/reviews?order=created_at.desc",
+                headers=headers,
+            )
+            if r.status_code != 200:
+                logger.warning(f"Supabase reviews pull returned {r.status_code}: {r.text[:200]}")
+                return []
+            cloud_rows = r.json()
+            if not isinstance(cloud_rows, list):
+                return []
+            cloud_ids: List[str] = []
+            now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            conn = _get_conn()
+            for row in cloud_rows:
+                rev_id = str(row.get("id") or "").strip()
+                if not rev_id:
+                    continue
+                is_pub_raw = row.get("is_public")
+                is_pub_int = 0 if (is_pub_raw is False or str(is_pub_raw).lower() in ("false", "0")) else 1
+                record = {
+                    "id": rev_id,
+                    "created_at": str(row.get("created_at") or now_iso),
+                    "lead_id": str(row.get("lead_id") or ""),
+                    "reviewer_name": str(row.get("reviewer_name") or "Verified Homeowner"),
+                    "town_name": str(row.get("town_name") or "Toms River"),
+                    "town_slug": str(row.get("town_slug") or "roofing-toms-river-nj"),
+                    "service_performed": str(row.get("service_performed") or "Full Roof Replacement"),
+                    "rating": _safe_int(row.get("rating"), 5),
+                    "review_text": str(row.get("review_text") or ""),
+                    "source": str(row.get("source") or "Google"),
+                    "ai_reply_draft": str(row.get("ai_reply_draft") or ""),
+                    "reply_status": str(row.get("reply_status") or "pending"),
+                    "is_public": is_pub_int,
+                    "resolution_status": str(row.get("resolution_status") or "resolved"),
+                }
+                conn.execute(
+                    """
+                    INSERT INTO reviews (
+                        id, created_at, lead_id, reviewer_name, town_name, town_slug,
+                        service_performed, rating, review_text, source, ai_reply_draft,
+                        reply_status, is_public, resolution_status
+                    ) VALUES (
+                        :id, :created_at, :lead_id, :reviewer_name, :town_name, :town_slug,
+                        :service_performed, :rating, :review_text, :source, :ai_reply_draft,
+                        :reply_status, :is_public, :resolution_status
+                    )
+                    ON CONFLICT(id) DO UPDATE SET
+                        created_at = excluded.created_at,
+                        lead_id = excluded.lead_id,
+                        reviewer_name = excluded.reviewer_name,
+                        town_name = excluded.town_name,
+                        town_slug = excluded.town_slug,
+                        service_performed = excluded.service_performed,
+                        rating = excluded.rating,
+                        review_text = excluded.review_text,
+                        source = excluded.source,
+                        ai_reply_draft = excluded.ai_reply_draft,
+                        reply_status = excluded.reply_status,
+                        is_public = excluded.is_public,
+                        resolution_status = excluded.resolution_status
+                    """,
+                    record,
+                )
+                cloud_ids.append(rev_id)
+            if cloud_ids:
+                placeholders = ",".join("?" for _ in cloud_ids)
+                conn.execute(f"DELETE FROM reviews WHERE id NOT IN ({placeholders})", cloud_ids)
+            conn.commit()
+            return list_reviews()
+    except Exception as e:
+        logger.warning(f"Supabase reviews pull warning: {e}")
+        return []
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def sync_citations_from_supabase() -> Optional[str]:
+    """
+    Pulls `citations_json` from live Supabase `system_settings` (if configured) and
+    mirrors it into local SQLite without writing back to Supabase.
+    Falls back gracefully to local SQLite on offline/error.
+    """
+    init_db()
+    if not is_supabase_configured():
+        return None
+    base_url = settings.SUPABASE_URL.rstrip("/")
+    headers = {
+        "apikey": settings.SUPABASE_KEY,
+        "Authorization": f"Bearer {settings.SUPABASE_KEY}",
+    }
+    conn: Optional[sqlite3.Connection] = None
+    try:
+        with httpx.Client(timeout=6.0) as client:
+            r = client.get(
+                f"{base_url}/rest/v1/system_settings?key=eq.citations_json&select=key,value,updated_at",
+                headers=headers,
+            )
+            if r.status_code != 200:
+                logger.warning(f"Supabase citations_json pull returned {r.status_code}: {r.text[:200]}")
+                return None
+            rows = r.json()
+            if not isinstance(rows, list) or not rows:
+                return None
+            raw_val = rows[0].get("value")
+            if raw_val is None:
+                return None
+            str_val = json.dumps(raw_val) if isinstance(raw_val, (list, dict)) else str(raw_val)
+            if not str_val.strip():
+                return None
+            now_iso = str(rows[0].get("updated_at") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            conn = _get_conn()
+            conn.execute(
+                """
+                INSERT INTO system_settings (key, value, updated_at)
+                VALUES ('citations_json', ?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+                """,
+                (str_val, now_iso),
+            )
+            conn.commit()
+            return str_val
+    except Exception as e:
+        logger.warning(f"Supabase citations_json pull warning: {e}")
+        return None
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 def list_blog_posts(
     status: Optional[str] = None,
     category: Optional[str] = None,

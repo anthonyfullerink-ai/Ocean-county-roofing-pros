@@ -1205,10 +1205,18 @@ async function handlePhotoUpload(e, role) {
     e.preventDefault();
     const formData = new FormData(e.target);
     formData.append('uploaded_by', role);
-    const res = await fetch('/api/media/upload', { method: 'POST', body: formData });
-    if (res.ok) {
-        showToast('Geo-tagged WebP & JPG published!');
-        hydrateAdminBootstrap();
+    try {
+        const res = await fetch('/api/media/upload', { method: 'POST', body: formData });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+            showToast(data.message || 'Geo-tagged WebP & JPG published!');
+            e.target.reset();
+            hydrateAdminBootstrap();
+        } else {
+            showToast(data.detail || 'Photo upload failed.', true);
+        }
+    } catch (err) {
+        showToast('Network error uploading photo.', true);
     }
 }
 

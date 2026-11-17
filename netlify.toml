@@ -66,6 +66,12 @@
   to = "/.netlify/functions/api-admin"
   status = 200
 
+# Media & Geo-Tagged Job Photo Upload
+[[redirects]]
+  from = "/api/media/upload"
+  to = "/.netlify/functions/api-media-upload"
+  status = 200
+
 # Resend Inbound Email Webhook & AI Agent
 [[redirects]]
   from = "/api/email/*"
