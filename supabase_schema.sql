@@ -273,3 +273,46 @@ CREATE TABLE IF NOT EXISTS public.social_queue (
 
 CREATE INDEX IF NOT EXISTS idx_social_queue_status ON public.social_queue(status);
 CREATE INDEX IF NOT EXISTS idx_social_queue_sched ON public.social_queue(scheduled_for ASC);
+
+-- 13. SEO RANKING SNAPSHOTS (Google Search Console 28-Day Query & Page Telemetry)
+CREATE TABLE IF NOT EXISTS public.seo_ranking_snapshots (
+    id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    snapshot_date TEXT NOT NULL,
+    page_url TEXT NOT NULL,
+    page_path TEXT NOT NULL DEFAULT '/',
+    query TEXT NOT NULL,
+    clicks INTEGER DEFAULT 0,
+    impressions INTEGER DEFAULT 0,
+    ctr DOUBLE PRECISION DEFAULT 0.0,
+    position DOUBLE PRECISION DEFAULT 0.0
+);
+
+CREATE INDEX IF NOT EXISTS idx_seo_snap_date ON public.seo_ranking_snapshots(snapshot_date DESC);
+CREATE INDEX IF NOT EXISTS idx_seo_snap_path ON public.seo_ranking_snapshots(page_path);
+
+-- 14. SEO EXPERIMENTS (Closed-Loop Title/Meta Rewrites & 14-Day Rollback Guardrail)
+CREATE TABLE IF NOT EXISTS public.seo_experiments (
+    id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    page_path TEXT NOT NULL,
+    target_query TEXT NOT NULL,
+    original_meta_title TEXT DEFAULT '',
+    original_meta_description TEXT DEFAULT '',
+    proposed_meta_title TEXT DEFAULT '',
+    proposed_meta_description TEXT DEFAULT '',
+    baseline_position DOUBLE PRECISION DEFAULT 0.0,
+    baseline_ctr DOUBLE PRECISION DEFAULT 0.0,
+    baseline_impressions INTEGER DEFAULT 0,
+    latest_position DOUBLE PRECISION DEFAULT 0.0,
+    latest_ctr DOUBLE PRECISION DEFAULT 0.0,
+    status TEXT DEFAULT 'pending_24h', -- pending_24h | active | kept | reverted | rejected
+    auto_apply_at TIMESTAMPTZ,
+    activated_at TIMESTAMPTZ,
+    evaluated_at TIMESTAMPTZ,
+    reason TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_seo_exp_status ON public.seo_experiments(status);
+CREATE INDEX IF NOT EXISTS idx_seo_exp_path ON public.seo_experiments(page_path);

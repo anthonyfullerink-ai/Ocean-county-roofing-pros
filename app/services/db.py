@@ -67,7 +67,7 @@ def _get_conn() -> sqlite3.Connection:
 
 
 _CLOUD_BOOL_COLS = {"is_active", "review_request_sent", "is_public", "webhook_dispatched", "meta_shared"}
-_CLOUD_NULLABLE_TIMESTAMPTZ_COLS = {"review_request_sent_at", "auto_publish_at", "published_at"}
+_CLOUD_NULLABLE_TIMESTAMPTZ_COLS = {"review_request_sent_at", "auto_publish_at", "published_at", "auto_apply_at", "activated_at", "evaluated_at"}
 
 
 def _prepare_cloud_payload(payload: Any) -> Any:
@@ -346,6 +346,45 @@ def init_db() -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_sqlite_social_q_status ON social_queue(status);
         CREATE INDEX IF NOT EXISTS idx_sqlite_social_q_sched ON social_queue(scheduled_for ASC);
+
+        CREATE TABLE IF NOT EXISTS seo_ranking_snapshots (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            page_url TEXT NOT NULL,
+            page_path TEXT NOT NULL DEFAULT '/',
+            query TEXT NOT NULL,
+            clicks INTEGER DEFAULT 0,
+            impressions INTEGER DEFAULT 0,
+            ctr REAL DEFAULT 0.0,
+            position REAL DEFAULT 0.0
+        );
+        CREATE INDEX IF NOT EXISTS idx_sqlite_seo_snap_date ON seo_ranking_snapshots(snapshot_date DESC);
+        CREATE INDEX IF NOT EXISTS idx_sqlite_seo_snap_path ON seo_ranking_snapshots(page_path);
+
+        CREATE TABLE IF NOT EXISTS seo_experiments (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            page_path TEXT NOT NULL,
+            target_query TEXT NOT NULL,
+            original_meta_title TEXT DEFAULT '',
+            original_meta_description TEXT DEFAULT '',
+            proposed_meta_title TEXT DEFAULT '',
+            proposed_meta_description TEXT DEFAULT '',
+            baseline_position REAL DEFAULT 0.0,
+            baseline_ctr REAL DEFAULT 0.0,
+            baseline_impressions INTEGER DEFAULT 0,
+            latest_position REAL DEFAULT 0.0,
+            latest_ctr REAL DEFAULT 0.0,
+            status TEXT DEFAULT 'pending_24h',
+            auto_apply_at TEXT DEFAULT '',
+            activated_at TEXT DEFAULT '',
+            evaluated_at TEXT DEFAULT '',
+            reason TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_sqlite_seo_exp_status ON seo_experiments(status);
+        CREATE INDEX IF NOT EXISTS idx_sqlite_seo_exp_path ON seo_experiments(page_path);
         """
     )
 
@@ -2777,3 +2816,175 @@ def update_social_queue_item(post_id: str, updates: Dict[str, Any]) -> Optional[
         return None
     _sync_to_supabase_cloud("social_queue", "PATCH", clean, match_col="id", match_val=post_id)
     return dict(row)
+
+
+# ==============================================================================
+# 12. CLOSED-LOOP SEO RANKING SNAPSHOTS & EXPERIMENTS (AGENT 7)
+# ==============================================================================
+
+def save_seo_snapshots(rows: List[Dict[str, Any]]) -> int:
+    """Stores GSC ranking snapshot rows locally and syncs to Supabase."""
+    init_db()
+    if not rows:
+        return 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    conn = _get_conn()
+    saved = 0
+    for r in rows:
+        snap_date = str(r.get("snapshot_date") or now_iso[:10])
+        page_url = str(r.get("page_url") or "https://oceancountyroofingpros.com/")
+        page_path = str(r.get("page_path") or "/").strip() or "/"
+        query = str(r.get("query") or "").strip()
+        if not query:
+            continue
+        import hashlib
+        row_id = str(
+            r.get("id")
+            or f"GSC-{hashlib.sha1(f'{snap_date}|{page_path}|{query}'.encode()).hexdigest()[:12]}"
+        )
+        rec = {
+            "id": row_id,
+            "created_at": str(r.get("created_at") or now_iso),
+            "snapshot_date": snap_date,
+            "page_url": page_url,
+            "page_path": page_path,
+            "query": query,
+            "clicks": int(r.get("clicks") or 0),
+            "impressions": int(r.get("impressions") or 0),
+            "ctr": float(r.get("ctr") or 0.0),
+            "position": float(r.get("position") or 0.0),
+        }
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO seo_ranking_snapshots (
+                id, created_at, snapshot_date, page_url, page_path, query,
+                clicks, impressions, ctr, position
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            tuple(rec.values()),
+        )
+        _sync_to_supabase_cloud("seo_ranking_snapshots", "UPSERT", rec, match_col="id", match_val=row_id)
+        saved += 1
+    conn.commit()
+    conn.close()
+    return saved
+
+
+def list_seo_snapshots(limit: int = 100) -> List[Dict[str, Any]]:
+    init_db()
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT * FROM seo_ranking_snapshots ORDER BY snapshot_date DESC, impressions DESC LIMIT ?",
+        (int(limit),),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def upsert_seo_experiment(data: Dict[str, Any]) -> Dict[str, Any]:
+    init_db()
+    import secrets
+    now_dt = datetime.now(timezone.utc)
+    now_iso = now_dt.isoformat()
+    exp_id = str(data.get("id") or f"SEOEXP-{int(now_dt.timestamp() * 1000)}-{secrets.token_hex(2)}")
+    status = str(data.get("status") or "pending_24h")
+    auto_apply_at = str(
+        data.get("auto_apply_at")
+        if data.get("auto_apply_at") is not None
+        else ((now_dt + timedelta(hours=24)).isoformat() if status == "pending_24h" else "")
+    )
+    rec = {
+        "id": exp_id,
+        "created_at": str(data.get("created_at") or now_iso),
+        "updated_at": str(data.get("updated_at") or now_iso),
+        "page_path": str(data.get("page_path") or "/"),
+        "target_query": str(data.get("target_query") or ""),
+        "original_meta_title": str(data.get("original_meta_title") or ""),
+        "original_meta_description": str(data.get("original_meta_description") or ""),
+        "proposed_meta_title": str(data.get("proposed_meta_title") or ""),
+        "proposed_meta_description": str(data.get("proposed_meta_description") or ""),
+        "baseline_position": float(data.get("baseline_position") or 0.0),
+        "baseline_ctr": float(data.get("baseline_ctr") or 0.0),
+        "baseline_impressions": int(data.get("baseline_impressions") or 0),
+        "latest_position": float(data.get("latest_position") or data.get("baseline_position") or 0.0),
+        "latest_ctr": float(data.get("latest_ctr") or data.get("baseline_ctr") or 0.0),
+        "status": status,
+        "auto_apply_at": auto_apply_at,
+        "activated_at": str(data.get("activated_at") or (now_iso if status == "active" else "")),
+        "evaluated_at": str(data.get("evaluated_at") or ""),
+        "reason": str(data.get("reason") or ""),
+    }
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO seo_experiments (
+            id, created_at, updated_at, page_path, target_query,
+            original_meta_title, original_meta_description,
+            proposed_meta_title, proposed_meta_description,
+            baseline_position, baseline_ctr, baseline_impressions,
+            latest_position, latest_ctr, status, auto_apply_at,
+            activated_at, evaluated_at, reason
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        tuple(rec.values()),
+    )
+    conn.commit()
+    conn.close()
+    _sync_to_supabase_cloud("seo_experiments", "UPSERT", rec, match_col="id", match_val=exp_id)
+    return rec
+
+
+def list_seo_experiments(status: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    init_db()
+    conn = _get_conn()
+    if status:
+        rows = conn.execute(
+            "SELECT * FROM seo_experiments WHERE status = ? ORDER BY created_at DESC LIMIT ?",
+            (status, int(limit)),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM seo_experiments ORDER BY created_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def update_seo_experiment(exp_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    init_db()
+    allowed = {
+        "proposed_meta_title", "proposed_meta_description", "latest_position",
+        "latest_ctr", "status", "auto_apply_at", "activated_at", "evaluated_at", "reason",
+    }
+    clean = {k: v for k, v in (updates or {}).items() if k in allowed and v is not None}
+    clean["updated_at"] = datetime.now(timezone.utc).isoformat()
+    set_clause = ", ".join(f"{k} = ?" for k in clean.keys())
+    conn = _get_conn()
+    conn.execute(f"UPDATE seo_experiments SET {set_clause} WHERE id = ?", list(clean.values()) + [exp_id])
+    conn.commit()
+    row = conn.execute("SELECT * FROM seo_experiments WHERE id = ?", (exp_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    _sync_to_supabase_cloud("seo_experiments", "PATCH", clean, match_col="id", match_val=exp_id)
+    return dict(row)
+
+
+def get_active_seo_overrides() -> Dict[str, Dict[str, str]]:
+    """Returns active/kept title & meta description overrides keyed by page_path (e.g. '/roofing-toms-river-nj')."""
+    init_db()
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT page_path, proposed_meta_title, proposed_meta_description FROM seo_experiments WHERE status IN ('active', 'kept') ORDER BY updated_at DESC"
+    ).fetchall()
+    conn.close()
+    overrides: Dict[str, Dict[str, str]] = {}
+    for r in rows:
+        p = str(r["page_path"] or "/").strip()
+        if p not in overrides:
+            overrides[p] = {
+                "meta_title": r["proposed_meta_title"] or "",
+                "meta_description": r["proposed_meta_description"] or "",
+            }
+    return overrides

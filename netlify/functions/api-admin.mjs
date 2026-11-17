@@ -9,6 +9,7 @@ import { MetaSocialService } from "./services/meta-social-service.mjs";
 import { normalizeAvailabilityConfig } from "./services/gcal-service.mjs";
 import { fetchIcsBusyIntervals } from "./services/ics-parser.mjs";
 import { normalizeEmergencyConfig, getTenantEmergencyConfig, parseEmergencyPolicy } from "./services/emergency-router.mjs";
+import runSeoOptimizer from "./cron-seo-optimizer.mjs";
 
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || "ocrp_admin_secret_key_2026_offgrid_media";
 const SARAH_ASSISTANT_ID = process.env.VAPI_RECEPTIONIST_ID || "dbc59b3f-85a6-4fad-9dab-b5a36b16125b";
@@ -1682,6 +1683,61 @@ export default async (req, context) => {
           });
         }
         return jsonResponse({ status: "success", post: row, meta: pubRes });
+      }
+    }
+
+    // =========================================================================
+    // 9C. CLOSED-LOOP SEARCH RANKINGS & SEO EXPERIMENTS (/api/admin/seo-rankings)
+    // =========================================================================
+    if (path.includes("/admin/seo-rankings")) {
+      const actionMatch = path.match(/\/admin\/seo-rankings\/([^/]+)\/action\/?$/);
+
+      if (path.endsWith("/run") && req.method === "POST") {
+        const res = await runSeoOptimizer();
+        const data = await res.json().catch(() => ({}));
+        return jsonResponse(data, res.status);
+      }
+
+      if (actionMatch && req.method === "POST") {
+        const expId = decodeURIComponent(actionMatch[1]);
+        const body = await req.json().catch(() => ({}));
+        const action = String(body.action || "activate");
+        const nowIso = new Date().toISOString();
+        const updates = { updated_at: nowIso };
+        if (action === "activate") {
+          updates.status = "active";
+          updates.activated_at = nowIso;
+        } else if (action === "revert") {
+          updates.status = "reverted";
+          updates.evaluated_at = nowIso;
+          updates.reason = "Manually reverted from OC Roofing Pros HQ";
+        } else if (action === "reject") {
+          updates.status = "rejected";
+          updates.evaluated_at = nowIso;
+        }
+        if (supabaseUrl && supabaseKey) {
+          await fetch(`${supabaseUrl}/rest/v1/seo_experiments?id=eq.${encodeURIComponent(expId)}`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify(updates)
+          });
+        }
+        return jsonResponse({ status: "success", id: expId, updates });
+      }
+
+      if (req.method === "GET") {
+        let snapshots = [];
+        let experiments = [];
+        if (supabaseUrl && supabaseKey) {
+          const [snapRes, expRes] = await Promise.all([
+            fetch(`${supabaseUrl}/rest/v1/seo_ranking_snapshots?order=snapshot_date.desc,impressions.desc&limit=50`, { headers }).catch(() => null),
+            fetch(`${supabaseUrl}/rest/v1/seo_experiments?order=created_at.desc&limit=50`, { headers }).catch(() => null)
+          ]);
+          if (snapRes && snapRes.ok) snapshots = await snapRes.json();
+          if (expRes && expRes.ok) experiments = await expRes.json();
+        }
+        const gscConfigured = Boolean((process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GSC_SERVICE_ACCOUNT_JSON || "").trim());
+        return jsonResponse({ status: "success", gsc_configured: gscConfigured, snapshots, experiments });
       }
     }
 

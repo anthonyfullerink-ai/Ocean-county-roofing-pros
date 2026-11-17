@@ -22,6 +22,8 @@ from app.services.db import (
     get_dashboard_kpis,
     list_blog_posts,
     sync_blog_posts_from_supabase,
+    get_active_seo_overrides,
+    is_supabase_configured,
 )
 from app.services.tenant_manager import TenantManager
 from app.agents.gbp_seo_agent import build_dynamic_town_json_ld
@@ -32,8 +34,41 @@ TEMPLATES_DIR = PROJECT_ROOT / "app" / "templates"
 STATIC_DIR = PROJECT_ROOT / "app" / "static"
 
 
-def build_town_page_context(town, brand, services, all_towns):
+def fetch_live_seo_overrides():
+    overrides = dict(get_active_seo_overrides())
+    if is_supabase_configured():
+        try:
+            import httpx
+            base = settings.SUPABASE_URL.rstrip("/")
+            h = {"apikey": settings.SUPABASE_KEY, "Authorization": f"Bearer {settings.SUPABASE_KEY}"}
+            r = httpx.get(
+                f"{base}/rest/v1/seo_experiments?status=in.(active,kept)&order=updated_at.desc",
+                headers=h,
+                timeout=6.0,
+            )
+            if r.status_code == 200:
+                for row in r.json():
+                    p = str(row.get("page_path") or "/").strip()
+                    if p not in overrides:
+                        overrides[p] = {
+                            "meta_title": row.get("proposed_meta_title") or "",
+                            "meta_description": row.get("proposed_meta_description") or "",
+                        }
+        except Exception:
+            pass
+    return overrides
+
+
+def build_town_page_context(town, brand, services, all_towns, seo_overrides=None, override_path=None):
+    town = dict(town or {})
     town_slug = town.get("slug", "roofing-toms-river-nj")
+    target_path = override_path or f"/{town_slug}"
+    if seo_overrides and target_path in seo_overrides:
+        ov = seo_overrides[target_path]
+        if ov.get("meta_title"):
+            town["meta_title"] = ov["meta_title"]
+        if ov.get("meta_description"):
+            town["meta_description"] = ov["meta_description"]
     approved_all = list_job_projects(approval_status="approved")
     town_projects = [p for p in approved_all if p.get("town_slug") == town_slug]
     other_projects = [p for p in approved_all if p.get("town_slug") != town_slug]
@@ -96,12 +131,13 @@ def main():
     brand = load_brand_config()
     services = load_services_data()
     all_towns = load_towns_data()
+    seo_overrides = fetch_live_seo_overrides()
 
     # 3. Master Landing Page (index.html)
     print("Generating index.html...")
     index_template = env.get_template("index.html")
     primary_town = get_town_by_slug("roofing-toms-river-nj") or (all_towns[0] if all_towns else {})
-    ctx_index = build_town_page_context(primary_town, brand, services, all_towns)
+    ctx_index = build_town_page_context(primary_town, brand, services, all_towns, seo_overrides=seo_overrides, override_path="/")
     (DIST_DIR / "index.html").write_text(index_template.render(ctx_index), encoding="utf-8")
 
     # 4. Town Location Silo Pages
@@ -110,7 +146,7 @@ def main():
         slug = town.get("slug")
         if slug:
             print(f"Generating silo: /{slug}...")
-            town_ctx = build_town_page_context(town, brand, services, all_towns)
+            town_ctx = build_town_page_context(town, brand, services, all_towns, seo_overrides=seo_overrides)
             rendered = loc_template.render(town_ctx)
             
             # Write both /slug/index.html and /slug.html for zero-redirect edge routing

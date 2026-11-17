@@ -802,6 +802,46 @@
                         <button type="submit" class="bg-teal-600 hover:bg-teal-500 text-white font-black px-4 py-2 rounded-xl">💾 Save Analytics &amp; SEO Config</button>
                     </form>
 
+                    <!-- Closed-Loop Search Rankings & Self-Optimizing SEO Loop (Agent 7) -->
+                    <div id="seoRankingsCard" class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4 text-xs">
+                        <div class="flex flex-wrap justify-between items-center gap-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-black uppercase bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded">Agent 7 • Weekly Mon 7 AM EST</span>
+                                    <span id="gscConnBadge" class="text-[10px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">Checking GSC...</span>
+                                </div>
+                                <h3 class="text-sm font-black text-white mt-1">🔍 Search Rankings &amp; Self-Optimizing SEO Loop</h3>
+                                <p class="text-[11px] text-[#8b92a5]">Tracks Google Search Console keyword positions &amp; CTR, stages 24h title/meta experiments, and auto-reverts regressions after 14 days.</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="loadSeoRankingsHub()" class="bg-[#0a0a0c] hover:bg-[#1a1d26] border border-[#1f222a] text-slate-200 font-bold px-3 py-2 rounded-xl">🔄 Refresh</button>
+                                <button type="button" onclick="runSeoOptimizerNow()" class="bg-teal-600 hover:bg-teal-500 text-white font-extrabold px-3.5 py-2 rounded-xl">▶ Run Rank Optimizer</button>
+                            </div>
+                        </div>
+
+                        <div class="grid lg:grid-cols-2 gap-4">
+                            <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl overflow-hidden">
+                                <div class="p-3 border-b border-[#1f222a] font-bold text-white">Top GSC Queries &amp; Positions</div>
+                                <div class="overflow-x-auto max-h-64">
+                                    <table class="w-full text-left text-[11px]">
+                                        <thead class="text-[#8b92a5] uppercase text-[10px] border-b border-[#1f222a]">
+                                            <tr><th class="p-2.5">Query / Page</th><th class="p-2.5 text-right">Pos</th><th class="p-2.5 text-right">Imp</th><th class="p-2.5 text-right">CTR</th></tr>
+                                        </thead>
+                                        <tbody id="seoRankingsTableBody" class="divide-y divide-[#1f222a]">
+                                            <tr><td colspan="4" class="p-4 text-center text-[#8b92a5]">No GSC snapshots yet.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-3 space-y-2.5 max-h-72 overflow-y-auto">
+                                <div class="font-bold text-white">Title/Meta Experiments (24h Queue &amp; 14d Guardrail)</div>
+                                <div id="seoExperimentsList" class="space-y-2">
+                                    <div class="text-[#8b92a5] py-4 text-center">No SEO experiments staged yet.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Canonical NAP & Top 10 Local Citations Tracker (sameAs Schema) -->
                     <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4 text-xs">
                         <div class="flex flex-wrap justify-between items-center gap-2">
@@ -970,9 +1010,9 @@
                     </form>
                 </section>
 
-                <!-- TAB 9: 6-AGENT WORKFORCE & HEALTH -->
+                <!-- TAB 9: 7-AGENT WORKFORCE & HEALTH -->
                 <section id="tab-agents" class="tab-panel hidden space-y-6">
-                    <div class="grid md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs">
+                    <div class="grid md:grid-cols-3 lg:grid-cols-7 gap-3 text-xs">
                         <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
                             <div><span class="text-[10px] text-teal-400 font-bold uppercase">Agent 1</span><h4 class="font-bold text-white">Media &amp; EXIF Tagger</h4></div>
                             <button onclick="runSingleAgent('media_ingestor')" class="bg-[#0a0a0c] hover:bg-teal-600 text-white font-bold py-2 rounded-xl border border-[#1f222a]">▶ Run Agent 1</button>
@@ -996,6 +1036,10 @@
                         <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
                             <div><span class="text-[10px] text-rose-400 font-bold uppercase">Agent 6</span><h4 class="font-bold text-white">Social &amp; Engagement</h4></div>
                             <button onclick="runSingleAgent('social')" class="bg-[#0a0a0c] hover:bg-teal-600 text-white font-bold py-2 rounded-xl border border-[#1f222a]">▶ Run Agent 6</button>
+                        </div>
+                        <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-4 flex flex-col justify-between gap-3">
+                            <div><span class="text-[10px] text-cyan-400 font-bold uppercase">Agent 7</span><h4 class="font-bold text-white">Rank &amp; CTR Loop</h4></div>
+                            <button onclick="runSingleAgent('seo_optimizer')" class="bg-[#0a0a0c] hover:bg-teal-600 text-white font-bold py-2 rounded-xl border border-[#1f222a]">▶ Run Agent 7</button>
                         </div>
                     </div>
 

@@ -51,6 +51,9 @@ from app.services.db import (
     update_social_interaction,
     enqueue_social_post,
     list_social_queue,
+    list_seo_snapshots,
+    list_seo_experiments,
+    update_seo_experiment,
 )
 from app.services.tenant_manager import TenantManager
 from app.services.crm_portability import export_leads, import_leads_payload
@@ -1267,3 +1270,44 @@ async def api_admin_social_interaction_action(interaction_id: str, request: Requ
     if not updated:
         raise HTTPException(status_code=404, detail="Social interaction not found.")
     return {"status": "success", "interaction": updated}
+
+
+# ==============================================================================
+# 9. CLOSED-LOOP SEARCH RANKING & SEO EXPERIMENTS ENDPOINTS
+# ==============================================================================
+
+@router.get("/api/admin/seo-rankings")
+async def api_admin_get_seo_rankings():
+    gsc_configured = bool(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON") or os.getenv("GSC_SERVICE_ACCOUNT_JSON"))
+    return {
+        "status": "success",
+        "gsc_configured": gsc_configured,
+        "snapshots": list_seo_snapshots(limit=50),
+        "experiments": list_seo_experiments(limit=50),
+    }
+
+
+@router.post("/api/admin/seo-rankings/run")
+async def api_admin_run_seo_rankings():
+    return run_single_agent("seo_optimizer")
+
+
+@router.post("/api/admin/seo-rankings/{exp_id}/action")
+async def api_admin_seo_experiment_action(exp_id: str, request: Request):
+    body = await request.json()
+    action = str(body.get("action") or "activate")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updates: Dict[str, Any] = {}
+    if action == "activate":
+        updates = {"status": "active", "activated_at": now_iso}
+    elif action == "revert":
+        updates = {"status": "reverted", "evaluated_at": now_iso, "reason": "Manually reverted from OC Roofing Pros HQ"}
+    elif action == "reject":
+        updates = {"status": "rejected", "evaluated_at": now_iso}
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported SEO experiment action: {action}")
+
+    updated = update_seo_experiment(exp_id, updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail="SEO experiment not found.")
+    return {"status": "success", "experiment": updated}

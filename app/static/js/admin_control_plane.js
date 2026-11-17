@@ -179,6 +179,7 @@ function switchTab(tabName) {
 
     if (tabName === 'analytics') loadSiteAnalytics(STATE.analyticsRange || '30d');
     if (tabName === 'social') loadSocialHub();
+    if (tabName === 'launchpad') loadSeoRankingsHub();
     if (tabName === 'emails' && STATE.emails.received.length === 0) loadResendEmails('inbound');
     if (tabName === 'voice' && !STATE.vapi.sarah) loadVapiOverview();
     if (tabName === 'agents') runLiveDiagnostics();
@@ -1884,5 +1885,89 @@ async function triggerMayaVoiceBriefing() {
         showToast('Maya is calling your phone now!');
     } else {
         showToast(data.error || 'Configure VAPI_SOCIAL_ASSISTANT_ID to enable Maya outbound calls.', true);
+    }
+}
+
+// ============================================================================
+// 13. CLOSED-LOOP SEARCH RANKINGS & SEO EXPERIMENTS (AGENT 7)
+// ============================================================================
+async function loadSeoRankingsHub() {
+    try {
+        const res = await fetch('/api/admin/seo-rankings');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const badge = document.getElementById('gscConnBadge');
+        if (badge) {
+            if (data.gsc_configured) {
+                badge.innerText = 'GSC API Connected';
+                badge.className = 'text-[10px] font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full';
+            } else {
+                badge.innerText = 'Audit Mode (Add GOOGLE_SERVICE_ACCOUNT_JSON for Live GSC)';
+                badge.className = 'text-[10px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full';
+            }
+        }
+
+        const tbody = document.getElementById('seoRankingsTableBody');
+        const snaps = data.snapshots || [];
+        if (tbody) {
+            tbody.innerHTML = snaps.length > 0
+                ? snaps.map(s => `
+                    <tr class="hover:bg-[#14161c]">
+                        <td class="p-2.5"><div class="font-bold text-white">${escapeHtml(s.query)}</div><div class="text-[10px] font-mono text-teal-400">${escapeHtml(s.page_path)}</div></td>
+                        <td class="p-2.5 text-right font-mono font-bold text-sky-300">${Number(s.position || 0).toFixed(1)}</td>
+                        <td class="p-2.5 text-right font-mono text-white">${Number(s.impressions || 0).toLocaleString()}</td>
+                        <td class="p-2.5 text-right font-mono text-emerald-400">${(Number(s.ctr || 0) * 100).toFixed(1)}%</td>
+                    </tr>`).join('')
+                : `<tr><td colspan="4" class="p-4 text-center text-[#8b92a5]">No GSC snapshots yet.</td></tr>`;
+        }
+
+        const expList = document.getElementById('seoExperimentsList');
+        const exps = data.experiments || [];
+        if (expList) {
+            expList.innerHTML = exps.length > 0
+                ? exps.map(e => `
+                    <div class="bg-[#14161c] border border-[#1f222a] rounded-xl p-2.5 space-y-1.5">
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="px-2 py-0.5 rounded-full font-bold text-[10px] bg-sky-500/20 text-sky-300">${escapeHtml(e.status)}</span>
+                            <span class="font-mono text-[10px] text-teal-300">${escapeHtml(e.page_path)}</span>
+                        </div>
+                        <div class="font-bold text-white">${escapeHtml(e.proposed_meta_title)}</div>
+                        <div class="text-[10px] text-[#8b92a5]">Query: "${escapeHtml(e.target_query)}" • ${escapeHtml(e.reason || '')}</div>
+                        <div class="flex gap-1.5 pt-1">
+                            ${e.status === 'pending_24h' ? `<button type="button" onclick="seoExperimentAction('${escapeHtml(e.id)}', 'activate')" class="bg-emerald-600 text-white px-2.5 py-1 rounded-lg font-bold text-[10px]">✓ Apply Now</button>` : ''}
+                            ${e.status === 'active' ? `<button type="button" onclick="seoExperimentAction('${escapeHtml(e.id)}', 'revert')" class="bg-amber-600/30 border border-amber-500/40 text-amber-200 px-2.5 py-1 rounded-lg font-bold text-[10px]">↩ Revert</button>` : ''}
+                            ${e.status === 'pending_24h' ? `<button type="button" onclick="seoExperimentAction('${escapeHtml(e.id)}', 'reject')" class="bg-rose-950/60 text-rose-300 px-2.5 py-1 rounded-lg font-bold text-[10px]">Dismiss</button>` : ''}
+                        </div>
+                    </div>`).join('')
+                : `<div class="text-[#8b92a5] py-4 text-center">No SEO experiments staged yet.</div>`;
+        }
+    } catch (err) {
+        console.warn('loadSeoRankingsHub error:', err);
+    }
+}
+
+async function runSeoOptimizerNow() {
+    showToast('Running Agent 7 Search Ranking Optimizer...');
+    const res = await fetch('/api/admin/seo-rankings/run', { method: 'POST' });
+    if (res.ok) {
+        showToast('Agent 7 SEO Rank Optimizer completed!');
+        await loadSeoRankingsHub();
+    } else {
+        showToast('Failed to run SEO optimizer.', true);
+    }
+}
+
+async function seoExperimentAction(id, action) {
+    const res = await fetch(`/api/admin/seo-rankings/${encodeURIComponent(id)}/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+    });
+    if (res.ok) {
+        showToast(`SEO experiment ${id} updated (${action}).`);
+        await loadSeoRankingsHub();
+    } else {
+        showToast('Failed to update SEO experiment.', true);
     }
 }
