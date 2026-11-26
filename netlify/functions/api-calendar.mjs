@@ -9,6 +9,7 @@ import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { GCalService, formatPropertyAddress, getNyDateParts, normalizeAvailabilityConfig, pickNonEmptyConfig } from "./services/gcal-service.mjs";
 import { resolveEmergencyHandler, sanitizePhoneE164 } from "./services/emergency-router.mjs";
+import { sendUnifiedSms } from "./services/sms-router.mjs";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -257,7 +258,7 @@ export default async (req) => {
         return json({ detail: "Valid email address is required." }, 400);
       }
 
-      const { tenant, icsFeedUrl } = await resolveTenantAndSchedule(`${formattedAddress} ${city}`);
+      const { tenant, sysSettings, icsFeedUrl } = await resolveTenantAndSchedule(`${formattedAddress} ${city}`);
       if (tenant.scheduling_type === "external_link" && tenant.booking_url) {
         return json({
           status: "external_redirect",
@@ -318,34 +319,24 @@ export default async (req) => {
         }
       }
 
-      const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-      const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-      const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
       const toPhone = phone && !phone.toLowerCase().includes("email") ? sanitizePhoneE164(phone) : "";
       const isExplicitFalse = (v) => v === false || String(v).trim().toLowerCase() === "false";
       const smsConsent = !isExplicitFalse(body.consent_given) && !isExplicitFalse(body.sms_consent);
-      if (twilioSid && twilioToken && toPhone && smsConsent) {
+      if (toPhone && smsConsent) {
         try {
-          const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
           const smsText = `Confirmed! Hi ${name.split(" ")[0]}, your free 21-point roof inspection with Ocean County Roofing Pros is locked in for ${displayDay} at ${timeStr} at ${formattedAddress}. Ref #${leadId || "WEB"}. Reply STOP to opt out.`;
-          const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${auth}`,
-              "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: new URLSearchParams({
-              To: toPhone,
-              From: twilioPhone,
-              Body: smsText
-            })
+          const smsRes = await sendUnifiedSms({
+            to: toPhone,
+            body: smsText,
+            purpose: "customer",
+            sysSettings
           });
-          if (!smsRes.ok) {
-            const errText = await smsRes.text().catch(() => "");
-            console.error(`[api-calendar] Twilio booking SMS failed (${smsRes.status}):`, errText);
+          if (!smsRes.sent && smsRes.status === "error") {
+            const label = smsRes.provider === "mcasms" ? "MCASMS" : "Twilio";
+            console.error(`[api-calendar] ${label} booking SMS failed (${smsRes.code || smsRes.status}):`, smsRes.error || smsRes.reason || "");
           }
         } catch (smsErr) {
-          console.error("[api-calendar] Twilio booking SMS error:", smsErr);
+          console.error("[api-calendar] Booking SMS error:", smsErr);
         }
       }
 

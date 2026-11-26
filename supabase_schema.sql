@@ -167,7 +167,12 @@ INSERT INTO public.system_settings (key, value) VALUES
     ('chief_email', 'elena@oceancountyroofingpros.com'),
     ('chief_tone', 'balanced'),
     ('chief_buffer_mode', 'true'),
-    ('chief_briefing_enabled', 'true')
+    ('chief_briefing_enabled', 'true'),
+    ('sms_provider', 'auto'),
+    ('mcasms_device_mode', 'personal'),
+    ('mcasms_sim_slot', '1'),
+    ('mcasms_send_owner_alerts', 'false'),
+    ('sms_opt_outs_json', '[]')
 ON CONFLICT (key) DO NOTHING;
 
 -- Default Tenants Seed

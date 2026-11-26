@@ -10,6 +10,7 @@ import { normalizeAvailabilityConfig, pickNonEmptyConfig } from "./services/gcal
 import { fetchIcsBusyIntervals } from "./services/ics-parser.mjs";
 import { normalizeEmergencyConfig, getTenantEmergencyConfig, parseEmergencyPolicy } from "./services/emergency-router.mjs";
 import { ChiefOfStaffService } from "./services/chief-of-staff-service.mjs";
+import { sendUnifiedSms, resolveSmsProvider, parseOptOutSet } from "./services/sms-router.mjs";
 import runSeoOptimizer from "./cron-seo-optimizer.mjs";
 
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || "ocrp_admin_secret_key_2026_offgrid_media";
@@ -109,33 +110,8 @@ function computeKpis({ leads = [], tenants = [], projects = [], reviews = [], su
   };
 }
 
-async function sendTwilioSms({ to, body }) {
-  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-  const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
-
-  if (!twilioSid || !twilioToken) {
-    return { sent: false, status: "mock_logged", reason: "Twilio credentials not set in environment", to, from: twilioPhone, body };
-  }
-
-  const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
-  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      To: to,
-      From: twilioPhone,
-      Body: body
-    })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    return { sent: false, status: "error", error: data.message || "Twilio error", code: res.status };
-  }
-  return { sent: true, status: "dispatched", sid: data.sid, to, from: twilioPhone, body };
+async function sendTwilioSms({ to, body, purpose = "customer", simSlot = null, sysSettings = null }) {
+  return await sendUnifiedSms({ to, body, purpose, simSlot, sysSettings });
 }
 
 export default async (req, context) => {
@@ -638,7 +614,7 @@ export default async (req, context) => {
           } else if (targetPhone) {
             const feedbackUrl = `https://oceancountyroofingpros.com/feedback/${encodeURIComponent(leadId)}`;
             const smsBody = `Hi ${firstName}, thank you for choosing Ocean County Roofing Pros! Your roofing project is marked complete. We'd love your feedback or a quick Google review here: ${feedbackUrl}`;
-            reviewSmsResult = await sendTwilioSms({ to: targetPhone, body: smsBody });
+            reviewSmsResult = await sendTwilioSms({ to: targetPhone, body: smsBody, purpose: "customer", sysSettings });
             if (reviewSmsResult?.sent) {
               updates.review_request_sent = true;
               updates.review_request_sent_at = new Date().toISOString();
@@ -1399,7 +1375,7 @@ export default async (req, context) => {
     }
 
     // =========================================================================
-    // 8. TWILIO SMS DISPATCHER (/api/admin/sms/send)
+    // 8. UNIFIED SMS DISPATCHER (/api/admin/sms/send — MCASMS SIM + Twilio)
     // =========================================================================
     if (path.includes("/sms/send") && req.method === "POST") {
       const body = await req.json();
@@ -1410,7 +1386,12 @@ export default async (req, context) => {
         return jsonResponse({ error: "Destination phone number and SMS body are required" }, 400);
       }
 
-      const smsResult = await sendTwilioSms({ to, body: msg });
+      const smsResult = await sendTwilioSms({
+        to,
+        body: msg,
+        purpose: body.purpose || "customer",
+        simSlot: body.sim_slot || null
+      });
 
       if (body.lead_id && supabaseUrl && supabaseKey) {
         try {
@@ -1419,8 +1400,9 @@ export default async (req, context) => {
             const arr = await getRes.json();
             if (arr[0]) {
               const stamp = new Date().toISOString().split("T")[0];
+              const viaLabel = smsResult.provider === "mcasms" ? "MCASMS SIM" : (smsResult.provider || "SMS");
               const tag = smsResult.sent
-                ? `Outbound SMS -> ${to}`
+                ? `Outbound SMS (${viaLabel}) -> ${to}`
                 : `Outbound SMS FAILED -> ${to} (${smsResult.error || smsResult.reason || smsResult.status || "error"})`;
               const newNote = `${arr[0].notes ? arr[0].notes + "\n" : ""}[${stamp} ${tag}]: "${msg}"`;
               await fetch(`${supabaseUrl}/rest/v1/leads?id=eq.${encodeURIComponent(body.lead_id)}`, {
@@ -1818,11 +1800,21 @@ export default async (req, context) => {
     // 10. LIVE API HEALTH DIAGNOSTICS (/api/admin/diagnostics)
     // =========================================================================
     if (path.includes("/diagnostics") && req.method === "GET") {
+      const sysSettings = await AIEmailAgent.loadSystemSettings().catch(() => ({}));
       const checks = {
         supabase: { configured: Boolean(supabaseUrl && supabaseKey), status: "offline" },
         vapi: { configured: Boolean(process.env.VAPI_API_KEY), status: "offline" },
         resend: { configured: Boolean(process.env.RESEND_API_KEY), status: "offline" },
-        twilio: { configured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN), status: "offline" }
+        twilio: { configured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN), status: "offline" },
+        mcasms: {
+          configured: Boolean((process.env.MCASMS_LICENSE_KEY || "").trim()),
+          status: "offline",
+          active_provider: resolveSmsProvider(sysSettings),
+          device_mode: String(sysSettings.mcasms_device_mode || "personal").toLowerCase(),
+          sim_slot: Number(sysSettings.mcasms_sim_slot || process.env.MCASMS_SIM_SLOT || 1) || 1,
+          webhook_secret_configured: Boolean((process.env.MCASMS_WEBHOOK_SECRET || "").trim()),
+          opt_out_count: parseOptOutSet(sysSettings).size
+        }
       };
 
       await Promise.all([
@@ -1870,6 +1862,15 @@ export default async (req, context) => {
               }
             }
           } catch {}
+        })(),
+        (async () => {
+          if (!checks.mcasms.configured) return;
+          const relayUrl = (process.env.MCASMS_RELAY_URL || "https://missedcallautosms.com/api/dispatch-sms").trim();
+          const r = await fetch(relayUrl, {
+            method: "OPTIONS",
+            signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+          }).catch(() => null);
+          checks.mcasms.status = r && (r.ok || r.status === 204) ? "online" : "error";
         })()
       ]);
 

@@ -7,6 +7,7 @@ import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
 import { formatPropertyAddress } from "./services/gcal-service.mjs";
 import { ChiefOfStaffService } from "./services/chief-of-staff-service.mjs";
+import { sendUnifiedSms } from "./services/sms-router.mjs";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -161,36 +162,25 @@ export default async (req, context) => {
       );
     }
 
-    // 3. Send SMS only if Twilio credentials exist, a real phone number was supplied, and SMS opt-in consent was granted
-    const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-    const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
-
+    // 3. Send SMS only if an SMS provider is configured, a real phone number was supplied, and SMS opt-in consent was granted
     const toPhone = sanitizePhoneE164(rawPhone);
-    if (twilioSid && twilioToken && toPhone && smsConsent) {
+    if (toPhone && smsConsent) {
       let msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Select your preferred inspection time on screen, or reply here to coordinate. Reply STOP to opt out.`;
       if (schedulingType === "external_link" && bookingUrl) {
         msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Please finalize your preferred 15-minute arrival window on our live dispatch calendar: ${bookingUrl} Reply STOP to opt out.`;
       }
 
-      const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
       backgroundDispatches.push(
-        fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Basic ${auth}`,
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: new URLSearchParams({
-            To: toPhone,
-            From: twilioPhone,
-            Body: msgBody
-          })
+        sendUnifiedSms({
+          to: toPhone,
+          body: msgBody,
+          purpose: "customer",
+          sysSettings
         })
-          .then(async (smsRes) => {
-            if (!smsRes.ok) {
-              const errText = await smsRes.text().catch(() => "");
-              console.error(`[api-webform] Twilio SMS failed (${smsRes.status}):`, errText);
+          .then((smsRes) => {
+            if (!smsRes.sent && smsRes.status === "error") {
+              const label = smsRes.provider === "mcasms" ? "MCASMS" : "Twilio";
+              console.error(`[api-webform] ${label} SMS failed (${smsRes.code || smsRes.status}):`, smsRes.error || smsRes.reason || "");
             }
           })
           .catch(err => console.error("Error dispatching SMS:", err))

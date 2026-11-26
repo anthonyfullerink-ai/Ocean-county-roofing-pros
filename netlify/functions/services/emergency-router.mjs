@@ -10,6 +10,7 @@
  */
 import { AIEmailAgent } from "./ai-email-handler.mjs";
 import { getNyDateParts, pickNonEmptyConfig } from "./gcal-service.mjs";
+import { sendUnifiedSms } from "./sms-router.mjs";
 
 export const DEFAULT_EMERGENCY_CONFIG = {
   emergency_enabled: false,
@@ -190,7 +191,8 @@ export async function resolveEmergencyHandler({
 }
 
 /**
- * Fires immediate high-priority Twilio SMS alerts to the assigned emergency phone (and owner desk if enabled).
+ * Fires immediate high-priority SMS alerts to the assigned emergency phone (and owner desk if enabled)
+ * via unified SMS router (MCASMS Native SIM Relay or Twilio fallback).
  */
 export async function sendEmergencySmsEscalation({
   tenant,
@@ -200,14 +202,11 @@ export async function sendEmergencySmsEscalation({
   sysSettings = {},
   fetchFn = fetch
 } = {}) {
-  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-  const fromPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
   const targetPhone = sanitizePhoneE164(
     emergencyConfig?.emergency_phone || tenant?.dispatch_phone || process.env.OWNER_ALERT_PHONE || "+17326609121"
   );
 
-  if (!twilioSid || !twilioToken || !targetPhone) {
+  if (!targetPhone) {
     return { sent: false, reason: "twilio_unconfigured_or_no_phone", to: targetPhone };
   }
 
@@ -219,20 +218,14 @@ export async function sendEmergencySmsEscalation({
   const summary = lead.issue_summary || lead.service || lead.notes || "Active Water Leak / Storm Breach";
 
   const smsText = `🚨 [24/7 EMERGENCY LEAK${overflowTag}] #${leadId} | ${name} (${phone}) | ${address} | Issue: ${summary}. Please call homeowner ASAP!`;
-  const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
 
   try {
-    const res = await fetchFn(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: new URLSearchParams({
-        To: targetPhone,
-        From: fromPhone,
-        Body: smsText
-      })
+    const primaryRes = await sendUnifiedSms({
+      to: targetPhone,
+      body: smsText,
+      purpose: "emergency_partner",
+      sysSettings,
+      fetchFn
     });
 
     // Optional owner copy if emergency_phone is different from owner alert phone
@@ -244,25 +237,34 @@ export async function sendEmergencySmsEscalation({
       ownerPhone !== targetPhone &&
       String(sysSettings?.alert_on_emergency ?? "true").toLowerCase() !== "false"
     ) {
-      await fetchFn(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({
-          To: ownerPhone,
-          From: fromPhone,
-          Body: `[Owner CC -> ${tenant?.company_name || "Partner"}] ${smsText}`
-        })
+      await sendUnifiedSms({
+        to: ownerPhone,
+        body: `[Owner CC -> ${tenant?.company_name || "Partner"}] ${smsText}`,
+        purpose: "owner_alert",
+        sysSettings,
+        fetchFn
       }).catch(() => {});
     }
 
-    if (!res.ok) {
-      return { sent: false, to: targetPhone, status: res.status };
+    if (!primaryRes.sent) {
+      if (primaryRes.status === "mock_logged" || primaryRes.status === "unconfigured") {
+        return { sent: false, reason: "twilio_unconfigured_or_no_phone", to: targetPhone };
+      }
+      return {
+        sent: false,
+        to: targetPhone,
+        status: primaryRes.code || primaryRes.status,
+        provider: primaryRes.provider,
+        error: primaryRes.error || primaryRes.reason
+      };
     }
-    const data = await res.json().catch(() => ({}));
-    return { sent: true, to: targetPhone, sid: data.sid || null };
+
+    return {
+      sent: true,
+      to: targetPhone,
+      sid: primaryRes.sid || primaryRes.fcm_message_id || null,
+      provider: primaryRes.provider
+    };
   } catch (err) {
     return { sent: false, to: targetPhone, error: err.message };
   }

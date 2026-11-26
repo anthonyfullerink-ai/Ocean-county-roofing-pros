@@ -2,6 +2,7 @@
 // OCEAN COUNTY ROOFING PROS - AUTONOMOUS RANK-AND-RENT AI EMAIL AGENT
 // ==============================================================================
 import { EmailService } from "./email-service.mjs";
+import { sendUnifiedSms } from "./sms-router.mjs";
 
 const OCEAN_COUNTY_TOWNS = [
   "Toms River",
@@ -710,28 +711,17 @@ ${textBody || "(Empty body)"}`;
   }) {
     const ownerEmail = process.env.OWNER_ALERT_EMAIL || "anthony.fuller.ink@gmail.com";
     const ownerPhone = process.env.OWNER_ALERT_PHONE || "+17325523896";
-    const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-    const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
 
-    // 1. Operator Instant SMS Alert via Twilio
-    if (alertOwner && twilioSid && twilioToken && ownerPhone) {
+    // 1. Operator Instant SMS Alert (routed via unified SMS router; skips Personal Device self-alerts)
+    if (alertOwner && ownerPhone) {
       try {
         const smsMsg = `🚨 [${intent}] ${senderName} | ${phone || senderEmail}${address ? ` | ${address}` : ""} | "${subject}" -> Assigned: ${tenant.company_name}. Riley auto-replied.`;
-        const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
-        await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Basic ${auth}`,
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: new URLSearchParams({
-            To: ownerPhone,
-            From: twilioPhone,
-            Body: smsMsg
-          })
+        const smsRes = await sendUnifiedSms({
+          to: ownerPhone,
+          body: smsMsg,
+          purpose: "owner_alert"
         });
-        console.log(`[AIEmailAgent] Operator SMS dispatched to ${ownerPhone}`);
+        console.log(`[AIEmailAgent] Operator SMS (${smsRes.provider || "none"}): ${smsRes.status}`);
       } catch (err) {
         console.error("[AIEmailAgent] Operator SMS dispatch error:", err);
       }

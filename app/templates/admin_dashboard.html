@@ -619,7 +619,10 @@
                 <section id="tab-sms" class="tab-panel hidden space-y-6">
                     <div class="grid lg:grid-cols-2 gap-6">
                         <form onsubmit="sendManualSms(event)" class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4">
-                            <h3 class="text-sm font-black text-white">💬 1-Off Twilio SMS Dispatcher</h3>
+                            <div class="flex items-center justify-between gap-2">
+                                <h3 class="text-sm font-black text-white">💬 1-Off SMS Dispatcher</h3>
+                                <span id="activeSmsProviderBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300">CHECKING...</span>
+                            </div>
                             <input type="text" id="sms_to_phone" required placeholder="Destination Phone (+1732...)" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3.5 py-2.5 text-xs text-white font-mono">
                             <textarea id="sms_body_text" rows="4" required placeholder="Enter SMS text message..." class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-3 text-xs text-white"></textarea>
                             <button type="submit" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-xs py-2.5 rounded-xl">📲 Dispatch Instant SMS</button>
@@ -644,6 +647,54 @@
                             <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 rounded-xl">💾 Save Alert Routing</button>
                         </form>
                     </div>
+
+                    <form onsubmit="saveMcasmsBridgeSettings(event)" class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4 text-xs">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h3 class="text-sm font-black text-white">📱 Missed Call Auto SMS (Native Android SIM Bridge)</h3>
+                                <p class="text-[#8b92a5] text-[11px] mt-0.5">Send native SIM texts via MCASMS Cloud Relay and sync homeowner replies + STOP opt-outs back into CRM.</p>
+                            </div>
+                            <span class="diag-badge-mcasms text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">CHECKING...</span>
+                        </div>
+                        <div class="grid md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="text-[10px] text-[#8b92a5] uppercase font-bold">Outbound SMS Provider</label>
+                                <select id="set_sms_provider" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white mt-1">
+                                    <option value="auto">Auto (MCASMS Native SIM &rarr; Twilio)</option>
+                                    <option value="mcasms">MCASMS Native SIM Only</option>
+                                    <option value="twilio">Twilio Toll-Free Only</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-[#8b92a5] uppercase font-bold">Device Mode</label>
+                                <select id="set_mcasms_device_mode" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white mt-1">
+                                    <option value="personal">Personal Phone (CRM Leads Only / No Self-Alerts)</option>
+                                    <option value="dedicated">Dedicated Business Phone (All Inbound &amp; Owner Alerts)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-[#8b92a5] uppercase font-bold">Android SIM Slot</label>
+                                <select id="set_mcasms_sim_slot" class="w-full bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 text-white mt-1">
+                                    <option value="1">eSIM / SIM Slot 1</option>
+                                    <option value="2">SIM Slot 2</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid lg:grid-cols-2 gap-3 items-center">
+                            <label class="flex items-center justify-between p-2.5 bg-[#0a0a0c] border border-[#1f222a] rounded-xl">
+                                <span class="text-slate-200">Send Internal Owner SMS Alerts via MCASMS (off recommended on Personal Phone)</span>
+                                <input type="checkbox" id="set_mcasms_send_owner_alerts" class="accent-teal-500">
+                            </label>
+                            <div class="flex items-center gap-2 bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-2">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-[10px] text-[#8b92a5] uppercase font-bold px-1">Active Webhook Target URL (Base)</div>
+                                    <input type="text" id="mcasms_webhook_base_url" readonly value="https://oceancountyroofingpros.com/api/mcasms/webhook" class="w-full bg-transparent px-1 text-[11px] font-mono text-teal-300 focus:outline-none">
+                                </div>
+                                <button type="button" onclick="copyMcasmsWebhookUrl()" class="bg-[#1a1d26] hover:bg-[#232734] border border-[#2a2f3d] text-white font-bold px-3 py-1.5 rounded-lg shrink-0">Copy URL</button>
+                            </div>
+                        </div>
+                        <button type="submit" class="bg-teal-600 hover:bg-teal-500 text-white font-extrabold px-5 py-2.5 rounded-xl">💾 Save MCASMS Bridge Settings</button>
+                    </form>
                 </section>
 
                 <!-- TAB 5B: SOCIAL MEDIA, MAYA VAPI DESK & REVIEWS HUB -->
@@ -1077,6 +1128,7 @@
                                 <div class="p-3 bg-[#0a0a0c] border border-[#1f222a] rounded-xl flex justify-between items-center"><span>Vapi Voice Cloud</span><span class="diag-badge-vapi">...</span></div>
                                 <div class="p-3 bg-[#0a0a0c] border border-[#1f222a] rounded-xl flex justify-between items-center"><span>Resend Email</span><span class="diag-badge-resend">...</span></div>
                                 <div class="p-3 bg-[#0a0a0c] border border-[#1f222a] rounded-xl flex justify-between items-center"><span>Twilio SMS</span><span class="diag-badge-twilio">...</span></div>
+                                <div class="p-3 bg-[#0a0a0c] border border-[#1f222a] rounded-xl flex justify-between items-center col-span-2"><span>MCASMS SIM Bridge</span><span class="diag-badge-mcasms">...</span></div>
                             </div>
                         </div>
                     </div>

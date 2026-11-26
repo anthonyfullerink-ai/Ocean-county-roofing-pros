@@ -8,6 +8,7 @@ import { GCalService, normalizeAvailabilityConfig, getNyDateParts, pickNonEmptyC
 import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
 import { MetaSocialService } from "./services/meta-social-service.mjs";
 import { ChiefOfStaffService } from "./services/chief-of-staff-service.mjs";
+import { sendUnifiedSms } from "./services/sms-router.mjs";
 
 function parseToolArgs(rawArgs) {
   if (!rawArgs) return {};
@@ -432,34 +433,22 @@ export default async (req, context) => {
 
         if (targetTenant.scheduling_type === "external_link" && targetTenant.booking_url) {
           let smsSent = false;
-          const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-          const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-          const fromPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+18669001221";
           const toPhone = sanitizePhoneE164(phone);
-          if (twilioSid && twilioToken && toPhone) {
+          if (toPhone) {
             try {
-              const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
               const smsText = `Hi ${name.split(" ")[0]}, thanks for calling ${targetTenant.company_name || "Ocean County Roofing Pros"}! Finalize your preferred 15-minute inspection arrival window here: ${targetTenant.booking_url} Reply STOP to opt out.`;
-              const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-                method: "POST",
-                headers: {
-                  Authorization: `Basic ${auth}`,
-                  "Content-Type": "application/x-www-form-urlencoded"
-                },
-                body: new URLSearchParams({
-                  To: toPhone,
-                  From: fromPhone,
-                  Body: smsText
-                })
+              const smsRes = await sendUnifiedSms({
+                to: toPhone,
+                body: smsText,
+                purpose: "customer",
+                sysSettings
               });
-              if (!smsRes.ok) {
-                const errText = await smsRes.text().catch(() => "");
-                console.error(`[api-vapi-tools] Twilio external_link SMS failed (${smsRes.status}):`, errText);
-              } else {
-                smsSent = true;
+              smsSent = Boolean(smsRes?.sent);
+              if (!smsSent && smsRes?.status === "error") {
+                console.error(`[api-vapi-tools] external_link SMS failed (${smsRes.code || smsRes.status}):`, smsRes.error || "");
               }
             } catch (smsErr) {
-              console.error("[api-vapi-tools] Twilio external_link SMS error:", smsErr);
+              console.error("[api-vapi-tools] external_link SMS error:", smsErr);
             }
           }
           const smsClause = smsSent
@@ -562,31 +551,21 @@ export default async (req, context) => {
           }).catch(err => ({ status: "error", error: err.message }));
         }
 
-        // Instant Owner SMS Alert via Twilio (+18669001221 -> OWNER_ALERT_PHONE)
-        const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-        const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-        const fromPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+18669001221";
+        // Instant Owner SMS Alert (routes via MCASMS or Twilio; skipped cleanly on Personal Device mode)
         const ownerPhone = sanitizePhoneE164(
           sysSettings?.owner_alert_phone || process.env.OWNER_ALERT_PHONE || "+17325523896"
         );
         let smsSent = false;
-        if (twilioSid && twilioToken && ownerPhone) {
+        if (ownerPhone) {
           try {
-            const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
             const smsBody = `🙋 [HUMAN CALLBACK REQ] #${leadId} | ${name} (${phone || "No phone"}) | ${address} | Reason: ${reason} | Told caller: ${slaLabel} -> https://oceancountyroofingpros.com/admin`;
-            const smsRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
-              method: "POST",
-              headers: {
-                "Authorization": `Basic ${auth}`,
-                "Content-Type": "application/x-www-form-urlencoded"
-              },
-              body: new URLSearchParams({
-                To: ownerPhone,
-                From: fromPhone,
-                Body: smsBody
-              })
+            const smsRes = await sendUnifiedSms({
+              to: ownerPhone,
+              body: smsBody,
+              purpose: "owner_alert",
+              sysSettings
             });
-            smsSent = Boolean(smsRes && smsRes.ok);
+            smsSent = Boolean(smsRes?.sent);
           } catch (smsErr) {
             console.error("Error sending human escalation SMS:", smsErr);
           }

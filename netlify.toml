@@ -90,6 +90,12 @@
   to = "/.netlify/functions/api-twilio-voice"
   status = 200
 
+# Missed Call Auto SMS (MCASMS) Active Web Target & Delivery Callback Webhook
+[[redirects]]
+  from = "/api/mcasms/*"
+  to = "/.netlify/functions/api-mcasms-webhook"
+  status = 200
+
 # Direct Static CDN Assets
 [[redirects]]
   from = "/static/*"

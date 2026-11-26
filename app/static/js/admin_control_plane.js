@@ -153,7 +153,7 @@ const TAB_TITLES = {
     analytics: 'Website Traffic & Conversion Analytics',
     emails: 'Email Center & Riley AI (@oceancountyroofingpros.com)',
     voice: 'Voice AI Studio — Sarah & Riley (Vapi Cloud)',
-    sms: 'SMS & Alerts Center (Twilio)',
+    sms: 'SMS & Alerts Center (MCASMS + Twilio)',
     social: 'Social Media, Maya Voice Desk & Reviews',
     tenants: 'Contractors & Hybrid Territory Routing',
     launchpad: 'SEO, GBP & 24h Photo Queue',
@@ -869,6 +869,42 @@ async function saveSmsAlertSettings(e) {
     if (res.ok) showToast('SMS & Alert routing saved!');
 }
 
+async function saveMcasmsBridgeSettings(e) {
+    e.preventDefault();
+    const payload = {
+        sms_provider: document.getElementById('set_sms_provider').value,
+        mcasms_device_mode: document.getElementById('set_mcasms_device_mode').value,
+        mcasms_sim_slot: document.getElementById('set_mcasms_sim_slot').value,
+        mcasms_send_owner_alerts: document.getElementById('set_mcasms_send_owner_alerts').checked ? 'true' : 'false'
+    };
+    const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+        STATE.sys_settings = { ...(STATE.sys_settings || {}), ...payload };
+        showToast('MCASMS Native SIM bridge settings saved!');
+        runLiveDiagnostics();
+    } else {
+        showToast('Failed to save MCASMS settings', true);
+    }
+}
+
+function copyMcasmsWebhookUrl() {
+    const input = document.getElementById('mcasms_webhook_base_url');
+    if (!input) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            showToast('Copied Active Webhook URL base! Add ?token=<secret> if secret is enabled.');
+        }).catch(() => {});
+    } else {
+        input.select();
+        document.execCommand('copy');
+        showToast('Copied Active Webhook URL base!');
+    }
+}
+
 function renderTenantsCards() {
     const grid = document.getElementById('tenantsCardGrid');
     if (!grid || !STATE.tenants.length) return;
@@ -1000,6 +1036,10 @@ function hydrateSettingsInputs() {
     setChk('set_alert_booking', s.alert_on_booking ?? 'true');
     setChk('set_alert_emergency', s.alert_on_emergency ?? 'true');
     setChk('set_alert_brief', s.alert_daily_brief ?? 'true');
+    setVal('set_sms_provider', s.sms_provider || 'auto');
+    setVal('set_mcasms_device_mode', s.mcasms_device_mode || 'personal');
+    setVal('set_mcasms_sim_slot', String(s.mcasms_sim_slot || '1'));
+    setChk('set_mcasms_send_owner_alerts', s.mcasms_send_owner_alerts ?? 'false');
     setChk('cro_emergency_banner_enabled', s.emergency_banner_enabled ?? 'false');
     setVal('cro_emergency_banner_text', s.emergency_banner_text || '⚡ OCEAN COUNTY STORM DISPATCH ACTIVE: Same-Day Roof Leak Triage & Tarping');
     setVal('cro_dispatch_phone_display', s.dispatch_phone_display || '(732) 660-9121');
@@ -1424,7 +1464,7 @@ async function runLiveDiagnostics() {
         const res = await fetch('/api/admin/diagnostics');
         const data = await res.json();
         if (!res.ok || !data.checks) return;
-        ['supabase', 'vapi', 'resend', 'twilio'].forEach(svc => {
+        ['supabase', 'vapi', 'resend', 'twilio', 'mcasms'].forEach(svc => {
             const c = data.checks[svc] || {};
             const badge = document.querySelectorAll(`.diag-badge-${svc}`);
             badge.forEach(el => {
@@ -1438,11 +1478,28 @@ async function runLiveDiagnostics() {
                         label = `🟡 TF ${c.tollfree_status}`;
                         okTone = false;
                     }
+                } else if (svc === 'mcasms') {
+                    if (c.status === 'online') {
+                        const modeTag = (c.device_mode || 'personal').toUpperCase();
+                        label = `🟢 SIM ${c.sim_slot || 1} (${modeTag})`;
+                        okTone = true;
+                    } else if (!c.configured) {
+                        label = '⚪ UNSET';
+                        okTone = false;
+                    }
                 }
                 el.innerText = label;
                 el.className = `diag-badge-${svc} text-[10px] font-mono font-bold px-2 py-0.5 rounded ${okTone ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`;
             });
         });
+        const providerBadge = document.getElementById('activeSmsProviderBadge');
+        if (providerBadge && data.checks.mcasms) {
+            const active = (data.checks.mcasms.active_provider || 'none').toUpperCase();
+            const mode = (data.checks.mcasms.device_mode || 'personal').toUpperCase();
+            providerBadge.innerText = active === 'MCASMS'
+                ? `VIA MCASMS SIM ${data.checks.mcasms.sim_slot || 1} (${mode})`
+                : `VIA ${active}`;
+        }
     } catch (e) { console.warn('Diagnostics check failed:', e); }
 }
 
