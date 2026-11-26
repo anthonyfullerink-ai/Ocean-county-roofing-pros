@@ -7,6 +7,7 @@ import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { GCalService, normalizeAvailabilityConfig, getNyDateParts, pickNonEmptyConfig } from "./services/gcal-service.mjs";
 import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
 import { MetaSocialService } from "./services/meta-social-service.mjs";
+import { ChiefOfStaffService } from "./services/chief-of-staff-service.mjs";
 
 function parseToolArgs(rawArgs) {
   if (!rawArgs) return {};
@@ -247,21 +248,32 @@ export default async (req, context) => {
           }
         });
 
-        await EmailService.sendOwnerLeadAlert({
-          lead_id: leadId,
-          name,
-          phone: phone || "Not provided",
-          email: email || "Not provided",
-          address,
-          date: emerg.available_now ? "URGENT SAME-DAY / 24H TRIAGE" : "FIRST-MORNING PRIORITY",
-          time: emerg.available_now ? `Mode: ${emerg.mode}` : "9:00 AM Earliest",
-          service: "Emergency Leak Repair",
-          roof_age: issueSummary,
-          attic_access: "Emergency Priority Leak",
-          ladder_needed: "Tarping / Triage Gear",
-          decision_makers_present: "",
-          source: `Voice AI Emergency (${emerg.dispatch_company}${emerg.is_overflow ? " Overflow" : ""})`
-        }).catch(() => {});
+        if (sysSettings?.chief_buffer_mode === "true") {
+          await ChiefOfStaffService.sendP0Escalation({
+            source: "riley",
+            title: `Emergency Leak (${detectedCity}): ${name}`,
+            summary: `Phone: ${phone || "Not provided"} | Address: ${address} | Issue: ${issueSummary} | Routed to: ${emerg.dispatch_company}`,
+            recommendedAction: emerg.available_now
+              ? "Confirm live emergency transfer or call the homeowner back within 15 minutes."
+              : "Review for 9:00 AM first-morning priority dispatch."
+          }).catch(() => {});
+        } else {
+          await EmailService.sendOwnerLeadAlert({
+            lead_id: leadId,
+            name,
+            phone: phone || "Not provided",
+            email: email || "Not provided",
+            address,
+            date: emerg.available_now ? "URGENT SAME-DAY / 24H TRIAGE" : "FIRST-MORNING PRIORITY",
+            time: emerg.available_now ? `Mode: ${emerg.mode}` : "9:00 AM Earliest",
+            service: "Emergency Leak Repair",
+            roof_age: issueSummary,
+            attic_access: "Emergency Priority Leak",
+            ladder_needed: "Tarping / Triage Gear",
+            decision_makers_present: "",
+            source: `Voice AI Emergency (${emerg.dispatch_company}${emerg.is_overflow ? " Overflow" : ""})`
+          }).catch(() => {});
+        }
 
         results.push({
           toolCallId: callId,
@@ -403,7 +415,17 @@ export default async (req, context) => {
 
         try {
           EmailService.sendBookingConfirmation(leadPayloadForEmail).catch(e => console.error("Resend confirmation err:", e));
-          EmailService.sendOwnerLeadAlert(leadPayloadForEmail).catch(e => console.error("Resend owner alert err:", e));
+          if (sysSettings?.chief_buffer_mode === "true") {
+            ChiefOfStaffService.recordBufferEvent({
+              source: "riley",
+              severity: "routine",
+              title: `Riley Booked Inspection: ${name} (${dateStr} ${timeStr})`,
+              summary: `${service} at ${address} | Phone: ${phone || "N/A"} | Assigned: ${targetTenant.company_name}`,
+              payload: { lead_id: leadId, phone, address, dateStr, timeStr }
+            }).catch(() => {});
+          } else {
+            EmailService.sendOwnerLeadAlert(leadPayloadForEmail).catch(e => console.error("Resend owner alert err:", e));
+          }
         } catch (emailErr) {
           console.error("Email dispatch trigger error:", emailErr);
         }
@@ -517,17 +539,28 @@ export default async (req, context) => {
           }
         }
 
-        // Instant Owner Email Alert via Resend
-        const emailResult = await EmailService.sendOwnerHumanEscalationAlert({
-          lead_id: leadId,
-          name,
-          phone: phone || "Not provided",
-          email,
-          address,
-          reason,
-          agent_name: agentName,
-          sla_label: slaLabel
-        }).catch(err => ({ status: "error", error: err.message }));
+        // Owner Alert Routing: buffer non-urgent Riley callbacks when Chief Buffer Mode is enabled
+        let emailResult = { status: "buffered" };
+        if (sysSettings?.chief_buffer_mode === "true") {
+          await ChiefOfStaffService.recordBufferEvent({
+            source: "riley",
+            severity: "important",
+            title: `Human Callback Requested (${name})`,
+            summary: `Phone: ${phone || "Not provided"} | Address: ${address} | SLA: ${slaLabel} | Reason: ${reason}`,
+            payload: { lead_id: leadId, name, phone, email, address, reason }
+          }).catch(() => {});
+        } else {
+          emailResult = await EmailService.sendOwnerHumanEscalationAlert({
+            lead_id: leadId,
+            name,
+            phone: phone || "Not provided",
+            email,
+            address,
+            reason,
+            agent_name: agentName,
+            sla_label: slaLabel
+          }).catch(err => ({ status: "error", error: err.message }));
+        }
 
         // Instant Owner SMS Alert via Twilio (+18669001221 -> OWNER_ALERT_PHONE)
         const twilioSid = process.env.TWILIO_ACCOUNT_SID;

@@ -162,7 +162,12 @@ INSERT INTO public.system_settings (key, value) VALUES
     ('gbp_webhook_url', ''),
     ('admin_pin', '732999'),
     ('storm_alert_active', 'false'),
-    ('storm_alert_headline', '🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily')
+    ('storm_alert_headline', '🟢 Active in Ocean County Today — 21-Point Drone Roof Inspections Dispatched Daily'),
+    ('chief_name', 'Elena'),
+    ('chief_email', 'elena@oceancountyroofingpros.com'),
+    ('chief_tone', 'balanced'),
+    ('chief_buffer_mode', 'true'),
+    ('chief_briefing_enabled', 'true')
 ON CONFLICT (key) DO NOTHING;
 
 -- Default Tenants Seed
@@ -317,7 +322,36 @@ CREATE TABLE IF NOT EXISTS public.seo_experiments (
 CREATE INDEX IF NOT EXISTS idx_seo_exp_status ON public.seo_experiments(status);
 CREATE INDEX IF NOT EXISTS idx_seo_exp_path ON public.seo_experiments(page_path);
 
--- 15. ROW LEVEL SECURITY (Default-deny for anon/authenticated PostgREST; backend uses service_role)
+-- 15. EXECUTIVE MESSAGES (Elena Chief of Staff Two-Way Email Thread Memory)
+CREATE TABLE IF NOT EXISTS public.executive_messages (
+    id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    thread_key TEXT DEFAULT 'default',
+    direction TEXT NOT NULL DEFAULT 'outbound', -- inbound | outbound
+    from_email TEXT DEFAULT '',
+    to_email TEXT DEFAULT '',
+    subject TEXT DEFAULT '',
+    body_text TEXT NOT NULL,
+    actions_json TEXT DEFAULT '[]',
+    message_id TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_exec_msg_created ON public.executive_messages(created_at DESC);
+
+-- 16. EXECUTIVE BUFFER (Buffered Non-Urgent Riley/Webform/Social Alerts for Elena Digest)
+CREATE TABLE IF NOT EXISTS public.executive_buffer (
+    id TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    source TEXT NOT NULL DEFAULT 'riley', -- riley | webform | meta | twilio | seo
+    severity TEXT NOT NULL DEFAULT 'routine', -- routine | important | p0_sent
+    title TEXT NOT NULL,
+    summary TEXT DEFAULT '',
+    payload_json TEXT DEFAULT '{}',
+    digested_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_exec_buf_digested ON public.executive_buffer(digested_at);
+CREATE INDEX IF NOT EXISTS idx_exec_buf_created ON public.executive_buffer(created_at DESC);
+
+-- 17. ROW LEVEL SECURITY (Default-deny for anon/authenticated PostgREST; backend uses service_role)
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.job_projects ENABLE ROW LEVEL SECURITY;
@@ -332,3 +366,5 @@ ALTER TABLE public.social_interactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.social_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seo_ranking_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.seo_experiments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.executive_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.executive_buffer ENABLE ROW LEVEL SECURITY;

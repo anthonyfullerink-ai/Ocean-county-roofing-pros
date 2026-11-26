@@ -259,16 +259,27 @@
                         </div>
                     </div>
 
-                    <!-- 7:30 AM Morning Executive Briefing -->
-                    <div class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-3">
+                    <!-- Elena — Executive Chief of Staff ("HNIC") & 7:30 AM Morning Briefing -->
+                    <div id="elenaChiefCard" class="bg-[#14161c] border border-[#1f222a] rounded-2xl p-5 space-y-4">
                         <div class="flex flex-wrap justify-between items-center gap-2">
                             <div>
-                                <span class="text-[10px] font-black uppercase bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded">Agent 5 • Chief Briefing Officer</span>
-                                <h3 class="text-sm font-black text-white mt-1">📊 7:30 AM Daily Executive Briefing</h3>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-[10px] font-black uppercase bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded">Elena • Executive Chief of Staff ("HNIC")</span>
+                                    <span id="elenaStatusBadge" class="text-[10px] font-mono bg-[#0a0a0c] border border-[#1f222a] text-slate-300 px-2 py-0.5 rounded-full">elena@oceancountyroofingpros.com • Buffer Active</span>
+                                </div>
+                                <h3 class="text-sm font-black text-white mt-1">📊 Executive Briefing &amp; Riley Alert Buffer</h3>
                             </div>
-                            <button onclick="runSingleAgent('briefing')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl">🔄 Regenerate Briefing</button>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="sendElenaBriefingNow()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl">📨 Email Briefing Now</button>
+                                <button type="button" onclick="runSingleAgent('briefing')" class="bg-teal-600 hover:bg-teal-500 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl">🔄 Regenerate Briefing</button>
+                            </div>
                         </div>
-                        <div id="executiveBriefingBox" class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-4 font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{% if latest_report %}{{ latest_report.markdown_content }}{% else %}Click "Regenerate Briefing" to compile today's executive digest.{% endif %}</div>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input id="askElenaInput" type="text" placeholder="Message Elena (e.g. 'How did Riley do today?', 'Approve pending SEO test', 'Turn storm alert off')..." class="flex-1 bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3.5 py-2 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-teal-500">
+                            <button type="button" onclick="sendQuickMessageToElena()" class="bg-[#0a0a0c] hover:bg-teal-600 text-teal-300 hover:text-white border border-[#1f222a] text-xs font-extrabold px-4 py-2 rounded-xl transition shrink-0">Ask / Instruct Elena</button>
+                        </div>
+                        <div id="executiveBriefingBox" class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl p-4 font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{% if latest_report %}{{ latest_report.markdown_content }}{% else %}Click "Email Briefing Now" or "Regenerate Briefing" to compile today's executive digest.{% endif %}</div>
+                        <div id="elenaRecentThread" class="space-y-1.5 text-xs text-[#8b92a5]"></div>
                     </div>
                 </section>
 

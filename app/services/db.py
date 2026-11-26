@@ -67,7 +67,7 @@ def _get_conn() -> sqlite3.Connection:
 
 
 _CLOUD_BOOL_COLS = {"is_active", "review_request_sent", "is_public", "webhook_dispatched", "meta_shared"}
-_CLOUD_NULLABLE_TIMESTAMPTZ_COLS = {"review_request_sent_at", "auto_publish_at", "published_at", "auto_apply_at", "activated_at", "evaluated_at"}
+_CLOUD_NULLABLE_TIMESTAMPTZ_COLS = {"review_request_sent_at", "auto_publish_at", "published_at", "auto_apply_at", "activated_at", "evaluated_at", "digested_at"}
 
 
 def _prepare_cloud_payload(payload: Any) -> Any:
@@ -385,6 +385,33 @@ def init_db() -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_sqlite_seo_exp_status ON seo_experiments(status);
         CREATE INDEX IF NOT EXISTS idx_sqlite_seo_exp_path ON seo_experiments(page_path);
+
+        CREATE TABLE IF NOT EXISTS executive_messages (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            thread_key TEXT DEFAULT 'default',
+            direction TEXT NOT NULL DEFAULT 'outbound',
+            from_email TEXT DEFAULT '',
+            to_email TEXT DEFAULT '',
+            subject TEXT DEFAULT '',
+            body_text TEXT NOT NULL,
+            actions_json TEXT DEFAULT '[]',
+            message_id TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_sqlite_exec_msg_created ON executive_messages(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS executive_buffer (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'riley',
+            severity TEXT NOT NULL DEFAULT 'routine',
+            title TEXT NOT NULL,
+            summary TEXT DEFAULT '',
+            payload_json TEXT DEFAULT '{}',
+            digested_at TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_sqlite_exec_buf_digested ON executive_buffer(digested_at);
+        CREATE INDEX IF NOT EXISTS idx_sqlite_exec_buf_created ON executive_buffer(created_at DESC);
         """
     )
 
@@ -433,6 +460,11 @@ def init_db() -> None:
         "storm_alert_active": "false",
         "storm_alert_headline": "🟢 Active in Ocean County Today — 21-Point Roof & Attic Inspections Dispatched Daily (Drone Upon Request)",
         "dispatch_ticker_json": json.dumps(default_ticker),
+        "chief_name": "Elena",
+        "chief_email": "elena@oceancountyroofingpros.com",
+        "chief_tone": "balanced",
+        "chief_buffer_mode": "true",
+        "chief_briefing_enabled": "true",
     }
     for k, v in default_settings.items():
         cur.execute(

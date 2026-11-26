@@ -1311,3 +1311,47 @@ async def api_admin_seo_experiment_action(exp_id: str, request: Request):
     if not updated:
         raise HTTPException(status_code=404, detail="SEO experiment not found.")
     return {"status": "success", "experiment": updated}
+
+
+# ==============================================================================
+# 10. ELENA — EXECUTIVE CHIEF OF STAFF ("HNIC") LOCAL MIRROR ENDPOINTS
+# ==============================================================================
+
+@router.get("/api/admin/chief")
+async def api_admin_get_chief():
+    from app.services.db import _get_conn
+    conn = _get_conn()
+    try:
+        msgs = [dict(r) for r in conn.execute("SELECT * FROM executive_messages ORDER BY created_at DESC LIMIT 15").fetchall()]
+        buf = [dict(r) for r in conn.execute("SELECT * FROM executive_buffer WHERE digested_at = '' OR digested_at IS NULL ORDER BY created_at DESC LIMIT 25").fetchall()]
+    finally:
+        conn.close()
+    return {
+        "status": "success",
+        "chief_name": get_setting("chief_name", "Elena"),
+        "chief_email": get_setting("chief_email", "elena@oceancountyroofingpros.com"),
+        "chief_tone": get_setting("chief_tone", "balanced"),
+        "buffer_mode": get_setting("chief_buffer_mode", "true") != "false",
+        "gemini_configured": bool(os.getenv("GEMINI_API_KEY")),
+        "buffer_count": len(buf),
+        "buffer": buf,
+        "messages": msgs,
+    }
+
+
+@router.post("/api/admin/chief/briefing")
+async def api_admin_run_chief_briefing():
+    return run_single_agent("briefing")
+
+
+@router.post("/api/admin/chief/ask")
+async def api_admin_ask_chief(request: Request):
+    body = await request.json()
+    msg = str(body.get("message") or "").strip()
+    if not msg:
+        raise HTTPException(status_code=400, detail="Message is required.")
+    return {
+        "status": "success",
+        "reply_text": f"Elena noted: '{msg}'. Use the Netlify production endpoint for live Gemini & Resend email dispatch.",
+        "actions_taken": [],
+    }

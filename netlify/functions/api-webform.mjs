@@ -6,6 +6,7 @@ import { EmailService } from "./services/email-service.mjs";
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { resolveEmergencyHandler, sendEmergencySmsEscalation, sanitizePhoneE164 } from "./services/emergency-router.mjs";
 import { formatPropertyAddress } from "./services/gcal-service.mjs";
+import { ChiefOfStaffService } from "./services/chief-of-staff-service.mjs";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -215,9 +216,32 @@ export default async (req, context) => {
       source: isEmailMode ? "Website Email Inquiry" : "Website Lead Form (Step 3 Captured)"
     };
 
-    backgroundDispatches.push(
-      EmailService.sendOwnerLeadAlert(emailLeadPayload).catch(e => console.error("Webform owner email err:", e))
-    );
+    if (sysSettings?.chief_buffer_mode === "true") {
+      if (isEmergencyLead) {
+        backgroundDispatches.push(
+          ChiefOfStaffService.sendP0Escalation({
+            source: "webform",
+            title: `Emergency Webform Lead: ${firstName} ${lastName}`.trim() + ` (${city})`,
+            summary: `Phone: ${phone} | Email: ${customerEmail} | Service: ${service} | Address: ${formattedAddress}`,
+            recommendedAction: "Follow up immediately or confirm overflow dispatch."
+          }).catch(e => console.error("Webform P0 escalation err:", e))
+        );
+      } else {
+        backgroundDispatches.push(
+          ChiefOfStaffService.recordBufferEvent({
+            source: "webform",
+            severity: "routine",
+            title: `New Webform Lead: ${firstName} ${lastName}`.trim() + ` (${city})`,
+            summary: `${service} | Phone: ${phone} | Email: ${customerEmail}`,
+            payload: { lead_id: leadId, city, service }
+          }).catch(e => console.error("Webform buffer err:", e))
+        );
+      }
+    } else {
+      backgroundDispatches.push(
+        EmailService.sendOwnerLeadAlert(emailLeadPayload).catch(e => console.error("Webform owner email err:", e))
+      );
+    }
 
     if (isEmailMode) {
       const safeMsg = (body.notes || "Roof inspection & estimate request").replace(/</g, "&lt;").replace(/>/g, "&gt;");

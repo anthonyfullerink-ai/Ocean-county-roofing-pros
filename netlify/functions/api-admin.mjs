@@ -9,6 +9,7 @@ import { MetaSocialService } from "./services/meta-social-service.mjs";
 import { normalizeAvailabilityConfig, pickNonEmptyConfig } from "./services/gcal-service.mjs";
 import { fetchIcsBusyIntervals } from "./services/ics-parser.mjs";
 import { normalizeEmergencyConfig, getTenantEmergencyConfig, parseEmergencyPolicy } from "./services/emergency-router.mjs";
+import { ChiefOfStaffService } from "./services/chief-of-staff-service.mjs";
 import runSeoOptimizer from "./cron-seo-optimizer.mjs";
 
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || "ocrp_admin_secret_key_2026_offgrid_media";
@@ -1766,6 +1767,49 @@ export default async (req, context) => {
         }
         const gscConfigured = Boolean((process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GSC_SERVICE_ACCOUNT_JSON || "").trim());
         return jsonResponse({ status: "success", gsc_configured: gscConfigured, snapshots, experiments });
+      }
+    }
+
+    // =========================================================================
+    // 9D. ELENA — EXECUTIVE CHIEF OF STAFF ("HNIC") HUB (/api/admin/chief)
+    // =========================================================================
+    if (path.includes("/admin/chief")) {
+      if (path.endsWith("/briefing") && req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const result = await ChiefOfStaffService.generateAndSendBriefing({
+          mode: String(body.mode || "morning"),
+          forceSend: true
+        });
+        return jsonResponse(result, 200);
+      }
+
+      if (path.endsWith("/ask") && req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        const msg = String(body.message || body.text || "").trim();
+        if (!msg) return jsonResponse({ error: "Message is required" }, 400);
+        const result = await ChiefOfStaffService.handleOwnerInboundEmail({
+          from: EmailService.getOwnerAlertEmail(),
+          to: ["elena@oceancountyroofingpros.com"],
+          subject: String(body.subject || "HQ Command for Elena").trim(),
+          textBody: msg
+        });
+        return jsonResponse({ status: "success", ...result }, 200);
+      }
+
+      if (req.method === "GET") {
+        const snapshot = await ChiefOfStaffService.collectBusinessSnapshot();
+        const identity = ChiefOfStaffService.getChiefIdentity(snapshot.sys);
+        return jsonResponse({
+          status: "success",
+          chief_name: identity.name,
+          chief_email: identity.email,
+          chief_tone: identity.tone,
+          buffer_mode: snapshot.sys?.chief_buffer_mode !== "false",
+          gemini_configured: snapshot.geminiConfigured,
+          buffer_count: snapshot.undigestedBuffer.length,
+          buffer: snapshot.undigestedBuffer,
+          messages: snapshot.recentMessages
+        });
       }
     }
 

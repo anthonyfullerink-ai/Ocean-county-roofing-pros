@@ -4,6 +4,7 @@
  */
 import { AIEmailAgent } from "./services/ai-email-handler.mjs";
 import { EmailService } from "./services/email-service.mjs";
+import { ChiefOfStaffService } from "./services/chief-of-staff-service.mjs";
 
 const RESEND_RECEIVING_API_URL = "https://api.resend.com/emails/receiving";
 
@@ -140,6 +141,29 @@ export default async (req, context) => {
 
     const toAddresses = extractRecipientAddresses(to);
     const senderAddress = extractSenderAddress(from);
+    const ownerEmail = EmailService.getOwnerAlertEmail().toLowerCase();
+
+    // Executive Chief of Staff ("Elena") Direct Two-Way Email Routing
+    if (
+      ChiefOfStaffService.isChiefRecipient(toAddresses, subject) &&
+      (senderAddress === ownerEmail || senderAddress.endsWith("@oceancountyroofingpros.com") || payload.allow_test_owner === true)
+    ) {
+      console.log(`[api-email-inbound] Routing owner email to Elena Chief of Staff (to=${toAddresses.join(",")}, from=${senderAddress})`);
+      const chiefResult = await ChiefOfStaffService.handleOwnerInboundEmail({
+        from,
+        to: toAddresses,
+        subject,
+        textBody,
+        messageId
+      });
+      return new Response(JSON.stringify({
+        status: "handled_by_chief",
+        chiefResult
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
 
     // Direct owner aliases (e.g. anthony@), owner's Gmail, or automated/no-reply senders:
     // Forward straight to Gmail without triggering Riley AI auto-reply.

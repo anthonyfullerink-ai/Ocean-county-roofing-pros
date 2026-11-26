@@ -306,6 +306,7 @@ async function hydrateAdminBootstrap() {
             if (briefEl) briefEl.innerText = data.latest_report.markdown_content;
         }
         loadSiteAnalytics(STATE.analyticsRange || '30d', { quiet: true });
+        loadChiefHub();
     } catch (e) {
         console.warn('Bootstrap hydration error:', e);
     }
@@ -1995,5 +1996,76 @@ async function seoExperimentAction(id, action) {
         await loadSeoRankingsHub();
     } else {
         showToast('Failed to update SEO experiment.', true);
+    }
+}
+
+// ============================================================================
+// 14. ELENA — EXECUTIVE CHIEF OF STAFF ("HNIC") HUB
+// ============================================================================
+async function loadChiefHub() {
+    try {
+        const res = await fetch('/api/admin/chief');
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('elenaStatusBadge');
+        if (badge) {
+            const brainLabel = data.gemini_configured ? 'Gemini Live' : 'Deterministic';
+            const bufLabel = data.buffer_mode ? `Buffer On (${data.buffer_count || 0} queued)` : 'Buffer Off';
+            badge.innerText = `${data.chief_email || 'elena@oceancountyroofingpros.com'} • ${brainLabel} • ${bufLabel}`;
+        }
+        const threadEl = document.getElementById('elenaRecentThread');
+        if (threadEl && Array.isArray(data.messages)) {
+            threadEl.innerHTML = data.messages.slice(0, 4).map(m => `
+                <div class="bg-[#0a0a0c] border border-[#1f222a] rounded-xl px-3 py-2 flex justify-between gap-2">
+                    <div class="min-w-0">
+                        <span class="font-bold ${m.direction === 'inbound' ? 'text-amber-300' : 'text-teal-300'}">${m.direction === 'inbound' ? 'Anthony' : 'Elena'}:</span>
+                        <span class="text-slate-200">${escapeHtml((m.body_text || '').slice(0, 140))}</span>
+                    </div>
+                    <span class="text-[10px] font-mono text-[#64748b] shrink-0">${escapeHtml(formatEtTimestamp(m.created_at))}</span>
+                </div>`).join('');
+        }
+    } catch (err) {
+        console.warn('loadChiefHub error:', err);
+    }
+}
+
+async function sendElenaBriefingNow() {
+    showToast('Elena is compiling and emailing your executive briefing...');
+    const res = await fetch('/api/admin/chief/briefing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'morning' })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.status !== 'error') {
+        showToast(`Briefing emailed (${data.used_gemini ? 'Gemini AI' : 'Summary mode'})!`);
+        await hydrateAdminBootstrap();
+    } else {
+        showToast(data.error || 'Could not send briefing.', true);
+    }
+}
+
+async function sendQuickMessageToElena() {
+    const input = document.getElementById('askElenaInput');
+    const message = (input?.value || '').trim();
+    if (!message) {
+        showToast('Enter a message or instruction for Elena first.', true);
+        return;
+    }
+    showToast('Sending instruction to Elena...');
+    const res = await fetch('/api/admin/chief/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: 'HQ Instruction for Elena', message })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.status === 'success') {
+        if (input) input.value = '';
+        const box = document.getElementById('executiveBriefingBox');
+        if (box && data.reply_text) box.innerText = data.reply_text;
+        showToast('Elena replied and emailed a copy to your inbox!');
+        await loadChiefHub();
+    } else {
+        showToast(data.error || 'Could not reach Elena.', true);
     }
 }
