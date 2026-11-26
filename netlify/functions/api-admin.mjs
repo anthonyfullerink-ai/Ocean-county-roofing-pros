@@ -1805,6 +1805,7 @@ export default async (req, context) => {
           chief_email: identity.email,
           chief_tone: identity.tone,
           buffer_mode: snapshot.sys?.chief_buffer_mode !== "false",
+          ai_gateway_active: Boolean(snapshot.aiGatewayActive),
           gemini_configured: snapshot.geminiConfigured,
           buffer_count: snapshot.undigestedBuffer.length,
           buffer: snapshot.undigestedBuffer,

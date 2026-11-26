@@ -67,6 +67,54 @@ test("ChiefOfStaffService.callGeminiBrain falls back from generativelanguage to 
   }
 });
 
+test("ChiefOfStaffService.callGeminiBrain uses Netlify AI Gateway (@google/genai) when GOOGLE_GEMINI_BASE_URL is set", async () => {
+  const originalFetch = global.fetch;
+  const origEnv = { ...process.env };
+  process.env.GOOGLE_GEMINI_BASE_URL = "https://ai-gateway.netlify.mock/gemini";
+  process.env.GEMINI_API_KEY = "gateway_injected_key";
+  const hitUrls = [];
+
+  global.fetch = async (url) => {
+    const sUrl = String(url);
+    hitUrls.push(sUrl);
+    return new Response(
+      JSON.stringify({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    subject: "OC Roofing Pros Briefing — Gateway Live",
+                    reply_text: "Good morning Anthony — powered by Netlify AI Gateway.",
+                    actions: []
+                  })
+                }
+              ]
+            }
+          }
+        ]
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  try {
+    const res = await ChiefOfStaffService.callGeminiBrain({
+      systemInstruction: "You are Elena.",
+      userPrompt: "Generate morning briefing."
+    });
+    assert.equal(res.ok, true);
+    assert.equal(res.provider, "netlify_ai_gateway");
+    assert.equal(res.subject, "OC Roofing Pros Briefing — Gateway Live");
+    assert.match(res.reply_text, /Netlify AI Gateway/);
+    assert.ok(hitUrls.some(u => u.startsWith("https://ai-gateway.netlify.mock/gemini")));
+  } finally {
+    global.fetch = originalFetch;
+    process.env = origEnv;
+  }
+});
+
 test("Inbound email from owner to elena@ routes to ChiefOfStaffService, executes actions, and replies in-thread", async () => {
   const originalFetch = global.fetch;
   const origEnv = { ...process.env };

@@ -3,6 +3,7 @@
  * Two-way natural email assistant, Riley alert buffer, executive briefings,
  * COO process insights, and safe live action executor.
  */
+import { GoogleGenAI } from "@google/genai";
 import { EmailService } from "./email-service.mjs";
 
 const DEFAULT_CHIEF_NAME = "Elena";
@@ -126,7 +127,8 @@ export class ChiefOfStaffService {
       visitors7d: 0,
       pageviews7d: 0,
       gscConfigured: Boolean((process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GSC_SERVICE_ACCOUNT_JSON || "").trim()),
-      geminiConfigured: Boolean((process.env.GEMINI_API_KEY || "").trim())
+      aiGatewayActive: Boolean((process.env.GOOGLE_GEMINI_BASE_URL || "").trim()),
+      geminiConfigured: Boolean((process.env.GOOGLE_GEMINI_BASE_URL || process.env.GEMINI_API_KEY || "").trim())
     };
 
     if (!url || !key) return emptySnapshot;
@@ -247,8 +249,47 @@ export class ChiefOfStaffService {
     };
   }
 
-  static async callGeminiBrain({ systemInstruction, userPrompt, apiKey = "" }) {
-    const key = (apiKey || process.env.GEMINI_API_KEY || "").trim();
+  static async callGeminiBrain({ systemInstruction, userPrompt, apiKey = "", model = "" }) {
+    const gatewayBaseUrl = (process.env.GOOGLE_GEMINI_BASE_URL || "").trim();
+    const explicitKey = (apiKey || process.env.GEMINI_API_KEY || "").trim();
+
+    // Path A: Netlify AI Gateway (official @google/genai zero-arg SDK using injected credentials)
+    if (!apiKey && gatewayBaseUrl) {
+      const candidateModels = [...new Set([
+        (model || process.env.ELENA_GEMINI_MODEL || "gemini-2.5-flash").trim(),
+        "gemini-2.5-pro",
+        "gemini-2.0-flash"
+      ].filter(Boolean))];
+
+      const genAI = new GoogleGenAI({});
+      let lastGatewayReason = "gateway_request_failed";
+      for (const candidateModel of candidateModels) {
+        try {
+          const result = await genAI.models.generateContent({
+            model: candidateModel,
+            contents: `${systemInstruction}\n\n${userPrompt}`,
+            config: { temperature: 0.4 }
+          });
+          const text = (
+            result?.text ||
+            result?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("\n") ||
+            ""
+          ).trim();
+          if (!text) {
+            lastGatewayReason = `empty_candidate_text:${candidateModel}`;
+            continue;
+          }
+          const parsed = this.parseStructuredResponse(text);
+          return { ok: true, model: candidateModel, provider: "netlify_ai_gateway", ...parsed };
+        } catch (err) {
+          lastGatewayReason = `${candidateModel}:${err?.message || String(err)}`;
+        }
+      }
+      return { ok: false, reason: lastGatewayReason };
+    }
+
+    // Path B: Explicit GEMINI_API_KEY fallback (AI Studio / Vertex Express)
+    const key = explicitKey;
     if (!key) {
       return { ok: false, reason: "missing_gemini_api_key" };
     }
