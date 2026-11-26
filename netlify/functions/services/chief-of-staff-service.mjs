@@ -256,9 +256,10 @@ export class ChiefOfStaffService {
     // Path A: Netlify AI Gateway (official @google/genai zero-arg SDK using injected credentials)
     if (!apiKey && gatewayBaseUrl) {
       const candidateModels = [...new Set([
-        (model || process.env.ELENA_GEMINI_MODEL || "gemini-2.5-flash").trim(),
-        "gemini-2.5-pro",
-        "gemini-2.0-flash"
+        (model || process.env.ELENA_GEMINI_MODEL || "gemini-flash-latest").trim(),
+        "gemini-3.8-flash",
+        "gemini-3.5-flash",
+        "gemini-flash-lite-latest"
       ].filter(Boolean))];
 
       const genAI = new GoogleGenAI({});
