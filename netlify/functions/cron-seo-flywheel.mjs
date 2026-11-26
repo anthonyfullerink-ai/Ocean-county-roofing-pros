@@ -13,6 +13,67 @@ export const config = {
   schedule: "0 11 * * *"
 };
 
+const OCEAN_COUNTY_TOWN_PAGES = [
+  { town: "Toms River", slug: "roofing-toms-river-nj", image: "https://oceancountyroofingpros.com/static/images/shingle-restored-after.jpg" },
+  { town: "Brick", slug: "roofing-brick-nj", image: "https://oceancountyroofingpros.com/static/images/roofer-crew-action.jpg" },
+  { town: "Point Pleasant", slug: "roofing-point-pleasant-nj", image: "https://oceancountyroofingpros.com/static/images/drone-thermal-inspection.jpg" },
+  { town: "Jackson", slug: "roofing-jackson-nj", image: "https://oceancountyroofingpros.com/static/images/hero-drone-poster.jpg" },
+  { town: "Lacey", slug: "roofing-lacey-nj", image: "https://oceancountyroofingpros.com/static/images/shingle-restored-after.jpg" },
+  { town: "Lakewood", slug: "roofing-lakewood-nj", image: "https://oceancountyroofingpros.com/static/images/roofer-crew-action.jpg" },
+  { town: "Barnegat", slug: "roofing-barnegat-nj", image: "https://oceancountyroofingpros.com/static/images/drone-thermal-inspection.jpg" },
+  { town: "Manahawkin", slug: "roofing-manahawkin-nj", image: "https://oceancountyroofingpros.com/static/images/hero-drone-poster.jpg" },
+  { town: "Howell", slug: "roofing-howell-nj", image: "https://oceancountyroofingpros.com/static/images/shingle-restored-after.jpg" },
+  { town: "Freehold", slug: "roofing-freehold-nj", image: "https://oceancountyroofingpros.com/static/images/roofer-crew-action.jpg" }
+];
+
+const SEASONAL_ROOFING_TIPS = [
+  {
+    id: "tip-coastal-wind",
+    caption: "Living near the Barnegat Bay or Atlantic coast? 130+ MPH wind-rated architectural shingles with 6-nail fastening and stainless/galvanized flashing help prevent lift during nor'easters. Book a free 21-point roof & attic inspection at (732) 660-9121.",
+    image_url: "https://oceancountyroofingpros.com/static/images/drone-thermal-inspection.jpg",
+    link_url: "https://oceancountyroofingpros.com/#quizSection",
+    utm_campaign: "seasonal_tip_wind",
+    town_name: "Ocean County"
+  },
+  {
+    id: "tip-attic-ventilation",
+    caption: "Balanced ridge & soffit attic ventilation lowers summer shingle temperatures and prevents winter condensation & ice dams across Ocean County homes. Schedule a free 21-point roof & attic check at (732) 660-9121.",
+    image_url: "https://oceancountyroofingpros.com/static/images/hero-drone-poster.jpg",
+    link_url: "https://oceancountyroofingpros.com/#quizSection",
+    utm_campaign: "seasonal_tip_ventilation",
+    town_name: "Ocean County"
+  },
+  {
+    id: "tip-flashing-check",
+    caption: "Most Ocean County roof leaks start at chimney, skylight, and valley flashing — not the field shingles. Salt air accelerates corrosion on older step flashing. Get a free 21-point inspection: (732) 660-9121.",
+    image_url: "https://oceancountyroofingpros.com/static/images/roofer-crew-action.jpg",
+    link_url: "https://oceancountyroofingpros.com/#quizSection",
+    utm_campaign: "seasonal_tip_flashing",
+    town_name: "Ocean County"
+  },
+  {
+    id: "tip-gutter-ice-water",
+    caption: "Before the next coastal storm hits, check that gutters drain freely and eaves have proper ice-and-water shield protection. Request a free 60-second estimate or 21-point inspection at (732) 660-9121.",
+    image_url: "https://oceancountyroofingpros.com/static/images/shingle-restored-after.jpg",
+    link_url: "https://oceancountyroofingpros.com/#quizSection",
+    utm_campaign: "seasonal_tip_storm_prep",
+    town_name: "Ocean County"
+  }
+];
+
+function toPublicMetaImageUrl(relImg) {
+  const trimmed = String(relImg || "").trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed.replace(/^http:\/\//i, "https://").replace(/\.webp$/i, ".jpg");
+  }
+  return `https://oceancountyroofingpros.com${trimmed.startsWith("/") ? "" : "/"}${trimmed.replace(/\.webp$/i, ".jpg")}`;
+}
+
+function normalizeSocialCaption(text) {
+  return String(text || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 export default async (req, context) => {
   const supabaseUrl = process.env.SUPABASE_URL || "";
   const supabaseKey = process.env.SUPABASE_KEY || "";
@@ -207,11 +268,48 @@ export default async (req, context) => {
           } catch (e) {}
         }
       }
+
+      // 4B-2. Share already-published blog_posts with meta_shared=false (1 per run within cap)
+      if (metaPostsSent < maxMetaPostsPerRun) {
+        const unsharedBlogRes = await fetch(
+          `${supabaseUrl}/rest/v1/blog_posts?status=eq.published&meta_shared=eq.false&order=published_at.asc&limit=5`,
+          { headers }
+        );
+        const unsharedBlogs = unsharedBlogRes.ok ? await unsharedBlogRes.json() : [];
+        const targetArticle = (Array.isArray(unsharedBlogs) ? unsharedBlogs : []).find(
+          (a) => a && a.status === "published" && a.meta_shared !== true
+        );
+        if (targetArticle) {
+          const articleUrl = `https://oceancountyroofingpros.com/blog/${targetArticle.slug}`;
+          const publicImageUrl = toPublicMetaImageUrl(targetArticle.hero_image_url);
+          try {
+            const metaRes = await publishMetaWithCap({
+              caption: targetArticle.social_caption || `${targetArticle.title} — ${targetArticle.excerpt || "Ocean County Roofing Pros Local Guide"}`,
+              imageUrl: publicImageUrl,
+              linkUrl: articleUrl,
+              utmCampaign: "blog_guide_share",
+              pageId: sys.meta_page_id,
+              igUserId: sys.meta_ig_user_id,
+              pageToken: sys.meta_page_access_token
+            });
+            metaResults.push({ type: "blog_post_unshared", id: targetArticle.id, slug: targetArticle.slug, ...metaRes });
+            if (metaRes?.facebook?.status === "published" || metaRes?.instagram?.status === "published" || metaRes?.status === "published") {
+              await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(targetArticle.id)}`, {
+                method: "PATCH",
+                headers,
+                body: JSON.stringify({ meta_shared: true, updated_at: new Date().toISOString() })
+              });
+            }
+          } catch (e) {}
+        }
+      }
     } catch (e) {}
 
     // 4C. Process scheduled voice-dictated posts in social_queue (respecting daily Meta cap)
+    let autoSeededSocial = false;
     try {
       const nowIso = new Date().toISOString();
+      const todayStr = nowIso.slice(0, 10);
       const sqRes = await fetch(
         `${supabaseUrl}/rest/v1/social_queue?status=eq.scheduled&scheduled_for=lte.${encodeURIComponent(nowIso)}&order=scheduled_for.asc&limit=5`,
         { headers }
@@ -222,7 +320,10 @@ export default async (req, context) => {
           caption: sp.caption,
           imageUrl: sp.image_url || "",
           linkUrl: sp.link_url || "https://oceancountyroofingpros.com/#quizSection",
-          utmCampaign: sp.utm_campaign || "social_agent"
+          utmCampaign: sp.utm_campaign || "social_agent",
+          pageId: sys.meta_page_id,
+          igUserId: sys.meta_ig_user_id,
+          pageToken: sys.meta_page_access_token
         });
         metaResults.push({ type: "social_queue", id: sp.id, ...metaRes });
         if (metaRes.status === "published") {
@@ -247,6 +348,131 @@ export default async (req, context) => {
               updated_at: nowIso
             })
           });
+        }
+      }
+
+      // 4C-2. Auto-seed 1 unique post/day when social_queue has no pending scheduled posts for the day
+      if (dueSocialPosts.length === 0 && metaPostsSent === 0 && metaPostsSent < maxMetaPostsPerRun) {
+        const recentSqRes = await fetch(
+          `${supabaseUrl}/rest/v1/social_queue?select=id,status,scheduled_for,published_at,caption,created_at&order=created_at.desc&limit=50`,
+          { headers }
+        );
+        const recentSocial = recentSqRes.ok ? await recentSqRes.json() : [];
+        const recentList = Array.isArray(recentSocial) ? recentSocial : [];
+        const hasTodayPost = recentList.some((row) => {
+          const schedDay = String(row?.scheduled_for || "").slice(0, 10);
+          const pubDay = String(row?.published_at || "").slice(0, 10);
+          return (row?.status === "scheduled" && schedDay === todayStr) ||
+                 (row?.status === "published" && pubDay === todayStr);
+        });
+
+        if (!hasTodayPost) {
+          const usedCaptions = new Set(
+            recentList.map((r) => normalizeSocialCaption(r?.caption)).filter(Boolean)
+          );
+          const dayIndex = Math.floor(Date.now() / 86400000);
+
+          const townCandidates = OCEAN_COUNTY_TOWN_PAGES.map((_, idx) => {
+            const t = OCEAN_COUNTY_TOWN_PAGES[(dayIndex + idx) % OCEAN_COUNTY_TOWN_PAGES.length];
+            return {
+              caption: `Homeowners in ${t.town}, NJ: Protect your home against coastal wind & salt air with a GAF/CertainTeed architectural roof system. Book a free 21-point roof & attic inspection (aerial drone diagnostics available) at (732) 660-9121 or https://oceancountyroofingpros.com/${t.slug}`,
+              image_url: t.image,
+              link_url: `https://oceancountyroofingpros.com/${t.slug}`,
+              utm_campaign: `town_${t.slug}`,
+              town_name: t.town
+            };
+          });
+
+          const unsharedGuideRes = await fetch(
+            `${supabaseUrl}/rest/v1/blog_posts?status=eq.published&meta_shared=eq.false&order=published_at.asc&limit=5`,
+            { headers }
+          );
+          const unsharedGuides = unsharedGuideRes.ok ? await unsharedGuideRes.json() : [];
+          const blogCandidates = (Array.isArray(unsharedGuides) ? unsharedGuides : [])
+            .filter((b) => b && b.status === "published" && b.meta_shared !== true)
+            .map((b) => ({
+              blog_post_id: b.id,
+              caption: b.social_caption || `${b.title} — ${b.excerpt || "Read our Ocean County Roofing Pros homeowner guide."}`,
+              image_url: toPublicMetaImageUrl(b.hero_image_url) || "https://oceancountyroofingpros.com/static/images/hero-drone-poster.jpg",
+              link_url: `https://oceancountyroofingpros.com/blog/${b.slug}`,
+              utm_campaign: "blog_guide_auto_seed",
+              town_name: "Ocean County"
+            }));
+
+          const tipCandidates = SEASONAL_ROOFING_TIPS.map((_, idx) => {
+            return SEASONAL_ROOFING_TIPS[(dayIndex + idx) % SEASONAL_ROOFING_TIPS.length];
+          });
+
+          const pillarOrder = dayIndex % 3;
+          const orderedPools = pillarOrder === 0
+            ? [townCandidates, blogCandidates, tipCandidates]
+            : pillarOrder === 1
+              ? [blogCandidates, tipCandidates, townCandidates]
+              : [tipCandidates, townCandidates, blogCandidates];
+
+          const allCandidates = [...orderedPools[0], ...orderedPools[1], ...orderedPools[2]];
+          let selected = allCandidates.find(
+            (c) => c && c.caption && !usedCaptions.has(normalizeSocialCaption(c.caption))
+          );
+          if (!selected && allCandidates.length > 0) {
+            // All candidates appeared in recent 50 rows; pick the least recently used one
+            let oldestIdx = -1;
+            for (const c of allCandidates) {
+              if (!c || !c.caption) continue;
+              const norm = normalizeSocialCaption(c.caption);
+              const idx = recentList.findIndex((r) => normalizeSocialCaption(r?.caption) === norm);
+              if (idx > oldestIdx) {
+                oldestIdx = idx;
+                selected = c;
+              }
+            }
+          }
+
+          if (selected) {
+            const metaRes = await publishMetaWithCap({
+              caption: selected.caption,
+              imageUrl: selected.image_url || "",
+              linkUrl: selected.link_url || "https://oceancountyroofingpros.com/#quizSection",
+              utmCampaign: selected.utm_campaign || "auto_flywheel",
+              pageId: sys.meta_page_id,
+              igUserId: sys.meta_ig_user_id,
+              pageToken: sys.meta_page_access_token
+            });
+            metaResults.push({ type: "social_queue_auto_seed", ...metaRes });
+
+            const isPublished = metaRes?.facebook?.status === "published" || metaRes?.instagram?.status === "published" || metaRes?.status === "published";
+            const seedRow = {
+              id: `SQ-AUTO-${todayStr}-${Date.now().toString(36)}`,
+              created_at: nowIso,
+              updated_at: nowIso,
+              caption: selected.caption,
+              image_url: selected.image_url || "",
+              link_url: selected.link_url || "https://oceancountyroofingpros.com/#quizSection",
+              platforms: "facebook,instagram",
+              utm_campaign: selected.utm_campaign || "auto_flywheel",
+              town_name: selected.town_name || "Ocean County",
+              status: isPublished ? "published" : (metaRes?.status === "skipped" ? "scheduled" : "failed"),
+              scheduled_for: nowIso,
+              published_at: isPublished ? nowIso : null,
+              external_post_ids_json: JSON.stringify(metaRes),
+              created_by: "auto_flywheel"
+            };
+
+            await fetch(`${supabaseUrl}/rest/v1/social_queue`, {
+              method: "POST",
+              headers: { ...headers, Prefer: "return=minimal" },
+              body: JSON.stringify(seedRow)
+            });
+
+            if (isPublished && selected.blog_post_id) {
+              await fetch(`${supabaseUrl}/rest/v1/blog_posts?id=eq.${encodeURIComponent(selected.blog_post_id)}`, {
+                method: "PATCH",
+                headers,
+                body: JSON.stringify({ meta_shared: true, updated_at: nowIso })
+              });
+            }
+            autoSeededSocial = true;
+          }
         }
       }
     } catch (e) {}
@@ -330,6 +556,7 @@ export default async (req, context) => {
         promoted_count: promotedCount,
         meta_posts_sent: metaPostsSent,
         max_meta_posts_per_run: maxMetaPostsPerRun,
+        auto_seeded_social: autoSeededSocial,
         rebuild_triggered: rebuildTriggered,
         indexnow_pinged: indexNowPinged,
         checked_at: new Date().toISOString()

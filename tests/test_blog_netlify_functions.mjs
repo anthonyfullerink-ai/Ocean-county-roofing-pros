@@ -580,3 +580,255 @@ test("admin_control_plane.js hydrateSettingsInputs and saveAnalyticsSeoSettings 
     "https://api.netlify.com/build_hooks/updated"
   );
 });
+
+test("Netlify cron-seo-flywheel.mjs shares 1 already-published unshared blog_post per run and marks meta_shared=true", async () => {
+  const originalFetch = global.fetch;
+  process.env.SUPABASE_URL = "https://mock-supabase.local";
+  process.env.SUPABASE_KEY = "mock_supabase_key";
+  process.env.META_PAGE_ID = "1466735946524886";
+  process.env.META_IG_USER_ID = "17841451222467033";
+  process.env.META_ACCESS_TOKEN = "test_meta_token";
+
+  const patchedBlogs = [];
+  let fbPhotos = 0;
+
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || "GET").toUpperCase();
+    if (u.includes("/rest/v1/system_settings")) {
+      return new Response(JSON.stringify([{ key: "auto_publish_24h", value: "true" }]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/blog_posts") && u.includes("status=eq.published") && method === "GET") {
+      return new Response(JSON.stringify([
+        {
+          id: "BLOG-OC-101",
+          slug: "ocean-county-coastal-wind-ratings-110-vs-130-vs-160-mph",
+          title: "Ocean County Coastal Wind Ratings",
+          excerpt: "110 vs 130 vs 160 MPH",
+          hero_image_url: "/static/blog/ocean-county-coastal-wind-ratings-110-vs-130-vs-160-mph/hero.webp",
+          status: "published",
+          meta_shared: false
+        },
+        {
+          id: "BLOG-OC-102",
+          slug: "salt-air-noreaster-flashing-damage-ocean-county",
+          title: "Salt Air & Nor'easter Flashing",
+          excerpt: "Protect bayfront homes.",
+          hero_image_url: "/static/blog/salt-air-noreaster-flashing-damage-ocean-county/hero.webp",
+          status: "published",
+          meta_shared: false
+        }
+      ]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/blog_posts") && method === "PATCH") {
+      patchedBlogs.push({ u, body: JSON.parse(opts.body) });
+      return new Response(JSON.stringify([{ id: "BLOG-OC-101", meta_shared: true }]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/") && method === "GET") {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/photos")) {
+      fbPhotos++;
+      return new Response(JSON.stringify({ id: "fb_oc_101", post_id: "1466_oc_101" }), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/media")) {
+      return new Response(JSON.stringify({ id: "ig_c_101" }), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/media_publish")) {
+      return new Response(JSON.stringify({ id: "ig_101" }), { status: 200 });
+    }
+    return new Response(JSON.stringify([]), { status: 200 });
+  };
+
+  try {
+    const res = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.status, "success");
+    assert.equal(data.meta_posts_sent, 1);
+    assert.equal(data.auto_seeded_social, false);
+    assert.equal(fbPhotos, 1);
+    assert.equal(patchedBlogs.length, 1);
+    assert.ok(patchedBlogs[0].u.includes("id=eq.BLOG-OC-101"));
+    assert.equal(patchedBlogs[0].body.meta_shared, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("Netlify cron-seo-flywheel.mjs auto-seeds 1 unique social_queue post/day with caption deduplication", async () => {
+  const originalFetch = global.fetch;
+  process.env.SUPABASE_URL = "https://mock-supabase.local";
+  process.env.SUPABASE_KEY = "mock_supabase_key";
+  process.env.META_PAGE_ID = "1466735946524886";
+  process.env.META_IG_USER_ID = "17841451222467033";
+  process.env.META_ACCESS_TOKEN = "test_meta_token";
+
+  const insertedSocial = [];
+  let recentSocialRows = [];
+  let fbPhotos = 0;
+
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || "GET").toUpperCase();
+    if (u.includes("/rest/v1/system_settings")) {
+      return new Response(JSON.stringify([{ key: "auto_publish_24h", value: "true" }]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/social_queue") && u.includes("status=eq.scheduled") && method === "GET") {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/social_queue") && method === "GET") {
+      return new Response(JSON.stringify(recentSocialRows), { status: 200 });
+    }
+    if (u.includes("/rest/v1/social_queue") && method === "POST") {
+      const row = JSON.parse(opts.body);
+      insertedSocial.push(row);
+      return new Response(JSON.stringify([row]), { status: 201 });
+    }
+    if (u.includes("/rest/v1/") && method === "GET") {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/photos")) {
+      fbPhotos++;
+      return new Response(JSON.stringify({ id: `fb_seed_${fbPhotos}`, post_id: `1466_seed_${fbPhotos}` }), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/media")) {
+      return new Response(JSON.stringify({ id: `ig_c_${fbPhotos}` }), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/media_publish")) {
+      return new Response(JSON.stringify({ id: `ig_${fbPhotos}` }), { status: 200 });
+    }
+    return new Response(JSON.stringify([]), { status: 200 });
+  };
+
+  try {
+    // Run 1: empty social_queue -> seeds 1 unique post
+    const res1 = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(res1.status, 200);
+    const data1 = await res1.json();
+    assert.equal(data1.auto_seeded_social, true);
+    assert.equal(data1.meta_posts_sent, 1);
+    assert.equal(insertedSocial.length, 1);
+    assert.equal(insertedSocial[0].created_by, "auto_flywheel");
+    assert.equal(insertedSocial[0].status, "published");
+
+    // Run 2: same day already has a published post -> does NOT seed a second post today
+    recentSocialRows = [insertedSocial[0]];
+    const res2 = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(res2.status, 200);
+    const data2 = await res2.json();
+    assert.equal(data2.auto_seeded_social, false);
+    assert.equal(data2.meta_posts_sent, 0);
+    assert.equal(insertedSocial.length, 1);
+
+    // Run 3: previous day had the exact same caption -> deduplication picks a different caption
+    const yesterdayIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    recentSocialRows = [{ ...insertedSocial[0], scheduled_for: yesterdayIso, published_at: yesterdayIso }];
+    const res3 = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(res3.status, 200);
+    const data3 = await res3.json();
+    assert.equal(data3.auto_seeded_social, true);
+    assert.equal(insertedSocial.length, 2);
+    assert.notEqual(insertedSocial[1].caption, insertedSocial[0].caption);
+
+    // Run 4: a post is already scheduled for later today -> does NOT auto-seed a second post today
+    const laterTodayIso = `${new Date().toISOString().slice(0, 10)}T23:59:00.000Z`;
+    recentSocialRows = [{ id: "SQ-FUTURE-TODAY", status: "scheduled", scheduled_for: laterTodayIso, caption: "Later today" }];
+    const res4 = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(res4.status, 200);
+    const data4 = await res4.json();
+    assert.equal(data4.auto_seeded_social, false);
+    assert.equal(insertedSocial.length, 2);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("Netlify cron-seo-flywheel.mjs respects max_meta_posts_per_day=1 across 4B and 4B-2", async () => {
+  const originalFetch = global.fetch;
+  process.env.SUPABASE_URL = "https://mock-supabase.local";
+  process.env.SUPABASE_KEY = "mock_supabase_key";
+  process.env.META_PAGE_ID = "1466735946524886";
+  process.env.META_IG_USER_ID = "17841451222467033";
+  process.env.META_ACCESS_TOKEN = "test_meta_token";
+
+  const patchedBlogs = [];
+  let fbPhotos = 0;
+
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    const method = (opts.method || "GET").toUpperCase();
+    if (u.includes("/rest/v1/system_settings")) {
+      return new Response(
+        JSON.stringify([
+          { key: "auto_publish_24h", value: "true" },
+          { key: "max_meta_posts_per_day", value: "1" }
+        ]),
+        { status: 200 }
+      );
+    }
+    if (u.includes("/rest/v1/blog_posts") && u.includes("status=eq.draft_auto_24h") && method === "GET") {
+      return new Response(
+        JSON.stringify([
+          {
+            id: "BLOG-DRAFT-1",
+            slug: "draft-1",
+            title: "Draft 1",
+            excerpt: "Excerpt 1",
+            hero_image_url: "/static/images/shingle-restored-after.webp",
+            auto_publish_at: new Date(Date.now() - 3600 * 1000).toISOString(),
+            meta_shared: false
+          }
+        ]),
+        { status: 200 }
+      );
+    }
+    if (u.includes("/rest/v1/blog_posts") && u.includes("status=eq.published") && method === "GET") {
+      return new Response(
+        JSON.stringify([
+          {
+            id: "BLOG-OC-101",
+            slug: "ocean-county-coastal-wind-ratings-110-vs-130-vs-160-mph",
+            title: "Ocean County Coastal Wind Ratings",
+            excerpt: "110 vs 130 vs 160 MPH",
+            hero_image_url: "/static/blog/ocean-county-coastal-wind-ratings-110-vs-130-vs-160-mph/hero.webp",
+            status: "published",
+            meta_shared: false
+          }
+        ]),
+        { status: 200 }
+      );
+    }
+    if (u.includes("/rest/v1/blog_posts") && method === "PATCH") {
+      patchedBlogs.push({ u, body: JSON.parse(opts.body) });
+      return new Response(JSON.stringify([{ id: "BLOG-DRAFT-1" }]), { status: 200 });
+    }
+    if (u.includes("/rest/v1/") && method === "GET") {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/photos")) {
+      fbPhotos++;
+      return new Response(JSON.stringify({ id: `fb_${fbPhotos}`, post_id: `1466_${fbPhotos}` }), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/media")) {
+      return new Response(JSON.stringify({ id: `ig_c_${fbPhotos}` }), { status: 200 });
+    }
+    if (u.includes("graph.facebook.com") && u.endsWith("/media_publish")) {
+      return new Response(JSON.stringify({ id: `ig_${fbPhotos}` }), { status: 200 });
+    }
+    return new Response(JSON.stringify([]), { status: 200 });
+  };
+
+  try {
+    const res = await flywheelHandler(new Request("https://oceancountyroofingpros.com/.netlify/functions/cron-seo-flywheel"));
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.max_meta_posts_per_run, 1);
+    assert.equal(data.meta_posts_sent, 1);
+    assert.equal(data.auto_seeded_social, false);
+    assert.equal(fbPhotos, 1);
+    assert.equal(patchedBlogs.some(p => p.u.includes("id=eq.BLOG-OC-101") && p.body.meta_shared === true), false);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

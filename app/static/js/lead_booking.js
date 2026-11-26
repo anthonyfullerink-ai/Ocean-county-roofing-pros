@@ -23,6 +23,7 @@
         phone: '',
         email: '',
         address: '',
+        smsConsent: false,
         city: pageTown,
         estimator: window.ocrpEstimatorSelection || null,
         availabilityDays: [],
@@ -554,7 +555,8 @@
                     city: pageTown,
                     service: window.quizData.service,
                     diagnostic_situation: window.quizData.situation,
-                    home_architecture: window.quizData.homeType
+                    home_architecture: window.quizData.homeType,
+                    consent_given: Boolean(window.quizData.smsConsent)
                 })
             });
 
@@ -610,7 +612,9 @@
     window.skipCalendarStep = function () {
         showFinalSuccess({
             title: '21-Point Inspection Request Received!',
-            subtitle: `Our on-call estimator for ${pageTown} has your file and will text/call shortly to confirm an exact arrival window.`,
+            subtitle: window.quizData.smsConsent
+                ? `Our on-call estimator for ${pageTown} has your file and will text/call shortly to confirm an exact arrival window.`
+                : `Our on-call estimator for ${pageTown} has your file and will call or email shortly to confirm an exact arrival window.`,
             slotBannerText: '',
             gcalAddUrl: ''
         });
@@ -629,6 +633,7 @@
             const phone = (document.getElementById('phone')?.value || '').trim();
             const address = (document.getElementById('address')?.value || '').trim();
             const email = (document.getElementById('email')?.value || '').trim();
+            const smsConsent = Boolean(document.getElementById('sms_consent')?.checked);
 
             const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
             if (!phone || !firstName || !address || !emailValid) {
@@ -643,6 +648,7 @@
             window.quizData.phone = phone;
             window.quizData.address = address;
             window.quizData.email = email;
+            window.quizData.smsConsent = smsConsent;
 
             if (submitBtn) {
                 submitBtn.disabled = true;
@@ -666,7 +672,8 @@
                 diagnostic_situation: window.quizData.situation || '',
                 home_architecture: window.quizData.homeType || '',
                 notes: notes,
-                consent_given: true
+                consent_given: smsConsent,
+                sms_consent: smsConsent
             };
 
             try {
@@ -741,7 +748,7 @@
                         service: 'Email Estimate & Inspection Inquiry',
                         contact_preference: 'email',
                         notes: `[Direct Email Inquiry] ${message}`,
-                        consent_given: true
+                        consent_given: false
                     })
                 });
                 if (!res.ok) throw new Error('Email dispatch failed');

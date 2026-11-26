@@ -424,3 +424,106 @@ def test_mobile_first_nav_hamburger_dock_and_precompiled_css():
         shell_html = shell.read_text(encoding="utf-8")
         assert "cdn.tailwindcss.com" not in shell_html
         assert "/static/css/site.min.css" in shell_html
+
+
+def test_twilio_tollfree_optional_sms_consent_and_business_info_consistency():
+    """Verify #leadForm has an unchecked optional SMS consent checkbox, opt-in screenshot exists, legal/footer info matches, and backend respects consent_given=False."""
+    import re as _re
+    from app.services.comms import SMS_DISPATCH_LOG
+
+    project_root = Path(__file__).resolve().parent.parent
+    assert (project_root / "dist" / "static" / "images" / "sms-opt-in-form.png").exists()
+
+    for rel_path in ["dist/index.html", "dist/roofing-toms-river-nj/index.html"]:
+        html = (project_root / rel_path).read_text(encoding="utf-8")
+        m = _re.search(r'<input[^>]*id="sms_consent"[^>]*>', html)
+        assert m, f"Expected #sms_consent checkbox in {rel_path}"
+        tag = m.group(0)
+        assert "checked" not in tag.lower(), "SMS consent checkbox must be unchecked by default"
+        assert "required" not in tag.lower(), "SMS consent checkbox must NOT be required"
+        assert "(Optional)" in html
+        assert "Consent is optional and not required to submit this form or obtain a quote." in html
+        assert "246 Sheridan Avenue, Seaside Heights, NJ 08751" in html
+        assert "riley@oceancountyroofingpros.com" in html
+
+    for legal_path in ["dist/privacy-policy/index.html", "dist/terms/index.html"]:
+        legal_html = (project_root / legal_path).read_text(encoding="utf-8")
+        assert "Offgrid Media, LLC" in legal_html
+        assert "Ocean County Roofing Pros" in legal_html
+        assert "246 Sheridan Avenue, Seaside Heights, NJ 08751" in legal_html
+        assert "riley@oceancountyroofingpros.com" in legal_html
+        assert "https://oceancountyroofingpros.com" in legal_html
+
+    terms_html = (project_root / "dist" / "terms" / "index.html").read_text(encoding="utf-8")
+    assert "completely optional" in terms_html.lower()
+
+    js_text = (project_root / "dist" / "static" / "js" / "lead_booking.js").read_text(encoding="utf-8")
+    assert "sms_consent" in js_text
+    assert "consent_given: smsConsent" in js_text
+
+    client = TestClient(app)
+    no_opt_phone = "+17325550911"
+    yes_opt_phone = "+17325550912"
+    created_ids = []
+    try:
+        before_len = len(SMS_DISPATCH_LOG)
+        r_no = client.post(
+            "/api/leads/webform",
+            json={
+                "first_name": "NoSms",
+                "phone": no_opt_phone,
+                "email": "nosms@example.com",
+                "city": "Toms River",
+                "consent_given": False,
+            },
+        )
+        assert r_no.status_code == 200
+        assert r_no.json()["sms_consent"] is False
+        created_ids.append(r_no.json()["lead_id"])
+        new_logs_no = SMS_DISPATCH_LOG[before_len:]
+        assert not any(
+            entry.get("category") == "lead_confirmation" and entry.get("to") == no_opt_phone
+            for entry in new_logs_no
+        ), "Customer SMS must NOT be sent when consent_given is False"
+
+        before_len_sms_only = len(SMS_DISPATCH_LOG)
+        r_sms_false = client.post(
+            "/api/leads/webform",
+            json={
+                "first_name": "NoSmsFlag",
+                "phone": no_opt_phone,
+                "email": "nosmsflag@example.com",
+                "city": "Toms River",
+                "sms_consent": False,
+            },
+        )
+        assert r_sms_false.status_code == 200
+        assert r_sms_false.json()["sms_consent"] is False
+        created_ids.append(r_sms_false.json()["lead_id"])
+        assert not any(
+            entry.get("category") == "lead_confirmation" and entry.get("to") == no_opt_phone
+            for entry in SMS_DISPATCH_LOG[before_len_sms_only:]
+        ), "Customer SMS must NOT be sent when sms_consent is False even if consent_given is omitted"
+
+        before_len2 = len(SMS_DISPATCH_LOG)
+        r_yes = client.post(
+            "/api/leads/webform",
+            json={
+                "first_name": "YesSms",
+                "phone": yes_opt_phone,
+                "email": "yessms@example.com",
+                "city": "Toms River",
+                "consent_given": True,
+            },
+        )
+        assert r_yes.status_code == 200
+        assert r_yes.json()["sms_consent"] is True
+        created_ids.append(r_yes.json()["lead_id"])
+        new_logs_yes = SMS_DISPATCH_LOG[before_len2:]
+        assert any(
+            entry.get("category") == "lead_confirmation" and entry.get("to") == yes_opt_phone
+            for entry in new_logs_yes
+        ), "Customer SMS should be sent when consent_given is True"
+    finally:
+        for lid in created_ids:
+            delete_lead(lid)

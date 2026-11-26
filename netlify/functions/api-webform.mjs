@@ -40,6 +40,11 @@ export default async (req, context) => {
     }
 
     const phone = rawPhone || "Email Inquiry";
+    const isExplicitFalse = (v) => v === false || String(v).trim().toLowerCase() === "false";
+    const smsConsent = !isExplicitFalse(body.consent_given) && !isExplicitFalse(body.sms_consent);
+    const consentTag = body.consent_given !== undefined || body.sms_consent !== undefined
+      ? ` [SMS Opt-In: ${smsConsent ? "Yes" : "No"}]`
+      : "";
     const firstName = (body.first_name || "Homeowner").trim();
     const lastName = (body.last_name || "").trim();
     const service = body.service || "Roof Replacement";
@@ -112,7 +117,7 @@ export default async (req, context) => {
           urgency: isEmergencyLead ? "Emergency" : (body.urgency || "Standard"),
           diagnostic_situation: body.diagnostic_situation || "",
           home_architecture: body.home_architecture || "",
-          notes: `${body.notes || ""}${overflowTag}`.trim(),
+          notes: `${body.notes || ""}${overflowTag}${consentTag}`.trim(),
           assigned_tenant_id: activeTenantId,
           status: isEmergencyLead ? "Emergency Priority" : "New Lead",
           estimated_value: 12500.00
@@ -155,13 +160,13 @@ export default async (req, context) => {
       );
     }
 
-    // 3. Send SMS if Twilio credentials exist and a real phone number was supplied
+    // 3. Send SMS only if Twilio credentials exist, a real phone number was supplied, and SMS opt-in consent was granted
     const twilioSid = process.env.TWILIO_ACCOUNT_SID;
     const twilioToken = process.env.TWILIO_AUTH_TOKEN;
     const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
 
     const toPhone = sanitizePhoneE164(rawPhone);
-    if (twilioSid && twilioToken && toPhone) {
+    if (twilioSid && twilioToken && toPhone && smsConsent) {
       let msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Select your preferred inspection time on screen, or reply here to coordinate. Reply STOP to opt out.`;
       if (schedulingType === "external_link" && bookingUrl) {
         msgBody = `Hi ${firstName}, thanks for contacting Ocean County Roofing Pros! We received your request for ${service} in ${city}. Please finalize your preferred 15-minute arrival window on our live dispatch calendar: ${bookingUrl} Reply STOP to opt out.`;
@@ -203,7 +208,7 @@ export default async (req, context) => {
       service: service,
       roof_age: body.diagnostic_situation || service,
       home_architecture: body.home_architecture || "",
-      notes: body.notes || "",
+      notes: `${body.notes || ""}${consentTag}`.trim(),
       attic_access: "",
       ladder_needed: "",
       decision_makers_present: "",
@@ -250,6 +255,7 @@ export default async (req, context) => {
         ? "Email inquiry sent! Check your inbox for a reply from Riley."
         : "Lead received successfully. Select your inspection window.",
       lead_id: leadId,
+      sms_consent: smsConsent,
       assigned_tenant_id: activeTenantId,
       scheduling_type: schedulingType,
       booking_url: schedulingType === "external_link" && bookingUrl ? bookingUrl : null,

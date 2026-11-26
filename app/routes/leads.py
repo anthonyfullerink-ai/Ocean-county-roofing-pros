@@ -43,7 +43,8 @@ class WebFormLead(BaseModel):
     diagnostic_situation: Optional[str] = Field("", description="Quiz step 1 situation")
     home_architecture: Optional[str] = Field("", description="Quiz step 2 architecture")
     notes: Optional[str] = Field("", description="Additional details from homeowner")
-    consent_given: bool = Field(True, description="TCPA and A2P opt-in consent confirmation")
+    consent_given: Optional[bool] = Field(None, description="TCPA and A2P opt-in consent confirmation")
+    sms_consent: Optional[bool] = Field(None, description="Optional SMS opt-in checkbox state")
 
 
 class CalendarBookRequest(BaseModel):
@@ -144,6 +145,11 @@ async def submit_webform(lead: WebFormLead, background_tasks: BackgroundTasks):
         or ("active water leak" in (lead.service or "").lower())
     )
 
+    effective_sms_consent = (lead.consent_given is not False) and (lead.sms_consent is not False)
+    consent_tag = ""
+    if lead.consent_given is not None or lead.sms_consent is not None:
+        consent_tag = f" [SMS Opt-In: {'Yes' if effective_sms_consent else 'No'}]"
+
     lead_id = f"WEB-{int(datetime.now().timestamp() * 1000) % 100000000}"
     lead_dict = {
         "id": lead_id,
@@ -161,7 +167,7 @@ async def submit_webform(lead: WebFormLead, background_tasks: BackgroundTasks):
         "diagnostic_situation": lead.diagnostic_situation or "",
         "home_architecture": lead.home_architecture or "",
         "status": "Emergency Priority" if is_emergency else "New Lead",
-        "notes": lead.notes or "",
+        "notes": f"{lead.notes or ''}{consent_tag}".strip(),
     }
 
     # 1. Write synchronously to Unified Supabase + Local SQLite Mirror so lead is immediately visible
@@ -170,8 +176,8 @@ async def submit_webform(lead: WebFormLead, background_tasks: BackgroundTasks):
     active_tenant = TenantManager.get_active_tenant()
     booking_url = active_tenant.booking_url if (active_tenant.scheduling_type == "external_link" and active_tenant.booking_url) else None
 
-    # 2. Background task: Send instant SMS confirmation to customer when phone number is present
-    if raw_phone:
+    # 2. Background task: Send instant SMS confirmation to customer when phone number is present and SMS consent was granted
+    if raw_phone and effective_sms_consent:
         background_tasks.add_task(send_customer_sms, raw_phone, first_name, lead.service, booking_url=booking_url)
 
     # 3. Background task: Send alert to business owner / active contractor
@@ -192,6 +198,7 @@ async def submit_webform(lead: WebFormLead, background_tasks: BackgroundTasks):
         "status": "success",
         "message": "Lead received successfully. Estimator dispatch initiated.",
         "lead_id": saved_lead["id"],
+        "sms_consent": bool(effective_sms_consent),
         "scheduling_type": active_tenant.scheduling_type,
         "booking_url": booking_url,
         "emergency_dispatch": _compute_emergency_summary(

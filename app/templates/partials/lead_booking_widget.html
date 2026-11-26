@@ -161,9 +161,14 @@
                     <input type="email" id="email" name="email" required autocomplete="email" inputmode="email" placeholder="you@example.com" class="w-full min-h-[46px] bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-base sm:text-sm font-medium focus:ring-2 focus:ring-brand-blue focus:bg-white outline-none transition">
                 </div>
 
-                <!-- TCPA & A2P Compliance Disclaimer -->
-                <div class="pt-0.5 text-[11px] text-slate-500 leading-normal">
-                    By continuing, you authorize Offgrid Media, LLC (d/b/a Ocean County Roofing Pros) to contact you regarding your free roof inspection and appointment updates via call or text. Consent is not a condition of purchase. Msg &amp; data rates may apply. Reply STOP to cancel. <a href="/privacy-policy" class="text-brand-blue underline" target="_blank">Privacy</a> &amp; <a href="/terms" class="text-brand-blue underline" target="_blank">Terms</a>.
+                <!-- Optional SMS Opt-In Checkbox & TCPA / Toll-Free Compliance Disclosure -->
+                <div class="pt-1">
+                    <label for="sms_consent" class="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:border-slate-300 transition">
+                        <input type="checkbox" id="sms_consent" name="sms_consent" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue shrink-0">
+                        <span class="text-[11px] text-slate-600 leading-snug">
+                            <strong class="text-slate-800">(Optional)</strong> I agree to receive SMS text messages from <strong>Offgrid Media, LLC (d/b/a Ocean County Roofing Pros)</strong> regarding my roof inspection request, appointment confirmations, and scheduling updates at the phone number provided. Message frequency varies. Msg &amp; data rates may apply. Reply <strong>STOP</strong> to opt out or <strong>HELP</strong> for help. Consent is optional and not required to submit this form or obtain a quote. <a href="/privacy-policy" class="text-brand-blue underline" target="_blank" rel="noopener noreferrer">Privacy Policy</a> &amp; <a href="/terms" class="text-brand-blue underline" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+                        </span>
+                    </label>
                 </div>
 
                 <button type="submit" id="submitBtn" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-base py-4 rounded-xl shadow-lg transition-all hover:scale-[1.01] flex items-center justify-center gap-2">

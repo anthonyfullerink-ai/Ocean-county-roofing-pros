@@ -322,7 +322,9 @@ export default async (req) => {
       const twilioToken = process.env.TWILIO_AUTH_TOKEN;
       const twilioPhone = process.env.TWILIO_PHONE_NUMBER || process.env.PRIMARY_PHONE || "+17326609121";
       const toPhone = phone && !phone.toLowerCase().includes("email") ? sanitizePhoneE164(phone) : "";
-      if (twilioSid && twilioToken && toPhone) {
+      const isExplicitFalse = (v) => v === false || String(v).trim().toLowerCase() === "false";
+      const smsConsent = !isExplicitFalse(body.consent_given) && !isExplicitFalse(body.sms_consent);
+      if (twilioSid && twilioToken && toPhone && smsConsent) {
         try {
           const auth = Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64");
           const smsText = `Confirmed! Hi ${name.split(" ")[0]}, your free 21-point roof inspection with Ocean County Roofing Pros is locked in for ${displayDay} at ${timeStr} at ${formattedAddress}. Ref #${leadId || "WEB"}. Reply STOP to opt out.`;

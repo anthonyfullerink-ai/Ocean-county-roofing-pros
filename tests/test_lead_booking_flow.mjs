@@ -1224,3 +1224,118 @@ test("Empty {} or '{}' does not shadow populated config, and partial /portal/set
     else process.env.SUPABASE_KEY = prevSupaKey;
   }
 });
+
+test("Netlify api-webform.mjs and api-calendar.mjs respect optional SMS consent_given=false vs true", async () => {
+  const originalFetch = global.fetch;
+  const prevSid = process.env.TWILIO_ACCOUNT_SID;
+  const prevTok = process.env.TWILIO_AUTH_TOKEN;
+  const prevPhone = process.env.TWILIO_PHONE_NUMBER;
+  const prevSupaUrl = process.env.SUPABASE_URL;
+  const prevSupaKey = process.env.SUPABASE_KEY;
+  const prevResend = process.env.RESEND_API_KEY;
+
+  process.env.TWILIO_ACCOUNT_SID = "AC_MOCK";
+  process.env.TWILIO_AUTH_TOKEN = "tok_mock";
+  process.env.TWILIO_PHONE_NUMBER = "+18669001221";
+  process.env.SUPABASE_URL = "";
+  process.env.SUPABASE_KEY = "";
+  process.env.RESEND_API_KEY = "";
+
+  const twilioCalls = [];
+  global.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes("api.twilio.com") && u.includes("/Messages.json")) {
+      twilioCalls.push(new URLSearchParams(String(opts.body || "")).get("To"));
+      return new Response(JSON.stringify({ sid: "SM_CONSENT_MOCK" }), { status: 201 });
+    }
+    return new Response("{}", { status: 200 });
+  };
+
+  try {
+    // 1. consent_given: false -> webform succeeds (200) and sends NO customer SMS
+    const noConsentRes = await webformHandler(
+      new Request("https://oceancountyroofingpros.com/api/leads/webform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: "OptOut",
+          phone: "7325550911",
+          email: "optout@example.com",
+          city: "Toms River",
+          consent_given: false,
+          sms_consent: false
+        })
+      })
+    );
+    assert.equal(noConsentRes.status, 200);
+    const noConsentJson = await noConsentRes.json();
+    assert.equal(noConsentJson.sms_consent, false);
+    assert.equal(twilioCalls.length, 0);
+
+    // 2. calendar book with consent_given: false or "false" -> succeeds (200) and sends NO booking SMS
+    const calNoConsentRes = await calendarHandler(
+      new Request("https://oceancountyroofingpros.com/api/calendar/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lead_id: noConsentJson.lead_id,
+          date: "2026-11-28",
+          time: "10:00 AM",
+          name: "OptOut",
+          phone: "7325550911",
+          email: "optout@example.com",
+          city: "Toms River",
+          consent_given: false
+        })
+      })
+    );
+    assert.equal(calNoConsentRes.status, 200);
+    assert.equal(twilioCalls.length, 0);
+
+    // 2b. string "false" for sms_consent -> also suppresses SMS
+    const strFalseRes = await webformHandler(
+      new Request("https://oceancountyroofingpros.com/api/leads/webform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: "OptOutStr",
+          phone: "7325550911",
+          email: "optoutstr@example.com",
+          city: "Toms River",
+          sms_consent: "false"
+        })
+      })
+    );
+    assert.equal(strFalseRes.status, 200);
+    assert.equal((await strFalseRes.json()).sms_consent, false);
+    assert.equal(twilioCalls.length, 0);
+
+    // 3. consent_given: true -> webform succeeds (200) and DOES send customer SMS
+    const yesConsentRes = await webformHandler(
+      new Request("https://oceancountyroofingpros.com/api/leads/webform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: "OptIn",
+          phone: "7325550912",
+          email: "optin@example.com",
+          city: "Toms River",
+          consent_given: true,
+          sms_consent: true
+        })
+      })
+    );
+    assert.equal(yesConsentRes.status, 200);
+    const yesConsentJson = await yesConsentRes.json();
+    assert.equal(yesConsentJson.sms_consent, true);
+    assert.deepEqual(twilioCalls, ["+17325550912"]);
+  } finally {
+    global.fetch = originalFetch;
+    if (prevSid === undefined) delete process.env.TWILIO_ACCOUNT_SID; else process.env.TWILIO_ACCOUNT_SID = prevSid;
+    if (prevTok === undefined) delete process.env.TWILIO_AUTH_TOKEN; else process.env.TWILIO_AUTH_TOKEN = prevTok;
+    if (prevPhone === undefined) delete process.env.TWILIO_PHONE_NUMBER; else process.env.TWILIO_PHONE_NUMBER = prevPhone;
+    if (prevSupaUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = prevSupaUrl;
+    if (prevSupaKey === undefined) delete process.env.SUPABASE_KEY; else process.env.SUPABASE_KEY = prevSupaKey;
+    if (prevResend === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = prevResend;
+  }
+});
