@@ -117,8 +117,12 @@ export class MetaSocialService {
       : `${GRAPH_BASE_URL}/${encodeURIComponent(pageId)}/feed`;
 
     const trackedLink = this.appendSocialUtm(linkUrl, { source: "facebook", campaign: utmCampaign });
+    const hasLinkInCaption = /https?:\/\/|oceancountyroofingpros\.com/i.test(String(caption || ""));
+    const photoMessage = (usePhotoEndpoint && this.isPublicHttpsUrl(linkUrl) && !hasLinkInCaption)
+      ? `${String(caption || "").trim()}\n\n👉 Read the full guide & book a free inspection: ${trackedLink}`.trim()
+      : caption;
     const payload = usePhotoEndpoint
-      ? { url: imageUrl.trim(), message: caption, access_token: token }
+      ? { url: imageUrl.trim(), message: photoMessage, access_token: token }
       : {
           message: caption,
           link: trackedLink,

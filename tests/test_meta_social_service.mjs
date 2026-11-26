@@ -109,3 +109,40 @@ test("MetaSocialService uses graph.instagram.com when standalone IG_ACCESS_TOKEN
     global.fetch = originalFetch;
   }
 });
+
+test("MetaSocialService.publishToFacebookPage appends tracked linkUrl to /photos caption only when not already present", async () => {
+  const calls = [];
+  const originalFetch = global.fetch;
+
+  global.fetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    calls.push({ url: String(url), body });
+    return { ok: true, status: 200, json: async () => ({ id: "fb_photo_utm_1", post_id: "1466735946524886_777" }) };
+  };
+
+  try {
+    await MetaSocialService.publishToFacebookPage({
+      pageId: "1466735946524886",
+      token: "fb_token",
+      caption: "Ocean County Coastal Wind Ratings Explained",
+      imageUrl: "https://oceancountyroofingpros.com/static/images/hero-drone-poster.jpg",
+      linkUrl: "https://oceancountyroofingpros.com/blog/wind-ratings",
+      utmCampaign: "blog_guide_share"
+    });
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].body.message, /https:\/\/oceancountyroofingpros\.com\/blog\/wind-ratings\?utm_source=facebook&utm_medium=social&utm_campaign=blog_guide_share/);
+
+    await MetaSocialService.publishToFacebookPage({
+      pageId: "1466735946524886",
+      token: "fb_token",
+      caption: "Check out https://oceancountyroofingpros.com/blog/wind-ratings for details",
+      imageUrl: "https://oceancountyroofingpros.com/static/images/hero-drone-poster.jpg",
+      linkUrl: "https://oceancountyroofingpros.com/blog/wind-ratings",
+      utmCampaign: "blog_guide_share"
+    });
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].body.message, "Check out https://oceancountyroofingpros.com/blog/wind-ratings for details");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});

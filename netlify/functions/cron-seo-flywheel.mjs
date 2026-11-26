@@ -249,10 +249,15 @@ export default async (req, context) => {
               : relImg
                 ? `https://oceancountyroofingpros.com${relImg.startsWith("/") ? "" : "/"}${relImg.replace(/\.webp$/i, ".jpg")}`
                 : "";
+            const baseCaption4b = (article.social_caption || `${article.title} — ${article.excerpt || "Ocean County Roofing Pros Local Guide"}`).trim();
+            const caption4b = /\(732\)\s*660-9121|oceancountyroofingpros\.com/i.test(baseCaption4b)
+              ? baseCaption4b
+              : `${baseCaption4b}\n\nCall (732) 660-9121 or read the full local guide:`;
             const metaRes = await publishMetaWithCap({
-              caption: article.social_caption || `${article.title} — ${article.excerpt || "Ocean County Roofing Pros Local Guide"}`,
+              caption: caption4b,
               imageUrl: publicImageUrl,
               linkUrl: articleUrl,
+              utmCampaign: "blog_guide_share",
               pageId: sys.meta_page_id,
               igUserId: sys.meta_ig_user_id,
               pageToken: sys.meta_page_access_token
@@ -283,8 +288,12 @@ export default async (req, context) => {
           const articleUrl = `https://oceancountyroofingpros.com/blog/${targetArticle.slug}`;
           const publicImageUrl = toPublicMetaImageUrl(targetArticle.hero_image_url);
           try {
+            const baseCaption4b2 = (targetArticle.social_caption || `${targetArticle.title} — ${targetArticle.excerpt || "Ocean County Roofing Pros Local Guide"}`).trim();
+            const caption4b2 = /\(732\)\s*660-9121|oceancountyroofingpros\.com/i.test(baseCaption4b2)
+              ? baseCaption4b2
+              : `${baseCaption4b2}\n\nCall (732) 660-9121 or read the full local guide:`;
             const metaRes = await publishMetaWithCap({
-              caption: targetArticle.social_caption || `${targetArticle.title} — ${targetArticle.excerpt || "Ocean County Roofing Pros Local Guide"}`,
+              caption: caption4b2,
               imageUrl: publicImageUrl,
               linkUrl: articleUrl,
               utmCampaign: "blog_guide_share",
