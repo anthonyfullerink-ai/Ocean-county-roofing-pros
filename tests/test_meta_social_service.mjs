@@ -68,3 +68,44 @@ test("MetaSocialService falls back to Facebook feed post and skips Instagram whe
     global.fetch = originalFetch;
   }
 });
+
+test("MetaSocialService uses graph.instagram.com when standalone IG_ACCESS_TOKEN is set", async () => {
+  const calls = [];
+  const originalFetch = global.fetch;
+  process.env.META_PAGE_ID = "1466735946524886";
+  process.env.META_IG_USER_ID = "17841451222467033";
+  process.env.META_ACCESS_TOKEN = "fb_page_token";
+  process.env.IG_ACCESS_TOKEN = "standalone_ig_token";
+
+  global.fetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    calls.push({ url: String(url), body });
+    if (String(url).startsWith("https://graph.facebook.com/v21.0/1466735946524886/photos")) {
+      return { ok: true, status: 200, json: async () => ({ id: "fb_photo_2", post_id: "1466735946524886_888" }) };
+    }
+    if (String(url) === "https://graph.instagram.com/v21.0/17841451222467033/media") {
+      assert.equal(body.access_token, "standalone_ig_token");
+      return { ok: true, status: 200, json: async () => ({ id: "ig_standalone_c1" }) };
+    }
+    if (String(url) === "https://graph.instagram.com/v21.0/17841451222467033/media_publish") {
+      assert.equal(body.access_token, "standalone_ig_token");
+      return { ok: true, status: 200, json: async () => ({ id: "ig_standalone_p1" }) };
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  try {
+    const res = await MetaSocialService.publishPost({
+      caption: "Standalone IG Login publish test",
+      imageUrl: "https://oceancountyroofingpros.com/static/images/hero-drone-poster.jpg"
+    });
+    assert.equal(res.status, "published");
+    assert.equal(res.facebook.status, "published");
+    assert.equal(res.instagram.status, "published");
+    assert.equal(res.instagram.id, "ig_standalone_p1");
+    assert.equal(calls.length, 3);
+  } finally {
+    delete process.env.IG_ACCESS_TOKEN;
+    global.fetch = originalFetch;
+  }
+});

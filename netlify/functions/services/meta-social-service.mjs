@@ -1,9 +1,11 @@
 /**
  * Meta Graph API Social Publisher (Facebook Page + Instagram Business)
- * Uses META_ACCESS_TOKEN, META_PAGE_ID, and META_IG_USER_ID from environment variables.
+ * Uses META_ACCESS_TOKEN, META_PAGE_ID, META_IG_USER_ID, and optional standalone
+ * IG_ACCESS_TOKEN (Instagram API with Instagram Login via graph.instagram.com).
  */
 
 const GRAPH_BASE_URL = "https://graph.facebook.com/v21.0";
+const IG_GRAPH_BASE_URL = "https://graph.instagram.com/v21.0";
 
 export class MetaSocialService {
   static isPublicHttpsUrl(url) {
@@ -135,21 +137,26 @@ export class MetaSocialService {
     return { status: "published", id: data.post_id || data.id };
   }
 
-  static async publishToInstagram({ igUserId, token, caption, imageUrl = "" }) {
-    if (!igUserId || !token) {
+  static async publishToInstagram({ igUserId, token, igToken = "", caption, imageUrl = "" }) {
+    const standaloneIgToken = (igToken || process.env.IG_ACCESS_TOKEN || process.env.META_IG_ACCESS_TOKEN || "").trim();
+    const resolvedToken = standaloneIgToken || (token || "").trim();
+    const baseUrl = standaloneIgToken ? IG_GRAPH_BASE_URL : GRAPH_BASE_URL;
+    const resolvedIgId = (igUserId || (standaloneIgToken ? "me" : "")).trim();
+
+    if (!resolvedIgId || !resolvedToken) {
       return { status: "skipped", reason: "missing_ig_user_id_or_token" };
     }
     if (!this.isPublicHttpsUrl(imageUrl)) {
       return { status: "skipped", reason: "instagram_requires_public_https_image_url" };
     }
 
-    const createRes = await fetch(`${GRAPH_BASE_URL}/${encodeURIComponent(igUserId)}/media`, {
+    const createRes = await fetch(`${baseUrl}/${encodeURIComponent(resolvedIgId)}/media`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         image_url: imageUrl.trim(),
         caption,
-        access_token: token
+        access_token: resolvedToken
       })
     });
     const createData = await createRes.json();
@@ -162,12 +169,12 @@ export class MetaSocialService {
       };
     }
 
-    const publishRes = await fetch(`${GRAPH_BASE_URL}/${encodeURIComponent(igUserId)}/media_publish`, {
+    const publishRes = await fetch(`${baseUrl}/${encodeURIComponent(resolvedIgId)}/media_publish`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         creation_id: createData.id,
-        access_token: token
+        access_token: resolvedToken
       })
     });
     const publishData = await publishRes.json();
@@ -262,17 +269,20 @@ export class MetaSocialService {
   /**
    * Publish a promoted project, GBP post, or SEO blog guide to both Facebook Page & Instagram Business
    */
-  static async publishPost({ caption, imageUrl = "", linkUrl = "", pageId = "", igUserId = "", pageToken = "", utmCampaign = "social_agent" }) {
+  static async publishPost({ caption, imageUrl = "", linkUrl = "", pageId = "", igUserId = "", pageToken = "", igToken = "", utmCampaign = "social_agent" }) {
     const token = (pageToken || process.env.META_ACCESS_TOKEN || "").trim();
+    const standaloneIgToken = (igToken || process.env.IG_ACCESS_TOKEN || process.env.META_IG_ACCESS_TOKEN || "").trim();
     const resolvedPageId = (pageId || process.env.META_PAGE_ID || "").trim();
     const resolvedIgUserId = (igUserId || process.env.META_IG_USER_ID || "").trim();
 
-    if (!token || !resolvedPageId) {
+    if ((!token || !resolvedPageId) && !standaloneIgToken) {
       return { status: "skipped", reason: "Meta Graph API credentials not configured" };
     }
 
-    const fb = await this.publishToFacebookPage({ pageId: resolvedPageId, token, caption, imageUrl, linkUrl, utmCampaign });
-    const ig = await this.publishToInstagram({ igUserId: resolvedIgUserId, token, caption, imageUrl });
+    const fb = token && resolvedPageId
+      ? await this.publishToFacebookPage({ pageId: resolvedPageId, token, caption, imageUrl, linkUrl, utmCampaign })
+      : { status: "skipped", reason: "missing_fb_page_id_or_token" };
+    const ig = await this.publishToInstagram({ igUserId: resolvedIgUserId, token, igToken: standaloneIgToken, caption, imageUrl });
 
     return {
       status: fb.status === "published" || ig.status === "published" ? "published" : "partial_or_error",
